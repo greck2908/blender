@@ -19,13 +19,10 @@
 
 # <pep8 compliant>
 
-import argparse
 import functools
 import shutil
 import pathlib
-import re
 import subprocess
-import sys
 import tempfile
 import unittest
 
@@ -82,13 +79,14 @@ class AbstractBlenderRunnerTest(unittest.TestCase):
             '-noaudio',
             '--factory-startup',
             '--enable-autoexec',
+            '--debug-memory',
+            '--debug-exit-on-error',
         ]
 
         if blendfile:
             command.append(str(blendfile))
 
         command.extend([
-            '-E', 'CYCLES',
             '--python-exit-code', '47',
             '--python-expr', python_script,
         ]

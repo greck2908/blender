@@ -17,17 +17,16 @@
 #ifndef __BLENDER_TEXTURE_H__
 #define __BLENDER_TEXTURE_H__
 
-#include <stdlib.h>
 #include "blender/blender_sync.h"
+#include <stdlib.h>
 
 CCL_NAMESPACE_BEGIN
 
-void point_density_texture_space(BL::Scene& b_scene,
-                                 BL::ShaderNodeTexPointDensity& b_point_density_node,
-                                 const int settings,
-                                 float3& loc,
-                                 float3& size);
+void point_density_texture_space(BL::Depsgraph &b_depsgraph,
+                                 BL::ShaderNodeTexPointDensity &b_point_density_node,
+                                 float3 &loc,
+                                 float3 &size);
 
 CCL_NAMESPACE_END
 
-#endif  /* __BLENDER_TEXTURE_H__ */
+#endif /* __BLENDER_TEXTURE_H__ */

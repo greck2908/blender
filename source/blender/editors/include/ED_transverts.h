@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,33 +15,31 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ED_transverts.h
- *  \ingroup editors
+/** \file
+ * \ingroup editors
  */
 
-#ifndef __ED_TRANSVERTS_H__
-#define __ED_TRANSVERTS_H__
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct Object;
 
 typedef struct TransVert {
-	float *loc;
-	float oldloc[3], maploc[3];
-	float normal[3];
-	int flag;
+  float *loc;
+  float oldloc[3], maploc[3];
+  float normal[3];
+  int flag;
 } TransVert;
 
 typedef struct TransVertStore {
-	struct TransVert *transverts;
-	int transverts_tot;
-	int mode;
+  struct TransVert *transverts;
+  int transverts_tot;
+  int mode;
 } TransVertStore;
 
 void ED_transverts_create_from_obedit(TransVertStore *tvs, struct Object *obedit, const int mode);
@@ -54,22 +50,27 @@ bool ED_transverts_poll(struct bContext *C);
 
 /* currently only used for bmesh index values */
 enum {
-	TM_INDEX_ON      =  1,  /* tag to make trans verts */
-	TM_INDEX_OFF     =  0,  /* don't make verts */
-	TM_INDEX_SKIP    = -1   /* dont make verts (when the index values point to trans-verts) */
+  TM_INDEX_ON = 1,    /* tag to make trans verts */
+  TM_INDEX_OFF = 0,   /* don't make verts */
+  TM_INDEX_SKIP = -1, /* dont make verts (when the index values point to trans-verts) */
 };
 
 /* mode flags: */
 enum {
-	TM_ALL_JOINTS      = (1 << 0),  /* all joints (for bones only) */
-	TM_SKIP_HANDLES    = (1 << 1),  /* skip handles when control point is selected (for curves only) */
-	TM_CALC_NORMALS    = (1 << 2),  /* fill in normals when available */
+  /** all joints (for bones only) */
+  TM_ALL_JOINTS = (1 << 0),
+  /** skip handles when control point is selected (for curves only) */
+  TM_SKIP_HANDLES = (1 << 1),
+  /** fill in normals when available */
+  TM_CALC_NORMALS = (1 << 2),
 };
 
 enum {
-	/* SELECT == (1 << 0) */
-	TX_VERT_USE_MAPLOC = (1 << 1),
-	TX_VERT_USE_NORMAL = (1 << 2),  /* avoid nonzero check */
+  /* SELECT == (1 << 0) */
+  TX_VERT_USE_MAPLOC = (1 << 1),
+  TX_VERT_USE_NORMAL = (1 << 2), /* avoid nonzero check */
 };
 
-#endif  /* __ED_TRANSVERTS_H__ */
+#ifdef __cplusplus
+}
+#endif

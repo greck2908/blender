@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,21 +15,13 @@
  *
  * The Original Code is Copyright (C) 2010 by Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ghost/GHOST_Path-api.h
- *  \ingroup GHOST
+/** \file
+ * \ingroup GHOST
  */
 
-
-#ifndef __GHOST_PATH_API_H__
-#define __GHOST_PATH_API_H__
+#pragma once
 
 #include "GHOST_Types.h"
 
@@ -66,6 +56,11 @@ extern const GHOST_TUns8 *GHOST_getSystemDir(int version, const char *versionstr
  */
 extern const GHOST_TUns8 *GHOST_getUserDir(int version, const char *versionstr);
 
+/**
+ * Determine a special ("well known") and easy to reach user directory.
+ * \return Unsigned char string pointing to user dir (eg `~/Documents/`).
+ */
+extern const GHOST_TUns8 *GHOST_getUserSpecialDir(GHOST_TUserSpecialDirTypes type);
 
 /**
  * Determine the dir in which the binary file is found.
@@ -80,6 +75,4 @@ extern void GHOST_addToSystemRecentFiles(const char *filename);
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

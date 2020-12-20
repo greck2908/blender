@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,24 +15,21 @@
  *
  * The Original Code is Copyright (C) 2015 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Lukas Toenne
- *                 Sergey Sharybin,
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/intern/builder/deg_builder_transitive.h
- *  \ingroup depsgraph
+/** \file
+ * \ingroup depsgraph
  */
 
 #pragma once
 
-namespace DEG {
+namespace blender {
+namespace deg {
 
 struct Depsgraph;
 
 /* Performs a transitive reduction to remove redundant relations. */
 void deg_graph_transitive_reduction(Depsgraph *graph);
 
-}  // namespace DEG
+}  // namespace deg
+}  // namespace blender

@@ -201,7 +201,7 @@ _display_name_literals = {
 }
 
 
-def display_name(name):
+def display_name(name, *, has_ext=True):
     """
     Creates a display string from name to be used menus and the user interface.
     Capitalize the first letter in all lowercase names,
@@ -209,7 +209,8 @@ def display_name(name):
     filenames and module names.
     """
 
-    name = _os.path.splitext(basename(name))[0]
+    if has_ext:
+        name = _os.path.splitext(basename(name))[0]
 
     # string replacements
     for disp_value, file_value in _display_name_literals.items():
@@ -351,7 +352,8 @@ def module_names(path, recursive=False):
         elif filename.endswith(".py") and filename != "__init__.py":
             fullpath = join(path, filename)
             modules.append((filename[0:-3], fullpath))
-        elif "." not in filename:
+        elif not filename.startswith("."):
+            # Skip hidden files since they are used by for version control.
             directory = join(path, filename)
             fullpath = join(directory, "__init__.py")
             if isfile(fullpath):

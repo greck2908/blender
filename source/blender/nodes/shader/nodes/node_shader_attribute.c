@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,12 +15,6 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #include "../node_shader_util.h"
@@ -30,37 +22,76 @@
 /* **************** OUTPUT ******************** */
 
 static bNodeSocketTemplate sh_node_attribute_out[] = {
-	{	SOCK_RGBA, 0, N_("Color")},
-	{	SOCK_VECTOR, 0, N_("Vector"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_FLOAT, 0, N_("Fac"), 0.0f, 0.0f, 0.0f, 0.0f, -FLT_MAX, FLT_MAX, PROP_FACTOR},
-	{	-1, 0, ""	}
+    {SOCK_RGBA, N_("Color")},
+    {SOCK_VECTOR, N_("Vector"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+    {SOCK_FLOAT, N_("Fac"), 0.0f, 0.0f, 0.0f, 0.0f, -FLT_MAX, FLT_MAX, PROP_FACTOR},
+    {SOCK_FLOAT, N_("Alpha"), 0.0f, 0.0f, 0.0f, 0.0f, -FLT_MAX, FLT_MAX, PROP_FACTOR},
+    {-1, ""},
 };
 
 static void node_shader_init_attribute(bNodeTree *UNUSED(ntree), bNode *node)
 {
-	NodeShaderAttribute *attr = MEM_callocN(sizeof(NodeShaderAttribute), "NodeShaderAttribute");
-	node->storage = attr;
+  NodeShaderAttribute *attr = MEM_callocN(sizeof(NodeShaderAttribute), "NodeShaderAttribute");
+  node->storage = attr;
 }
 
-static int node_shader_gpu_attribute(GPUMaterial *mat, bNode *node, bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
+static int node_shader_gpu_attribute(GPUMaterial *mat,
+                                     bNode *node,
+                                     bNodeExecData *UNUSED(execdata),
+                                     GPUNodeStack *in,
+                                     GPUNodeStack *out)
 {
-	NodeShaderAttribute *attr = node->storage;
-	GPUNodeLink *cd_attr = GPU_attribute(CD_AUTO_FROM_NAME, attr->name);
+  NodeShaderAttribute *attr = node->storage;
+  bool is_varying = attr->type == SHD_ATTRIBUTE_GEOMETRY;
 
-	return GPU_stack_link(mat, "node_attribute", in, out, cd_attr);
+  if (GPU_material_is_volume_shader(mat) && is_varying) {
+    if (out[0].hasoutput) {
+      out[0].link = GPU_volume_grid(mat, attr->name, GPU_VOLUME_DEFAULT_0);
+    }
+    if (out[1].hasoutput) {
+      out[1].link = GPU_volume_grid(mat, attr->name, GPU_VOLUME_DEFAULT_0);
+    }
+    if (out[2].hasoutput) {
+      out[2].link = GPU_volume_grid(mat, attr->name, GPU_VOLUME_DEFAULT_0);
+    }
+    if (out[3].hasoutput) {
+      static const float default_alpha = 1.0f;
+      out[3].link = GPU_constant(&default_alpha);
+    }
+
+    return 1;
+  }
+
+  GPUNodeLink *cd_attr;
+
+  if (is_varying) {
+    cd_attr = GPU_attribute(mat, CD_AUTO_FROM_NAME, attr->name);
+  }
+  else {
+    cd_attr = GPU_uniform_attribute(mat, attr->name, attr->type == SHD_ATTRIBUTE_INSTANCER);
+  }
+
+  GPU_stack_link(mat, node, "node_attribute", in, out, cd_attr);
+
+  /* for each output. */
+  for (int i = 0; sh_node_attribute_out[i].type != -1; i++) {
+    node_shader_gpu_bump_tex_coord(mat, node, &out[i].link);
+  }
+
+  return 1;
 }
 
 /* node type definition */
 void register_node_type_sh_attribute(void)
 {
-	static bNodeType ntype;
+  static bNodeType ntype;
 
-	sh_node_type_base(&ntype, SH_NODE_ATTRIBUTE, "Attribute", NODE_CLASS_INPUT, 0);
-	node_type_compatibility(&ntype, NODE_NEW_SHADING);
-	node_type_socket_templates(&ntype, NULL, sh_node_attribute_out);
-	node_type_init(&ntype, node_shader_init_attribute);
-	node_type_storage(&ntype, "NodeShaderAttribute", node_free_standard_storage, node_copy_standard_storage);
-	node_type_gpu(&ntype, node_shader_gpu_attribute);
+  sh_node_type_base(&ntype, SH_NODE_ATTRIBUTE, "Attribute", NODE_CLASS_INPUT, 0);
+  node_type_socket_templates(&ntype, NULL, sh_node_attribute_out);
+  node_type_init(&ntype, node_shader_init_attribute);
+  node_type_storage(
+      &ntype, "NodeShaderAttribute", node_free_standard_storage, node_copy_standard_storage);
+  node_type_gpu(&ntype, node_shader_gpu_attribute);
 
-	nodeRegisterType(&ntype);
+  nodeRegisterType(&ntype);
 }

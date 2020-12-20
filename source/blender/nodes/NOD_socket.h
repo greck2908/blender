@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,21 +15,13 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Lukas Toenne
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file NOD_socket.h
- *  \ingroup nodes
+/** \file
+ * \ingroup nodes
  */
 
-
-#ifndef __NOD_SOCKET_H__
-#define __NOD_SOCKET_H__
+#pragma once
 
 #include "DNA_listBase.h"
 
@@ -41,15 +31,29 @@
 
 #include "RNA_types.h"
 
-struct bNodeTree;
 struct bNode;
+struct bNodeTree;
 
-struct bNodeSocket *node_add_socket_from_template(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocketTemplate *stemp, int in_out);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct bNodeSocket *node_add_socket_from_template(struct bNodeTree *ntree,
+                                                  struct bNode *node,
+                                                  struct bNodeSocketTemplate *stemp,
+                                                  int in_out);
 
 void node_verify_socket_templates(struct bNodeTree *ntree, struct bNode *node);
 
 void node_socket_init_default_value(struct bNodeSocket *sock);
-void node_socket_copy_default_value(struct bNodeSocket *to, struct bNodeSocket *from);
+void node_socket_copy_default_value(struct bNodeSocket *to, const struct bNodeSocket *from);
+void node_socket_skip_reroutes(struct ListBase *links,
+                               struct bNode *node,
+                               struct bNodeSocket *socket,
+                               struct bNode **r_node,
+                               struct bNodeSocket **r_socket);
 void register_standard_node_socket_types(void);
 
+#ifdef __cplusplus
+}
 #endif

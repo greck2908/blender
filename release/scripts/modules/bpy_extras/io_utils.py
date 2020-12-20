@@ -21,7 +21,7 @@
 __all__ = (
     "ExportHelper",
     "ImportHelper",
-    "orientation_helper_factory",
+    "orientation_helper",
     "axis_conversion",
     "axis_conversion_ensure",
     "create_derived_objects",
@@ -44,38 +44,33 @@ from bpy.props import (
 
 def _check_axis_conversion(op):
     if hasattr(op, "axis_forward") and hasattr(op, "axis_up"):
-        return axis_conversion_ensure(op,
-                                      "axis_forward",
-                                      "axis_up",
-                                      )
+        return axis_conversion_ensure(
+            op,
+            "axis_forward",
+            "axis_up",
+        )
     return False
 
 
 class ExportHelper:
-    filepath = StringProperty(
+    filepath: StringProperty(
         name="File Path",
         description="Filepath used for exporting the file",
         maxlen=1024,
         subtype='FILE_PATH',
     )
-    check_existing = BoolProperty(
+    check_existing: BoolProperty(
         name="Check Existing",
         description="Check and warn on overwriting existing files",
         default=True,
         options={'HIDDEN'},
     )
 
-    # needed for mix-ins
-    order = [
-        "filepath",
-        "check_existing",
-    ]
-
     # subclasses can override with decorator
     # True == use ext, False == no ext, None == do nothing.
     check_extension = True
 
-    def invoke(self, context, event):
+    def invoke(self, context, _event):
         import os
         if not self.filepath:
             blend_filepath = context.blend_data.filepath
@@ -89,7 +84,7 @@ class ExportHelper:
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
-    def check(self, context):
+    def check(self, _context):
         import os
         change_ext = False
         change_axis = _check_axis_conversion(self)
@@ -99,10 +94,12 @@ class ExportHelper:
         if check_extension is not None:
             filepath = self.filepath
             if os.path.basename(filepath):
-                filepath = bpy.path.ensure_ext(filepath,
-                                               self.filename_ext
-                                               if check_extension
-                                               else "")
+                filepath = bpy.path.ensure_ext(
+                    filepath,
+                    self.filename_ext
+                    if check_extension
+                    else "",
+                )
 
                 if filepath != self.filepath:
                     self.filepath = filepath
@@ -112,73 +109,77 @@ class ExportHelper:
 
 
 class ImportHelper:
-    filepath = StringProperty(
+    filepath: StringProperty(
         name="File Path",
         description="Filepath used for importing the file",
         maxlen=1024,
         subtype='FILE_PATH',
     )
 
-    # needed for mix-ins
-    order = [
-        "filepath",
-    ]
-
-    def invoke(self, context, event):
+    def invoke(self, context, _event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
-    def check(self, context):
+    def check(self, _context):
         return _check_axis_conversion(self)
 
 
-def orientation_helper_factory(name, axis_forward='Y', axis_up='Z'):
-    members = {}
+def orientation_helper(axis_forward='Y', axis_up='Z'):
+    """
+    A decorator for import/export classes, generating properties needed by the axis conversion system and IO helpers,
+    with specified default values (axes).
+    """
+    def wrapper(cls):
+        # Without that, we may end up adding those fields to some **parent** class' __annotations__ property
+        # (like the ImportHelper or ExportHelper ones)! See T58772.
+        if "__annotations__" not in cls.__dict__:
+            setattr(cls, "__annotations__", {})
 
-    def _update_axis_forward(self, context):
-        if self.axis_forward[-1] == self.axis_up[-1]:
-            self.axis_up = (self.axis_up[0:-1] +
-                            'XYZ'[('XYZ'.index(self.axis_up[-1]) + 1) % 3])
+        def _update_axis_forward(self, _context):
+            if self.axis_forward[-1] == self.axis_up[-1]:
+                self.axis_up = (
+                    self.axis_up[0:-1] +
+                    'XYZ'[('XYZ'.index(self.axis_up[-1]) + 1) % 3]
+                )
 
-    members['axis_forward'] = EnumProperty(
-        name="Forward",
-        items=(
-            ('X', "X Forward", ""),
-            ('Y', "Y Forward", ""),
-            ('Z', "Z Forward", ""),
-            ('-X', "-X Forward", ""),
-            ('-Y', "-Y Forward", ""),
-            ('-Z', "-Z Forward", ""),
-        ),
-        default=axis_forward,
-        update=_update_axis_forward,
-    )
+        cls.__annotations__['axis_forward'] = EnumProperty(
+            name="Forward",
+            items=(
+                ('X', "X Forward", ""),
+                ('Y', "Y Forward", ""),
+                ('Z', "Z Forward", ""),
+                ('-X', "-X Forward", ""),
+                ('-Y', "-Y Forward", ""),
+                ('-Z', "-Z Forward", ""),
+            ),
+            default=axis_forward,
+            update=_update_axis_forward,
+        )
 
-    def _update_axis_up(self, context):
-        if self.axis_up[-1] == self.axis_forward[-1]:
-            self.axis_forward = (self.axis_forward[0:-1] +
-                                 'XYZ'[('XYZ'.index(self.axis_forward[-1]) + 1) % 3])
+        def _update_axis_up(self, _context):
+            if self.axis_up[-1] == self.axis_forward[-1]:
+                self.axis_forward = (
+                    self.axis_forward[0:-1] +
+                    'XYZ'[('XYZ'.index(self.axis_forward[-1]) + 1) % 3]
+                )
 
-    members['axis_up'] = EnumProperty(
-        name="Up",
-        items=(
-            ('X', "X Up", ""),
-            ('Y', "Y Up", ""),
-            ('Z', "Z Up", ""),
-            ('-X', "-X Up", ""),
-            ('-Y', "-Y Up", ""),
-            ('-Z', "-Z Up", ""),
-        ),
-        default=axis_up,
-        update=_update_axis_up,
-    )
+        cls.__annotations__['axis_up'] = EnumProperty(
+            name="Up",
+            items=(
+                ('X', "X Up", ""),
+                ('Y', "Y Up", ""),
+                ('Z', "Z Up", ""),
+                ('-X', "-X Up", ""),
+                ('-Y', "-Y Up", ""),
+                ('-Z', "-Z Up", ""),
+            ),
+            default=axis_up,
+            update=_update_axis_up,
+        )
 
-    members["order"] = [
-        "axis_forward",
-        "axis_up",
-    ]
+        return cls
 
-    return type(name, (object,), members)
+    return wrapper
 
 
 # Axis conversion function, not pretty LUT
@@ -352,10 +353,10 @@ def axis_conversion_ensure(operator, forward_attr, up_attr):
 # return a tuple (free, object list), free is True if memory should be freed
 # later with free_derived_objects()
 def create_derived_objects(scene, ob):
-    if ob.parent and ob.parent.dupli_type in {'VERTS', 'FACES'}:
+    if ob.parent and ob.parent.instance_type in {'VERTS', 'FACES'}:
         return False, None
 
-    if ob.dupli_type != 'NONE':
+    if ob.instance_type != 'NONE':
         ob.dupli_list_create(scene)
         return True, [(dob.object, dob.matrix) for dob in ob.dupli_list]
     else:
@@ -411,14 +412,15 @@ path_reference_mode = EnumProperty(
 )
 
 
-def path_reference(filepath,
-                   base_src,
-                   base_dst,
-                   mode='AUTO',
-                   copy_subdir="",
-                   copy_set=None,
-                   library=None,
-                   ):
+def path_reference(
+        filepath,
+        base_src,
+        base_dst,
+        mode='AUTO',
+        copy_subdir="",
+        copy_set=None,
+        library=None,
+):
     """
     Return a filepath relative to a destination directory, for use with
     exporters.
@@ -463,7 +465,7 @@ def path_reference(filepath,
         if copy_subdir:
             subdir_abs = os.path.join(subdir_abs, copy_subdir)
 
-        filepath_cpy = os.path.join(subdir_abs, os.path.basename(filepath))
+        filepath_cpy = os.path.join(subdir_abs, os.path.basename(filepath_abs))
 
         copy_set.add((filepath_abs, filepath_cpy))
 
@@ -546,22 +548,29 @@ def unique_name(key, name, name_dict, name_max=-1, clean_func=None, sep="."):
     if name_new is None:
         count = 1
         name_dict_values = name_dict.values()
-        name_new = name_new_orig = (name if clean_func is None
-                                    else clean_func(name))
+        name_new = name_new_orig = (
+            name if clean_func is None
+            else clean_func(name)
+        )
 
         if name_max == -1:
             while name_new in name_dict_values:
-                name_new = "%s%s%03d" % (name_new_orig, sep, count)
+                name_new = "%s%s%03d" % (
+                    name_new_orig,
+                    sep,
+                    count,
+                )
                 count += 1
         else:
             name_new = name_new[:name_max]
             while name_new in name_dict_values:
                 count_str = "%03d" % count
-                name_new = "%.*s%s%s" % (name_max - (len(count_str) + 1),
-                                         name_new_orig,
-                                         sep,
-                                         count_str,
-                                         )
+                name_new = "%.*s%s%s" % (
+                    name_max - (len(count_str) + 1),
+                    name_new_orig,
+                    sep,
+                    count_str,
+                )
                 count += 1
 
         name_dict[key] = name_new

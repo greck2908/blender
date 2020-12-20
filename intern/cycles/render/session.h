@@ -17,9 +17,10 @@
 #ifndef __SESSION_H__
 #define __SESSION_H__
 
-#include "render/buffers.h"
 #include "device/device.h"
+#include "render/buffers.h"
 #include "render/shader.h"
+#include "render/stats.h"
 #include "render/tile.h"
 
 #include "util/util_progress.h"
@@ -41,89 +42,83 @@ class Scene;
 /* Session Parameters */
 
 class SessionParams {
-public:
-	DeviceInfo device;
-	bool background;
-	bool progressive_refine;
+ public:
+  DeviceInfo device;
+  bool background;
+  bool progressive_refine;
 
-	bool progressive;
-	bool experimental;
-	int samples;
-	int2 tile_size;
-	TileOrder tile_order;
-	int start_resolution;
-	int pixel_size;
-	int threads;
+  bool progressive;
+  bool experimental;
+  int samples;
+  int2 tile_size;
+  TileOrder tile_order;
+  int start_resolution;
+  int denoising_start_sample;
+  int pixel_size;
+  int threads;
+  bool adaptive_sampling;
 
-	bool display_buffer_linear;
+  bool use_profiling;
 
-	bool use_denoising;
-	int denoising_radius;
-	float denoising_strength;
-	float denoising_feature_strength;
-	bool denoising_relative_pca;
+  bool display_buffer_linear;
 
-	double cancel_timeout;
-	double reset_timeout;
-	double text_timeout;
-	double progressive_update_timeout;
+  DenoiseParams denoising;
 
-	ShadingSystem shadingsystem;
+  double cancel_timeout;
+  double reset_timeout;
+  double text_timeout;
+  double progressive_update_timeout;
 
-	function<bool(const uchar *pixels,
-	              int width,
-	              int height,
-	              int channels)> write_render_cb;
+  ShadingSystem shadingsystem;
 
-	SessionParams()
-	{
-		background = false;
-		progressive_refine = false;
+  function<bool(const uchar *pixels, int width, int height, int channels)> write_render_cb;
 
-		progressive = false;
-		experimental = false;
-		samples = INT_MAX;
-		tile_size = make_int2(64, 64);
-		start_resolution = INT_MAX;
-		pixel_size = 1;
-		threads = 0;
+  SessionParams()
+  {
+    background = false;
+    progressive_refine = false;
 
-		use_denoising = false;
-		denoising_radius = 8;
-		denoising_strength = 0.0f;
-		denoising_feature_strength = 0.0f;
-		denoising_relative_pca = false;
+    progressive = false;
+    experimental = false;
+    samples = 1024;
+    tile_size = make_int2(64, 64);
+    start_resolution = INT_MAX;
+    denoising_start_sample = 0;
+    pixel_size = 1;
+    threads = 0;
+    adaptive_sampling = false;
 
-		display_buffer_linear = false;
+    use_profiling = false;
 
-		cancel_timeout = 0.1;
-		reset_timeout = 0.1;
-		text_timeout = 1.0;
-		progressive_update_timeout = 1.0;
+    display_buffer_linear = false;
 
-		shadingsystem = SHADINGSYSTEM_SVM;
-		tile_order = TILE_CENTER;
-	}
+    cancel_timeout = 0.1;
+    reset_timeout = 0.1;
+    text_timeout = 1.0;
+    progressive_update_timeout = 1.0;
 
-	bool modified(const SessionParams& params)
-	{ return !(device == params.device
-		&& background == params.background
-		&& progressive_refine == params.progressive_refine
-		/* && samples == params.samples */
-		&& progressive == params.progressive
-		&& experimental == params.experimental
-		&& tile_size == params.tile_size
-		&& start_resolution == params.start_resolution
-		&& pixel_size == params.pixel_size
-		&& threads == params.threads
-		&& display_buffer_linear == params.display_buffer_linear
-		&& cancel_timeout == params.cancel_timeout
-		&& reset_timeout == params.reset_timeout
-		&& text_timeout == params.text_timeout
-		&& progressive_update_timeout == params.progressive_update_timeout
-		&& tile_order == params.tile_order
-		&& shadingsystem == params.shadingsystem); }
+    shadingsystem = SHADINGSYSTEM_SVM;
+    tile_order = TILE_CENTER;
+  }
 
+  bool modified(const SessionParams &params)
+  {
+    return !(device == params.device && background == params.background &&
+             progressive_refine == params.progressive_refine &&
+             /* samples == params.samples && denoising_start_sample ==
+                params.denoising_start_sample && */
+             progressive == params.progressive && experimental == params.experimental &&
+             tile_size == params.tile_size && start_resolution == params.start_resolution &&
+             pixel_size == params.pixel_size && threads == params.threads &&
+             adaptive_sampling == params.adaptive_sampling &&
+             use_profiling == params.use_profiling &&
+             display_buffer_linear == params.display_buffer_linear &&
+             cancel_timeout == params.cancel_timeout && reset_timeout == params.reset_timeout &&
+             text_timeout == params.text_timeout &&
+             progressive_update_timeout == params.progressive_update_timeout &&
+             tile_order == params.tile_order && shadingsystem == params.shadingsystem &&
+             denoising.type == params.denoising.type);
+  }
 };
 
 /* Session
@@ -132,106 +127,117 @@ public:
  * control loop and dispatching tasks. */
 
 class Session {
-public:
-	Device *device;
-	Scene *scene;
-	RenderBuffers *buffers;
-	DisplayBuffer *display;
-	Progress progress;
-	SessionParams params;
-	TileManager tile_manager;
-	Stats stats;
+ public:
+  Device *device;
+  Scene *scene;
+  RenderBuffers *buffers;
+  DisplayBuffer *display;
+  Progress progress;
+  SessionParams params;
+  TileManager tile_manager;
+  Stats stats;
+  Profiler profiler;
 
-	function<void(RenderTile&)> write_render_tile_cb;
-	function<void(RenderTile&, bool)> update_render_tile_cb;
+  function<void(RenderTile &)> write_render_tile_cb;
+  function<void(RenderTile &, bool)> update_render_tile_cb;
+  function<void(RenderTile &)> read_bake_tile_cb;
 
-	explicit Session(const SessionParams& params);
-	~Session();
+  explicit Session(const SessionParams &params);
+  ~Session();
 
-	void start();
-	bool draw(BufferParams& params, DeviceDrawParams& draw_params);
-	void wait();
+  void start();
+  void cancel();
+  bool draw(BufferParams &params, DeviceDrawParams &draw_params);
+  void wait();
 
-	bool ready_to_reset();
-	void reset(BufferParams& params, int samples);
-	void set_samples(int samples);
-	void set_pause(bool pause);
+  bool ready_to_reset();
+  void reset(BufferParams &params, int samples);
+  void set_pause(bool pause);
+  void set_samples(int samples);
+  void set_denoising(const DenoiseParams &denoising);
+  void set_denoising_start_sample(int sample);
 
-	void update_scene();
-	void load_kernels(bool lock_scene=true);
+  bool update_scene();
 
-	void device_free();
+  void device_free();
 
-	/* Returns the rendering progress or 0 if no progress can be determined
-	 * (for example, when rendering with unlimited samples). */
-	float get_progress();
+  /* Returns the rendering progress or 0 if no progress can be determined
+   * (for example, when rendering with unlimited samples). */
+  float get_progress();
 
-protected:
-	struct DelayedReset {
-		thread_mutex mutex;
-		bool do_reset;
-		BufferParams params;
-		int samples;
-	} delayed_reset;
+  void collect_statistics(RenderStats *stats);
 
-	void run();
+ protected:
+  struct DelayedReset {
+    thread_mutex mutex;
+    bool do_reset;
+    BufferParams params;
+    int samples;
+  } delayed_reset;
 
-	void update_status_time(bool show_pause = false, bool show_done = false);
+  void run();
 
-	void tonemap(int sample);
-	void render();
-	void reset_(BufferParams& params, int samples);
+  void update_status_time(bool show_pause = false, bool show_done = false);
 
-	void run_cpu();
-	bool draw_cpu(BufferParams& params, DeviceDrawParams& draw_params);
-	void reset_cpu(BufferParams& params, int samples);
+  void render(bool use_denoise);
+  void copy_to_display_buffer(int sample);
 
-	void run_gpu();
-	bool draw_gpu(BufferParams& params, DeviceDrawParams& draw_params);
-	void reset_gpu(BufferParams& params, int samples);
+  void reset_(BufferParams &params, int samples);
 
-	bool acquire_tile(Device *tile_device, RenderTile& tile);
-	void update_tile_sample(RenderTile& tile);
-	void release_tile(RenderTile& tile);
+  void run_cpu();
+  bool draw_cpu(BufferParams &params, DeviceDrawParams &draw_params);
+  void reset_cpu(BufferParams &params, int samples);
 
-	void map_neighbor_tiles(RenderTile *tiles, Device *tile_device);
-	void unmap_neighbor_tiles(RenderTile *tiles, Device *tile_device);
+  void run_gpu();
+  bool draw_gpu(BufferParams &params, DeviceDrawParams &draw_params);
+  void reset_gpu(BufferParams &params, int samples);
 
-	bool device_use_gl;
+  bool render_need_denoise(bool &delayed);
 
-	thread *session_thread;
+  bool steal_tile(RenderTile &tile, Device *tile_device, thread_scoped_lock &tile_lock);
+  bool get_tile_stolen();
+  bool acquire_tile(RenderTile &tile, Device *tile_device, uint tile_types);
+  void update_tile_sample(RenderTile &tile);
+  void release_tile(RenderTile &tile, const bool need_denoise);
 
-	volatile bool display_outdated;
+  void map_neighbor_tiles(RenderTileNeighbors &neighbors, Device *tile_device);
+  void unmap_neighbor_tiles(RenderTileNeighbors &neighbors, Device *tile_device);
 
-	volatile bool gpu_draw_ready;
-	volatile bool gpu_need_tonemap;
-	thread_condition_variable gpu_need_tonemap_cond;
+  bool device_use_gl;
 
-	bool pause;
-	thread_condition_variable pause_cond;
-	thread_mutex pause_mutex;
-	thread_mutex tile_mutex;
-	thread_mutex buffers_mutex;
-	thread_mutex display_mutex;
+  thread *session_thread;
 
-	bool kernels_loaded;
-	DeviceRequestedFeatures loaded_kernel_features;
+  volatile bool display_outdated;
 
-	double reset_time;
+  volatile bool gpu_draw_ready;
+  volatile bool gpu_need_display_buffer_update;
+  thread_condition_variable gpu_need_display_buffer_update_cond;
 
-	/* progressive refine */
-	double last_update_time;
-	bool update_progressive_refine(bool cancel);
+  bool pause;
+  thread_condition_variable pause_cond;
+  thread_mutex pause_mutex;
+  thread_mutex tile_mutex;
+  thread_mutex buffers_mutex;
+  thread_mutex display_mutex;
+  thread_condition_variable denoising_cond;
+  thread_condition_variable tile_steal_cond;
 
-	DeviceRequestedFeatures get_requested_device_features();
+  double reset_time;
+  double last_update_time;
+  double last_display_time;
 
-	/* ** Split kernel routines ** */
+  RenderTile stolen_tile;
+  typedef enum {
+    NOT_STEALING,     /* There currently is no tile stealing in progress. */
+    WAITING_FOR_TILE, /* A device is waiting for another device to release a tile. */
+    RELEASING_TILE,   /* A device has releasing a stealable tile. */
+    GOT_TILE /* A device has released a stealable tile, which is now stored in stolen_tile. */
+  } TileStealingState;
+  std::atomic<TileStealingState> tile_stealing_state;
+  int stealable_tiles;
 
-	/* Maximumnumber of closure during session lifetime. */
-	int max_closure_global;
-
-	/* Get maximum number of closures to be used in kernel. */
-	int get_max_closure_count();
+  /* progressive refine */
+  bool update_progressive_refine(bool cancel);
 };
 
 CCL_NAMESPACE_END

@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,62 +13,71 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor:
- *		Jeroen Bakker
- *		Monique Dewanchand
+ * Copyright 2011, Blender Foundation.
  */
 
-#ifndef __COM_CONVERTDEPTHTORADIUSOPERATION_H__
-#define __COM_CONVERTDEPTHTORADIUSOPERATION_H__
+#pragma once
+
+#include "COM_FastGaussianBlurOperation.h"
 #include "COM_NodeOperation.h"
 #include "DNA_object_types.h"
-#include "COM_FastGaussianBlurOperation.h"
 /**
  * this program converts an input color to an output value.
  * it assumes we are in sRGB color space.
  */
 class ConvertDepthToRadiusOperation : public NodeOperation {
-private:
-	/**
-	 * Cached reference to the inputProgram
-	 */
-	SocketReader *m_inputOperation;
-	float m_fStop;
-	float m_aspect;
-	float m_maxRadius;
-	float m_inverseFocalDistance;
-	float m_aperture;
-	float m_cam_lens;
-	float m_dof_sp;
-	Object *m_cameraObject;
+ private:
+  /**
+   * Cached reference to the inputProgram
+   */
+  SocketReader *m_inputOperation;
+  float m_fStop;
+  float m_aspect;
+  float m_maxRadius;
+  float m_inverseFocalDistance;
+  float m_aperture;
+  float m_cam_lens;
+  float m_dof_sp;
+  Object *m_cameraObject;
 
-	FastGaussianBlurValueOperation *m_blurPostOperation;
-public:
-	/**
-	 * Default constructor
-	 */
-	ConvertDepthToRadiusOperation();
+  FastGaussianBlurValueOperation *m_blurPostOperation;
 
-	/**
-	 * the inner loop of this program
-	 */
-	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+ public:
+  /**
+   * Default constructor
+   */
+  ConvertDepthToRadiusOperation();
 
-	/**
-	 * Initialize the execution
-	 */
-	void initExecution();
+  /**
+   * the inner loop of this program
+   */
+  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 
-	/**
-	 * Deinitialize the execution
-	 */
-	void deinitExecution();
+  /**
+   * Initialize the execution
+   */
+  void initExecution();
 
-	void setfStop(float fStop) { this->m_fStop = fStop; }
-	void setMaxRadius(float maxRadius) { this->m_maxRadius = maxRadius; }
-	void setCameraObject(Object *camera) { this->m_cameraObject = camera; }
-	float determineFocalDistance();
-	void setPostBlur(FastGaussianBlurValueOperation *operation) {this->m_blurPostOperation = operation;}
+  /**
+   * Deinitialize the execution
+   */
+  void deinitExecution();
 
+  void setfStop(float fStop)
+  {
+    this->m_fStop = fStop;
+  }
+  void setMaxRadius(float maxRadius)
+  {
+    this->m_maxRadius = maxRadius;
+  }
+  void setCameraObject(Object *camera)
+  {
+    this->m_cameraObject = camera;
+  }
+  float determineFocalDistance();
+  void setPostBlur(FastGaussianBlurValueOperation *operation)
+  {
+    this->m_blurPostOperation = operation;
+  }
 };
-#endif

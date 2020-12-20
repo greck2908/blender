@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,12 +15,6 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #include "../node_shader_util.h"
@@ -32,47 +24,74 @@
 /* **************** OUTPUT ******************** */
 
 static bNodeSocketTemplate sh_node_tex_coord_out[] = {
-	{	SOCK_VECTOR, 0, N_("Generated"),		0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_VECTOR, 0, N_("Normal"),			0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_VECTOR, 0, N_("UV"),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_VECTOR, 0, N_("Object"),			0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_VECTOR, 0, N_("Camera"),			0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_VECTOR, 0, N_("Window"),			0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_VECTOR, 0, N_("Reflection"),		0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	-1, 0, ""	}
+    {SOCK_VECTOR, N_("Generated"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+    {SOCK_VECTOR, N_("Normal"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+    {SOCK_VECTOR, N_("UV"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+    {SOCK_VECTOR, N_("Object"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+    {SOCK_VECTOR, N_("Camera"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+    {SOCK_VECTOR, N_("Window"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+    {SOCK_VECTOR, N_("Reflection"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+    {-1, ""},
 };
 
-static int node_shader_gpu_tex_coord(GPUMaterial *mat, bNode *UNUSED(node), bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
+static int node_shader_gpu_tex_coord(GPUMaterial *mat,
+                                     bNode *node,
+                                     bNodeExecData *UNUSED(execdata),
+                                     GPUNodeStack *in,
+                                     GPUNodeStack *out)
 {
-	GPUNodeLink *orco = GPU_attribute(CD_ORCO, "");
-	GPUNodeLink *mtface = GPU_attribute(CD_MTFACE, "");
-	GPUMatType type = GPU_Material_get_type(mat);
+  Object *ob = (Object *)node->id;
 
-	if (type == GPU_MATERIAL_TYPE_MESH) {
-		return GPU_stack_link(mat, "node_tex_coord", in, out,
-		                      GPU_builtin(GPU_VIEW_POSITION), GPU_builtin(GPU_VIEW_NORMAL),
-		                      GPU_builtin(GPU_INVERSE_VIEW_MATRIX), GPU_builtin(GPU_INVERSE_OBJECT_MATRIX),
-		                      GPU_builtin(GPU_CAMERA_TEXCO_FACTORS), orco, mtface);
-	}
-	else {
-		return GPU_stack_link(mat, "node_tex_coord_background", in, out,
-		                      GPU_builtin(GPU_VIEW_POSITION), GPU_builtin(GPU_VIEW_NORMAL),
-		                      GPU_builtin(GPU_INVERSE_VIEW_MATRIX), GPU_builtin(GPU_INVERSE_OBJECT_MATRIX),
-		                      GPU_builtin(GPU_CAMERA_TEXCO_FACTORS), orco, mtface);
-	}
+  GPUNodeLink *inv_obmat = (ob != NULL) ? GPU_uniform(&ob->imat[0][0]) :
+                                          GPU_builtin(GPU_INVERSE_OBJECT_MATRIX);
+
+  /* Opti: don't request orco if not needed. */
+  GPUNodeLink *orco = (!out[0].hasoutput) ? GPU_constant((float[4]){0.0f, 0.0f, 0.0f, 0.0f}) :
+                                            GPU_attribute(mat, CD_ORCO, "");
+  GPUNodeLink *mtface = GPU_attribute(mat, CD_MTFACE, "");
+  GPUNodeLink *viewpos = GPU_builtin(GPU_VIEW_POSITION);
+  GPUNodeLink *worldnor = GPU_builtin(GPU_WORLD_NORMAL);
+  GPUNodeLink *texcofacs = GPU_builtin(GPU_CAMERA_TEXCO_FACTORS);
+
+  if (out[0].hasoutput) {
+    GPU_link(mat, "generated_from_orco", orco, &orco);
+  }
+
+  GPU_stack_link(
+      mat, node, "node_tex_coord", in, out, viewpos, worldnor, inv_obmat, texcofacs, orco, mtface);
+
+  /* for each output. */
+  for (int i = 0; sh_node_tex_coord_out[i].type != -1; i++) {
+    node_shader_gpu_bump_tex_coord(mat, node, &out[i].link);
+    /* Normalize some vectors after dFdx/dFdy offsets.
+     * This is the case for interpolated, non linear functions.
+     * The resulting vector can still be a bit wrong but not as much.
+     * (see T70644) */
+    if (node->branch_tag != 0 && ELEM(i, 1, 6)) {
+      GPU_link(mat,
+               "vector_math_normalize",
+               out[i].link,
+               out[i].link,
+               out[i].link,
+               out[i].link,
+               &out[i].link,
+               NULL);
+    }
+  }
+
+  return 1;
 }
 
 /* node type definition */
 void register_node_type_sh_tex_coord(void)
 {
-	static bNodeType ntype;
+  static bNodeType ntype;
 
-	sh_node_type_base(&ntype, SH_NODE_TEX_COORD, "Texture Coordinate", NODE_CLASS_INPUT, 0);
-	node_type_compatibility(&ntype, NODE_NEW_SHADING);
-	node_type_socket_templates(&ntype, NULL, sh_node_tex_coord_out);
-	node_type_init(&ntype, NULL);
-	node_type_storage(&ntype, "", NULL, NULL);
-	node_type_gpu(&ntype, node_shader_gpu_tex_coord);
+  sh_node_type_base(&ntype, SH_NODE_TEX_COORD, "Texture Coordinate", NODE_CLASS_INPUT, 0);
+  node_type_socket_templates(&ntype, NULL, sh_node_tex_coord_out);
+  node_type_init(&ntype, NULL);
+  node_type_storage(&ntype, "", NULL, NULL);
+  node_type_gpu(&ntype, node_shader_gpu_tex_coord);
 
-	nodeRegisterType(&ntype);
+  nodeRegisterType(&ntype);
 }

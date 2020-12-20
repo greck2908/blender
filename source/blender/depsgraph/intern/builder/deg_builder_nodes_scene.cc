@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,109 +15,76 @@
  *
  * The Original Code is Copyright (C) 2013 Blender Foundation.
  * All rights reserved.
- *
- * Original Author: Joshua Leung
- * Contributor(s): Based on original depsgraph.c code - Blender Foundation (2005-2013)
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/intern/builder/deg_builder_nodes_scene.cc
- *  \ingroup depsgraph
- *
- * Methods for constructing depsgraph's nodes
+/** \file
+ * \ingroup depsgraph
  */
 
 #include "intern/builder/deg_builder_nodes.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#include "MEM_guardedalloc.h"
-
-#include "BLI_utildefines.h"
-#include "BLI_blenlib.h"
-#include "BLI_string.h"
-
-extern "C" {
-#include "DNA_node_types.h"
-#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
-#include "BKE_main.h"
-#include "BKE_node.h"
-} /* extern "C" */
+namespace blender::deg {
 
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
-
-#include "intern/builder/deg_builder.h"
-#include "intern/nodes/deg_node.h"
-#include "intern/nodes/deg_node_component.h"
-#include "intern/nodes/deg_node_operation.h"
-#include "intern/depsgraph_types.h"
-#include "intern/depsgraph_intern.h"
-#include "util/deg_util_foreach.h"
-
-namespace DEG {
-
-void DepsgraphNodeBuilder::build_scene(Scene *scene)
+void DepsgraphNodeBuilder::build_scene_render(Scene *scene, ViewLayer *view_layer)
 {
-	/* Scene ID block. */
-	add_id_node(&scene->id);
-	/* timesource */
-	add_time_source();
-	/* build subgraph for set, and link this in... */
-	// XXX: depending on how this goes, that scene itself could probably store its
-	//      own little partial depsgraph?
-	if (scene->set != NULL) {
-		build_scene(scene->set);
-	}
-	/* Setup currently building context. */
-	scene_ = scene;
-	/* scene objects */
-	LISTBASE_FOREACH (Base *, base, &scene->base) {
-		Object *object = base->object;
-		build_object(base, object);
-	}
-	/* Rigidbody. */
-	if (scene->rigidbody_world != NULL) {
-		build_rigidbody(scene);
-	}
-	/* Scene's animation and drivers. */
-	if (scene->adt != NULL) {
-		build_animdata(&scene->id);
-	}
-	/* World. */
-	if (scene->world != NULL) {
-		build_world(scene->world);
-	}
-	/* Compositor nodes. */
-	if (scene->nodetree != NULL) {
-		build_compositor(scene);
-	}
-	/* Grease pencil. */
-	if (scene->gpd != NULL) {
-		build_gpencil(scene->gpd);
-	}
-	/* Cache file. */
-	LISTBASE_FOREACH (CacheFile *, cachefile, &bmain_->cachefiles) {
-		build_cachefile(cachefile);
-	}
-	/* Masks. */
-	LISTBASE_FOREACH (Mask *, mask, &bmain_->mask) {
-		build_mask(mask);
-	}
-	/* Movie clips. */
-	LISTBASE_FOREACH (MovieClip *, clip, &bmain_->movieclip) {
-		build_movieclip(clip);
-	}
-	/* Parameters evaluation for scene relations mainly. */
-	add_operation_node(&scene->id,
-	                   DEG_NODE_TYPE_PARAMETERS,
-	                   NULL,
-	                   DEG_OPCODE_PLACEHOLDER,
-	                   "Scene Eval");
+  scene_ = scene;
+  view_layer_ = view_layer;
+  const bool build_compositor = (scene->r.scemode & R_DOCOMP);
+  const bool build_sequencer = (scene->r.scemode & R_DOSEQ);
+  IDNode *id_node = add_id_node(&scene->id);
+  id_node->linked_state = DEG_ID_LINKED_DIRECTLY;
+  add_time_source();
+  build_animdata(&scene->id);
+  build_scene_parameters(scene);
+  build_scene_audio(scene);
+  if (build_compositor) {
+    build_scene_compositor(scene);
+  }
+  if (build_sequencer) {
+    build_scene_sequencer(scene);
+    build_scene_speakers(scene, view_layer);
+  }
+  if (scene->camera != nullptr) {
+    build_object(-1, scene->camera, DEG_ID_LINKED_DIRECTLY, true);
+  }
 }
 
-}  // namespace DEG
+void DepsgraphNodeBuilder::build_scene_parameters(Scene *scene)
+{
+  if (built_map_.checkIsBuiltAndTag(scene, BuilderMap::TAG_PARAMETERS)) {
+    return;
+  }
+  build_parameters(&scene->id);
+  build_idproperties(scene->id.properties);
+  add_operation_node(&scene->id, NodeType::PARAMETERS, OperationCode::SCENE_EVAL);
+  /* NOTE: This is a bit overkill and can potentially pull a bit too much into the graph, but:
+   *
+   * - We definitely need an ID node for the scene's compositor, otherwise re-mapping will no
+   *   happen correct and we will risk remapping pointers in the main database.
+   * - Alternatively, we should discard compositor tree, but this might cause other headache like
+   *   drivers which are coming from the tree.
+   *
+   * Would be nice to find some reliable way of ignoring compositor here, but it's already pulled
+   * in when building scene from view layer, so this particular case does not make things
+   * marginally worse.  */
+  build_scene_compositor(scene);
+
+  LISTBASE_FOREACH (TimeMarker *, marker, &scene->markers) {
+    build_idproperties(marker->prop);
+  }
+}
+
+void DepsgraphNodeBuilder::build_scene_compositor(Scene *scene)
+{
+  if (built_map_.checkIsBuiltAndTag(scene, BuilderMap::TAG_SCENE_COMPOSITOR)) {
+    return;
+  }
+  if (scene->nodetree == nullptr) {
+    return;
+  }
+  build_nodetree(scene->nodetree);
+}
+
+}  // namespace blender::deg

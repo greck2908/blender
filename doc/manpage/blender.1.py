@@ -30,11 +30,11 @@ and <output-filename> is where to write the generated man page.
 
 # <pep8 compliant>
 
+import os
 import subprocess
 import sys
 
 import time
-import datetime
 
 
 def man_format(data):
@@ -52,11 +52,18 @@ outfilename = sys.argv[2]
 
 cmd = [blender_bin, "--help"]
 print("  executing:", " ".join(cmd))
-blender_help = subprocess.check_output(cmd).decode(encoding="utf-8")
-blender_version = subprocess.check_output([blender_bin, "--version"]).decode(encoding="utf-8").strip()
-blender_version = blender_version.split("build")[0].rstrip()
-blender_version = blender_version.partition(" ")[2]  # remove 'Blender' prefix.
-date_string = datetime.date.fromtimestamp(time.time()).strftime("%B %d, %Y")
+blender_help = subprocess.run(
+    cmd, env={"ASAN_OPTIONS": "exitcode=0"}, check=True, stdout=subprocess.PIPE).stdout.decode(encoding="utf-8")
+blender_version = subprocess.run(
+    [blender_bin, "--version"], env={"ASAN_OPTIONS": "exitcode=0"}, check=True, stdout=subprocess.PIPE).stdout.decode(encoding="utf-8").strip()
+blender_version, blender_date = (blender_version.split("build") + [None, None])[0:2]
+blender_version = blender_version.rstrip().partition(" ")[2]  # remove 'Blender' prefix.
+if blender_date is None:
+    # Happens when built without WITH_BUILD_INFO e.g.
+    date_string = time.strftime("%B %d, %Y", time.gmtime(int(os.environ.get('SOURCE_DATE_EPOCH', time.time()))))
+else:
+    blender_date = blender_date.strip().partition(" ")[2]  # remove 'date:' prefix
+    date_string = time.strftime("%B %d, %Y", time.strptime(blender_date, "%Y-%m-%d"))
 
 outfile = open(outfilename, "w")
 fw = outfile.write
@@ -65,7 +72,7 @@ fw('.TH "BLENDER" "1" "%s" "Blender %s"\n' % (date_string, blender_version.repla
 
 fw('''
 .SH NAME
-blender \- a 3D modelling and rendering package''')
+blender \- a full-featured 3D application''')
 
 fw('''
 .SH SYNOPSIS
@@ -76,11 +83,11 @@ fw('''
 .SH DESCRIPTION
 .PP
 .B blender
-is a 3D modelling and rendering package. Originating as the in-house software of a high quality animation studio, Blender has proven to be an extremely fast and versatile design instrument. The software has a personal touch, offering a unique approach to the world of Three Dimensions.
+is a full-featured 3D application. It supports the entirety of the 3D pipeline - modeling, rigging, animation, simulation, rendering, compositing, motion tracking, and video editing.
 
-Use Blender to create TV commercials, to make technical visualizations, business graphics, to create content for games, or design user interfaces. You can easy build and manage complex environments. The renderer is versatile and extremely fast. All basic animation principles (curves & keys) are well implemented.
+Use Blender to create 3D images and animations, films and commercials, content for games, architectural and industrial visualizatons, and scientific visualizations.
 
-http://www.blender.org''')
+https://www.blender.org''')
 
 fw('''
 .SH OPTIONS''')

@@ -44,9 +44,9 @@ def replace_bpy_app_version():
 def clear_startup_blend():
     import bpy
 
-    for scene in bpy.data.scenes:
-        for obj in scene.objects:
-            scene.objects.unlink(obj)
+    for col in bpy.data.collections:
+        for obj in col.objects:
+            col.objects.unlink(obj)
 
 
 def blend_to_md5():
@@ -136,12 +136,7 @@ def main():
     print("  Running: '%s'" % run)
     print("  MD5: '%s'!" % md5)
 
-    try:
-        result = eval(run)
-    except:
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    result = eval(run)
 
     if write_blend is not None:
         print("  Writing Blend: %s" % write_blend)
@@ -188,10 +183,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # So a python error exits(1)
-    try:
-        main()
-    except:
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    main()

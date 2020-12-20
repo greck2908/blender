@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,13 +12,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenlib/intern/memory_utils.c
- *  \ingroup bli
- *  \brief Generic memory manipulation API.
+/** \file
+ * \ingroup bli
+ * \brief Generic memory manipulation API.
  *
  * This is to extend on existing functions
  * such as ``memcpy`` & ``memcmp``.
@@ -35,16 +31,16 @@
 #include "BLI_strict_flags.h"
 
 /**
- * Check if memory is zero'd, as with memset(s, 0, nbytes)
+ * Check if memory is zero'd, as with memset(arr, 0, arr_size)
  */
-bool BLI_memory_is_zero(const void *s, const size_t nbytes)
+bool BLI_memory_is_zero(const void *arr, const size_t arr_size)
 {
-	const char *s_byte = s;
-	const char *s_end = (const char *)s + nbytes;
+  const char *arr_byte = arr;
+  const char *arr_end = (const char *)arr + arr_size;
 
-	while ((s_byte != s_end) && (*s_byte == 0)) {
-		s_byte++;
-	}
+  while ((arr_byte != arr_end) && (*arr_byte == 0)) {
+    arr_byte++;
+  }
 
-	return (s_byte == s_end);
+  return (arr_byte == arr_end);
 }

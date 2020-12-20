@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include "stdosl.h"
+#include "stdcycles.h"
 
 volume node_output_volume(closure color Volume = 0)
 {
-	Ci = Volume;
+  Ci = Volume;
 }
-

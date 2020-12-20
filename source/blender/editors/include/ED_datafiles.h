@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,17 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ED_datafiles.h
- *  \ingroup editors
+/** \file
+ * \ingroup editors
  */
 
-#ifndef __ED_DATAFILES_H__
-#define __ED_DATAFILES_H__
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Datafiles embedded in Blender */
 
@@ -39,8 +35,8 @@ extern char datatoc_startup_blend[];
 extern int datatoc_preview_blend_size;
 extern char datatoc_preview_blend[];
 
-extern int datatoc_preview_cycles_blend_size;
-extern char datatoc_preview_cycles_blend[];
+extern int datatoc_preview_grease_pencil_blend_size;
+extern char datatoc_preview_grease_pencil_blend[];
 
 extern int datatoc_blender_icons16_png_size;
 extern char datatoc_blender_icons16_png[];
@@ -51,20 +47,17 @@ extern char datatoc_blender_icons32_png[];
 extern int datatoc_prvicons_png_size;
 extern char datatoc_prvicons_png[];
 
+extern int datatoc_alert_icons_png_size;
+extern char datatoc_alert_icons_png[];
+
+extern int datatoc_blender_logo_png_size;
+extern char datatoc_blender_logo_png[];
+
 extern int datatoc_splash_png_size;
 extern char datatoc_splash_png[];
 
-extern int datatoc_splash_2x_png_size;
-extern char datatoc_splash_2x_png[];
-
 extern int datatoc_bfont_pfb_size;
 extern char datatoc_bfont_pfb[];
-
-extern int datatoc_bfont_ttf_size;
-extern char datatoc_bfont_ttf[];
-
-extern int datatoc_bmonofont_ttf_size;
-extern char datatoc_bmonofont_ttf[];
 
 /* Brush icon datafiles */
 /* TODO: this could be simplified by putting all
@@ -239,6 +232,74 @@ extern char datatoc_mc23_jpg[];
 extern int datatoc_mc24_jpg_size;
 extern char datatoc_mc24_jpg[];
 
+/* grease pencil sculpt brushes files */
 
+extern int datatoc_gp_brush_smooth_png_size;
+extern char datatoc_gp_brush_smooth_png[];
 
-#endif /* __ED_DATAFILES_H__ */
+extern int datatoc_gp_brush_thickness_png_size;
+extern char datatoc_gp_brush_thickness_png[];
+
+extern int datatoc_gp_brush_strength_png_size;
+extern char datatoc_gp_brush_strength_png[];
+
+extern int datatoc_gp_brush_grab_png_size;
+extern char datatoc_gp_brush_grab_png[];
+
+extern int datatoc_gp_brush_push_png_size;
+extern char datatoc_gp_brush_push_png[];
+
+extern int datatoc_gp_brush_twist_png_size;
+extern char datatoc_gp_brush_twist_png[];
+
+extern int datatoc_gp_brush_pinch_png_size;
+extern char datatoc_gp_brush_pinch_png[];
+
+extern int datatoc_gp_brush_randomize_png_size;
+extern char datatoc_gp_brush_randomize_png[];
+
+extern int datatoc_gp_brush_clone_png_size;
+extern char datatoc_gp_brush_clone_png[];
+
+extern int datatoc_gp_brush_weight_png_size;
+extern char datatoc_gp_brush_weight_png[];
+
+extern int datatoc_gp_brush_pencil_png_size;
+extern char datatoc_gp_brush_pencil_png[];
+
+extern int datatoc_gp_brush_pen_png_size;
+extern char datatoc_gp_brush_pen_png[];
+
+extern int datatoc_gp_brush_ink_png_size;
+extern char datatoc_gp_brush_ink_png[];
+
+extern int datatoc_gp_brush_inknoise_png_size;
+extern char datatoc_gp_brush_inknoise_png[];
+
+extern int datatoc_gp_brush_block_png_size;
+extern char datatoc_gp_brush_block_png[];
+
+extern int datatoc_gp_brush_marker_png_size;
+extern char datatoc_gp_brush_marker_png[];
+
+extern int datatoc_gp_brush_fill_png_size;
+extern char datatoc_gp_brush_fill_png[];
+
+extern int datatoc_gp_brush_airbrush_png_size;
+extern char datatoc_gp_brush_airbrush_png[];
+
+extern int datatoc_gp_brush_chisel_png_size;
+extern char datatoc_gp_brush_chisel_png[];
+
+extern int datatoc_gp_brush_erase_soft_png_size;
+extern char datatoc_gp_brush_erase_soft_png[];
+
+extern int datatoc_gp_brush_erase_hard_png_size;
+extern char datatoc_gp_brush_erase_hard_png[];
+
+extern int datatoc_gp_brush_erase_stroke_png_size;
+extern char datatoc_gp_brush_erase_stroke_png[];
+
+#ifdef __cplusplus
+}
+#endif

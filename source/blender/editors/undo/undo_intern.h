@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,16 +12,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/undo/undo_intern.h
- *  \ingroup edundo
+/** \file
+ * \ingroup edundo
  */
 
-#ifndef __UNDO_INTERN_H__
-#define __UNDO_INTERN_H__
+#pragma once
 
 /* internal exports only */
 
@@ -31,5 +26,3 @@ struct UndoType;
 
 /* memfile_undo.c */
 void ED_memfile_undosys_type(struct UndoType *ut);
-
-#endif /* __UNDO_INTERN_H__ */

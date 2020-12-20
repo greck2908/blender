@@ -18,13 +18,12 @@
 
 # <pep8-80 compliant>
 
-import bpy
 from bpy.types import Operator
 from mathutils import Vector
 
 
 def randomize_selected(context, seed, delta,
-                       loc, rot, scale, scale_even, scale_min):
+                       loc, rot, scale, scale_even, _scale_min):
 
     import random
     from random import uniform
@@ -98,30 +97,30 @@ from bpy.props import (
 
 
 class RandomizeLocRotSize(Operator):
-    """Randomize objects loc/rot/scale"""
+    """Randomize objects location, rotation, and scale"""
     bl_idname = "object.randomize_transform"
     bl_label = "Randomize Transform"
     bl_options = {'REGISTER', 'UNDO'}
 
-    random_seed = IntProperty(
+    random_seed: IntProperty(
         name="Random Seed",
         description="Seed value for the random generator",
         min=0,
         max=10000,
         default=0,
     )
-    use_delta = BoolProperty(
+    use_delta: BoolProperty(
         name="Transform Delta",
         description=("Randomize delta transform values "
                      "instead of regular transform"),
         default=False,
     )
-    use_loc = BoolProperty(
+    use_loc: BoolProperty(
         name="Randomize Location",
         description="Randomize the location values",
         default=True,
     )
-    loc = FloatVectorProperty(
+    loc: FloatVectorProperty(
         name="Location",
         description=("Maximum distance the objects "
                      "can spread over each axis"),
@@ -130,12 +129,12 @@ class RandomizeLocRotSize(Operator):
         default=(0.0, 0.0, 0.0),
         subtype='TRANSLATION',
     )
-    use_rot = BoolProperty(
+    use_rot: BoolProperty(
         name="Randomize Rotation",
         description="Randomize the rotation values",
         default=True,
     )
-    rot = FloatVectorProperty(
+    rot: FloatVectorProperty(
         name="Rotation",
         description="Maximum rotation over each axis",
         min=-3.141592,  # math.pi
@@ -143,32 +142,35 @@ class RandomizeLocRotSize(Operator):
         default=(0.0, 0.0, 0.0),
         subtype='EULER',
     )
-    use_scale = BoolProperty(
+    use_scale: BoolProperty(
         name="Randomize Scale",
         description="Randomize the scale values",
         default=True,
     )
-    scale_even = BoolProperty(
+    scale_even: BoolProperty(
         name="Scale Even",
         description="Use the same scale value for all axis",
         default=False,
     )
 
-    '''scale_min = FloatProperty(
+    '''scale_min: FloatProperty(
             name="Minimum Scale Factor",
             description="Lowest scale percentage possible",
             min=-1.0, max=1.0, precision=3,
             default=0.15,
             )'''
 
-    scale = FloatVectorProperty(
+    scale: FloatVectorProperty(
         name="Scale",
         description="Maximum scale randomization over each axis",
         min=-100.0,
         max=100.0,
         default=(1.0, 1.0, 1.0),
-        subtype='TRANSLATION',
     )
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'OBJECT'
 
     def execute(self, context):
         seed = self.random_seed

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,66 +15,65 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/editmesh.c
- *  \ingroup bke
+/** \file
+ * \ingroup bke
  */
 
 #include "MEM_guardedalloc.h"
 
 #include "DNA_listBase.h"
-#include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
+#include "DNA_object_types.h"
 
+#include "BLI_bitmap.h"
 #include "BLI_math.h"
 
+#include "BKE_DerivedMesh.h"
 #include "BKE_editmesh.h"
-#include "BKE_cdderivedmesh.h"
-
+#include "BKE_editmesh_cache.h"
+#include "BKE_lib_id.h"
+#include "BKE_mesh.h"
+#include "BKE_mesh_iterators.h"
+#include "BKE_mesh_wrapper.h"
+#include "BKE_object.h"
 
 BMEditMesh *BKE_editmesh_create(BMesh *bm, const bool do_tessellate)
 {
-	BMEditMesh *em = MEM_callocN(sizeof(BMEditMesh), __func__);
+  BMEditMesh *em = MEM_callocN(sizeof(BMEditMesh), __func__);
 
-	em->bm = bm;
-	if (do_tessellate) {
-		BKE_editmesh_tessface_calc(em);
-	}
+  em->bm = bm;
+  if (do_tessellate) {
+    BKE_editmesh_looptri_calc(em);
+  }
 
-	return em;
+  return em;
 }
 
 BMEditMesh *BKE_editmesh_copy(BMEditMesh *em)
 {
-	BMEditMesh *em_copy = MEM_callocN(sizeof(BMEditMesh), __func__);
-	*em_copy = *em;
+  BMEditMesh *em_copy = MEM_callocN(sizeof(BMEditMesh), __func__);
+  *em_copy = *em;
 
-	em_copy->derivedCage = em_copy->derivedFinal = NULL;
+  em_copy->mesh_eval_cage = em_copy->mesh_eval_final = NULL;
+  em_copy->bb_cage = NULL;
 
-	em_copy->derivedVertColor = NULL;
-	em_copy->derivedVertColorLen = 0;
-	em_copy->derivedFaceColor = NULL;
-	em_copy->derivedFaceColorLen = 0;
+  em_copy->bm = BM_mesh_copy(em->bm);
 
-	em_copy->bm = BM_mesh_copy(em->bm);
+  /* The tessellation is NOT calculated on the copy here,
+   * because currently all the callers of this function use
+   * it to make a backup copy of the #BMEditMesh to restore
+   * it in the case of errors in an operation. For performance reasons,
+   * in that case it makes more sense to do the
+   * tessellation only when/if that copy ends up getting used. */
+  em_copy->looptris = NULL;
 
-	/* The tessellation is NOT calculated on the copy here,
-	 * because currently all the callers of this function use
-	 * it to make a backup copy of the BMEditMesh to restore
-	 * it in the case of errors in an operation. For perf
-	 * reasons, in that case it makes more sense to do the
-	 * tessellation only when/if that copy ends up getting
-	 * used.*/
-	em_copy->looptris = NULL;
+  /* Copy various settings. */
+  em_copy->selectmode = em->selectmode;
+  em_copy->mat_nr = em->mat_nr;
 
-	return em_copy;
+  return em_copy;
 }
 
 /**
@@ -87,180 +84,225 @@ BMEditMesh *BKE_editmesh_copy(BMEditMesh *em)
  */
 BMEditMesh *BKE_editmesh_from_object(Object *ob)
 {
-	BLI_assert(ob->type == OB_MESH);
-	/* sanity check */
-#ifndef NDEBUG
-	if (((Mesh *)ob->data)->edit_btmesh) {
-		BLI_assert(((Mesh *)ob->data)->edit_btmesh->ob == ob);
-	}
+  BLI_assert(ob->type == OB_MESH);
+  /* sanity check */
+#if 0 /* disable in mutlti-object edit. */
+#  ifndef NDEBUG
+  if (((Mesh *)ob->data)->edit_mesh) {
+    BLI_assert(((Mesh *)ob->data)->edit_mesh->ob == ob);
+  }
+#  endif
 #endif
-	return ((Mesh *)ob->data)->edit_btmesh;
+  return ((Mesh *)ob->data)->edit_mesh;
 }
-
 
 static void editmesh_tessface_calc_intern(BMEditMesh *em)
 {
-	/* allocating space before calculating the tessellation */
+  /* allocating space before calculating the tessellation */
 
+  BMesh *bm = em->bm;
 
-	BMesh *bm = em->bm;
+  /* This assumes all faces can be scan-filled, which isn't always true,
+   * worst case we over allocate a little which is acceptable. */
+  const int looptris_tot = poly_to_tri_count(bm->totface, bm->totloop);
+  const int looptris_tot_prev_alloc = em->looptris ?
+                                          (MEM_allocN_len(em->looptris) / sizeof(*em->looptris)) :
+                                          0;
 
-	/* this assumes all faces can be scan-filled, which isn't always true,
-	 * worst case we over alloc a little which is acceptable */
-	const int looptris_tot = poly_to_tri_count(bm->totface, bm->totloop);
-	const int looptris_tot_prev_alloc = em->looptris ? (MEM_allocN_len(em->looptris) / sizeof(*em->looptris)) : 0;
+  BMLoop *(*looptris)[3];
 
-	BMLoop *(*looptris)[3];
+  /* this means no reallocs for quad dominant models, for */
+  if ((em->looptris != NULL) &&
+      /* (*em->tottri >= looptris_tot)) */
+      /* Check against allocated size in case we over allocated a little. */
+      ((looptris_tot_prev_alloc >= looptris_tot) &&
+       (looptris_tot_prev_alloc <= looptris_tot * 2))) {
+    looptris = em->looptris;
+  }
+  else {
+    if (em->looptris) {
+      MEM_freeN(em->looptris);
+    }
+    looptris = MEM_mallocN(sizeof(*looptris) * looptris_tot, __func__);
+  }
 
-#if 0
-	/* note, we could be clever and re-use this array but would need to ensure
-	 * its realloced at some point, for now just free it */
-	if (em->looptris) MEM_freeN(em->looptris);
+  em->looptris = looptris;
 
-	/* Use em->tottri when set, this means no reallocs while transforming,
-	 * (unless scanfill fails), otherwise... */
-	/* allocate the length of totfaces, avoid many small reallocs,
-	 * if all faces are tri's it will be correct, quads == 2x allocs */
-	BLI_array_reserve(looptris, (em->tottri && em->tottri < bm->totface * 3) ? em->tottri : bm->totface);
-#else
-
-	/* this means no reallocs for quad dominant models, for */
-	if ((em->looptris != NULL) &&
-	    /* (*em->tottri >= looptris_tot)) */
-	    /* check against alloc'd size incase we over alloc'd a little */
-	    ((looptris_tot_prev_alloc >= looptris_tot) && (looptris_tot_prev_alloc <= looptris_tot * 2)))
-	{
-		looptris = em->looptris;
-	}
-	else {
-		if (em->looptris) MEM_freeN(em->looptris);
-		looptris = MEM_mallocN(sizeof(*looptris) * looptris_tot, __func__);
-	}
-
-#endif
-
-	em->looptris = looptris;
-
-	/* after allocating the em->looptris, we're ready to tessellate */
-	BM_mesh_calc_tessellation(em->bm, em->looptris, &em->tottri);
-
+  /* after allocating the em->looptris, we're ready to tessellate */
+  BM_mesh_calc_tessellation(em->bm, em->looptris, &em->tottri);
 }
 
-void BKE_editmesh_tessface_calc(BMEditMesh *em)
+void BKE_editmesh_looptri_calc(BMEditMesh *em)
 {
-	editmesh_tessface_calc_intern(em);
+  editmesh_tessface_calc_intern(em);
 
-	/* commented because editbmesh_build_data() ensures we get tessfaces */
+  /* commented because editbmesh_build_data() ensures we get tessfaces */
 #if 0
-	if (em->derivedFinal && em->derivedFinal == em->derivedCage) {
-		if (em->derivedFinal->recalcTessellation)
-			em->derivedFinal->recalcTessellation(em->derivedFinal);
-	}
-	else if (em->derivedFinal) {
-		if (em->derivedCage->recalcTessellation)
-			em->derivedCage->recalcTessellation(em->derivedCage);
-		if (em->derivedFinal->recalcTessellation)
-			em->derivedFinal->recalcTessellation(em->derivedFinal);
-	}
+  if (em->mesh_eval_final && em->mesh_eval_final == em->mesh_eval_cage) {
+    BKE_mesh_runtime_looptri_ensure(em->mesh_eval_final);
+  }
+  else if (em->mesh_eval_final) {
+    BKE_mesh_runtime_looptri_ensure(em->mesh_eval_final);
+    BKE_mesh_runtime_looptri_ensure(em->mesh_eval_cage);
+  }
 #endif
-}
-
-void BKE_editmesh_update_linked_customdata(BMEditMesh *em)
-{
-	BMesh *bm = em->bm;
-	int act;
-
-	if (CustomData_has_layer(&bm->pdata, CD_MTEXPOLY)) {
-		act = CustomData_get_active_layer(&bm->pdata, CD_MTEXPOLY);
-		CustomData_set_layer_active(&bm->ldata, CD_MLOOPUV, act);
-
-		act = CustomData_get_render_layer(&bm->pdata, CD_MTEXPOLY);
-		CustomData_set_layer_render(&bm->ldata, CD_MLOOPUV, act);
-
-		act = CustomData_get_clone_layer(&bm->pdata, CD_MTEXPOLY);
-		CustomData_set_layer_clone(&bm->ldata, CD_MLOOPUV, act);
-
-		act = CustomData_get_stencil_layer(&bm->pdata, CD_MTEXPOLY);
-		CustomData_set_layer_stencil(&bm->ldata, CD_MLOOPUV, act);
-	}
 }
 
 void BKE_editmesh_free_derivedmesh(BMEditMesh *em)
 {
-	if (em->derivedCage) {
-		em->derivedCage->needsFree = 1;
-		em->derivedCage->release(em->derivedCage);
-	}
-	if (em->derivedFinal && em->derivedFinal != em->derivedCage) {
-		em->derivedFinal->needsFree = 1;
-		em->derivedFinal->release(em->derivedFinal);
-	}
+  if (em->mesh_eval_cage) {
+    BKE_id_free(NULL, em->mesh_eval_cage);
+  }
+  if (em->mesh_eval_final && em->mesh_eval_final != em->mesh_eval_cage) {
+    BKE_id_free(NULL, em->mesh_eval_final);
+  }
+  em->mesh_eval_cage = em->mesh_eval_final = NULL;
 
-	em->derivedCage = em->derivedFinal = NULL;
+  MEM_SAFE_FREE(em->bb_cage);
 }
 
 /*does not free the BMEditMesh struct itself*/
 void BKE_editmesh_free(BMEditMesh *em)
 {
-	BKE_editmesh_free_derivedmesh(em);
+  BKE_editmesh_free_derivedmesh(em);
 
-	BKE_editmesh_color_free(em);
+  if (em->looptris) {
+    MEM_freeN(em->looptris);
+  }
 
-	if (em->looptris) MEM_freeN(em->looptris);
-
-	if (em->bm)
-		BM_mesh_free(em->bm);
+  if (em->bm) {
+    BM_mesh_free(em->bm);
+  }
 }
 
-void BKE_editmesh_color_free(BMEditMesh *em)
+struct CageUserData {
+  int totvert;
+  float (*cos_cage)[3];
+  BLI_bitmap *visit_bitmap;
+};
+
+static void cage_mapped_verts_callback(void *userData,
+                                       int index,
+                                       const float co[3],
+                                       const float UNUSED(no_f[3]),
+                                       const short UNUSED(no_s[3]))
 {
-	if (em->derivedVertColor) MEM_freeN(em->derivedVertColor);
-	if (em->derivedFaceColor) MEM_freeN(em->derivedFaceColor);
-	em->derivedVertColor = NULL;
-	em->derivedFaceColor = NULL;
+  struct CageUserData *data = userData;
 
-	em->derivedVertColorLen = 0;
-	em->derivedFaceColorLen = 0;
-
+  if ((index >= 0 && index < data->totvert) && (!BLI_BITMAP_TEST(data->visit_bitmap, index))) {
+    BLI_BITMAP_ENABLE(data->visit_bitmap, index);
+    copy_v3_v3(data->cos_cage[index], co);
+  }
 }
 
-void BKE_editmesh_color_ensure(BMEditMesh *em, const char htype)
+float (*BKE_editmesh_vert_coords_alloc(struct Depsgraph *depsgraph,
+                                       BMEditMesh *em,
+                                       struct Scene *scene,
+                                       Object *ob,
+                                       int *r_vert_len))[3]
 {
-	switch (htype) {
-		case BM_VERT:
-			if (em->derivedVertColorLen != em->bm->totvert) {
-				BKE_editmesh_color_free(em);
-				em->derivedVertColor = MEM_mallocN(sizeof(*em->derivedVertColor) * em->bm->totvert, __func__);
-				em->derivedVertColorLen = em->bm->totvert;
-			}
-			break;
-		case BM_FACE:
-			if (em->derivedFaceColorLen != em->bm->totface) {
-				BKE_editmesh_color_free(em);
-				em->derivedFaceColor = MEM_mallocN(sizeof(*em->derivedFaceColor) * em->bm->totface, __func__);
-				em->derivedFaceColorLen = em->bm->totface;
-			}
-			break;
-		default:
-			BLI_assert(0);
-			break;
-	}
+  Mesh *cage;
+  BLI_bitmap *visit_bitmap;
+  struct CageUserData data;
+  float(*cos_cage)[3];
+
+  cage = editbmesh_get_eval_cage(depsgraph, scene, ob, em, &CD_MASK_BAREMESH);
+  cos_cage = MEM_callocN(sizeof(*cos_cage) * em->bm->totvert, "bmbvh cos_cage");
+
+  /* when initializing cage verts, we only want the first cage coordinate for each vertex,
+   * so that e.g. mirror or array use original vertex coordinates and not mirrored or duplicate */
+  visit_bitmap = BLI_BITMAP_NEW(em->bm->totvert, __func__);
+
+  data.totvert = em->bm->totvert;
+  data.cos_cage = cos_cage;
+  data.visit_bitmap = visit_bitmap;
+
+  BKE_mesh_foreach_mapped_vert(cage, cage_mapped_verts_callback, &data, MESH_FOREACH_NOP);
+
+  MEM_freeN(visit_bitmap);
+
+  if (r_vert_len) {
+    *r_vert_len = em->bm->totvert;
+  }
+
+  return cos_cage;
 }
 
-float (*BKE_editmesh_vertexCos_get_orco(BMEditMesh *em, int *r_numVerts))[3]
+const float (*BKE_editmesh_vert_coords_when_deformed(struct Depsgraph *depsgraph,
+                                                     BMEditMesh *em,
+                                                     struct Scene *scene,
+                                                     Object *ob,
+                                                     int *r_vert_len,
+                                                     bool *r_is_alloc))[3]
 {
-	BMIter iter;
-	BMVert *eve;
-	float (*orco)[3];
-	int i;
+  const float(*coords)[3] = NULL;
+  *r_is_alloc = false;
 
-	orco = MEM_mallocN(em->bm->totvert * sizeof(*orco), __func__);
+  Mesh *me = ob->data;
 
-	BM_ITER_MESH_INDEX (eve, &iter, em->bm, BM_VERTS_OF_MESH, i) {
-		copy_v3_v3(orco[i], eve->co);
-	}
+  if ((me->runtime.edit_data != NULL) && (me->runtime.edit_data->vertexCos != NULL)) {
+    /* Deformed, and we have deformed coords already. */
+    coords = me->runtime.edit_data->vertexCos;
+  }
+  else if ((em->mesh_eval_final != NULL) &&
+           (em->mesh_eval_final->runtime.wrapper_type == ME_WRAPPER_TYPE_BMESH)) {
+    /* If this is an edit-mesh type, leave NULL as we can use the vertex coords. . */
+  }
+  else {
+    /* Constructive modifiers have been used, we need to allocate coordinates. */
+    *r_is_alloc = true;
+    coords = BKE_editmesh_vert_coords_alloc(depsgraph, em, scene, ob, r_vert_len);
+  }
+  return coords;
+}
 
-	*r_numVerts = em->bm->totvert;
+float (*BKE_editmesh_vert_coords_alloc_orco(BMEditMesh *em, int *r_vert_len))[3]
+{
+  return BM_mesh_vert_coords_alloc(em->bm, r_vert_len);
+}
 
-	return orco;
+void BKE_editmesh_lnorspace_update(BMEditMesh *em, Mesh *me)
+{
+  BMesh *bm = em->bm;
+
+  /* We need to create custom-loop-normals (CLNORS) data if none exist yet,
+   * otherwise there is no way to edit them.
+   * Similar code to #MESH_OT_customdata_custom_splitnormals_add operator,
+   * we want to keep same shading in case we were using auto-smooth so far.
+   * Note: there is a problem here, which is that if someone starts a normal editing operation on
+   * previously auto-smooth-ed mesh, and cancel that operation, generated CLNORS data remain,
+   * with related sharp edges (and hence auto-smooth is 'lost').
+   * Not sure how critical this is, and how to fix that issue? */
+  if (!CustomData_has_layer(&bm->ldata, CD_CUSTOMLOOPNORMAL)) {
+    if (me->flag & ME_AUTOSMOOTH) {
+      BM_edges_sharp_from_angle_set(bm, me->smoothresh);
+    }
+  }
+
+  BM_lnorspace_update(bm);
+}
+
+/* If autosmooth not already set, set it */
+void BKE_editmesh_ensure_autosmooth(BMEditMesh *em, Mesh *me)
+{
+  if (!(me->flag & ME_AUTOSMOOTH)) {
+    me->flag |= ME_AUTOSMOOTH;
+    BKE_editmesh_lnorspace_update(em, me);
+  }
+}
+
+BoundBox *BKE_editmesh_cage_boundbox_get(BMEditMesh *em)
+{
+  if (em->bb_cage == NULL) {
+    float min[3], max[3];
+    INIT_MINMAX(min, max);
+    if (em->mesh_eval_cage) {
+      BKE_mesh_wrapper_minmax(em->mesh_eval_cage, min, max);
+    }
+
+    em->bb_cage = MEM_callocN(sizeof(BoundBox), "BMEditMesh.bb_cage");
+    BKE_boundbox_init_from_minmax(em->bb_cage, min, max);
+  }
+
+  return em->bb_cage;
 }

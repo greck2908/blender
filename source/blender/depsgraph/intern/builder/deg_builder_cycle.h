@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,24 +15,21 @@
  *
  * The Original Code is Copyright (C) 2015 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/intern/builder/deg_builder_cycle.h
- *  \ingroup depsgraph
+/** \file
+ * \ingroup depsgraph
  */
-
 
 #pragma once
 
-namespace DEG {
+namespace blender {
+namespace deg {
 
 struct Depsgraph;
 
 /* Detect and solve dependency cycles. */
 void deg_graph_detect_cycles(Depsgraph *graph);
 
-}  // namespace DEG
+}  // namespace deg
+}  // namespace blender

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,10 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file BLI_blenlib.h
- *  \ingroup bli
+/** \file
+ * \ingroup bli
  *
  * \section aboutbli Blender LIbrary external interface
  *
@@ -36,7 +28,7 @@
  * a call to a BLI function that is not prototyped here, please add a
  * prototype here. The library offers mathematical operations (mainly
  * vector and matrix calculus), an abstraction layer for file i/o,
- * functions for calculating Perlin noise, scanfilling services for
+ * functions for calculating Perlin noise, scan-filling services for
  * triangles, and a system for guarded memory
  * allocation/deallocation. There is also a patch to make MS Windows
  * behave more or less Posix-compliant.
@@ -55,15 +47,9 @@
  * standard libraries.
  */
 
-#ifndef __BLI_BLENLIB_H__
-#define __BLI_BLENLIB_H__
-
+#pragma once
 
 #include <stdlib.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #include "BLI_listbase.h"
 
@@ -76,9 +62,3 @@ extern "C" {
 #include "BLI_fileops.h"
 
 #include "BLI_rect.h"
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif

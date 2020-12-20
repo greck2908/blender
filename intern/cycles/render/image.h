@@ -17,149 +17,220 @@
 #ifndef __IMAGE_H__
 #define __IMAGE_H__
 
-#include "device/device.h"
 #include "device/device_memory.h"
 
-#include "util/util_image.h"
+#include "render/colorspace.h"
+
 #include "util/util_string.h"
 #include "util/util_thread.h"
+#include "util/util_transform.h"
+#include "util/util_unique_ptr.h"
 #include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
 class Device;
+class DeviceInfo;
+class ImageHandle;
+class ImageKey;
+class ImageMetaData;
+class ImageManager;
 class Progress;
 class RenderStats;
 class Scene;
+class ColorSpaceProcessor;
+class VDBImageLoader;
 
-class ImageMetaData {
-public:
-	/* Must be set by image file or builtin callback. */
-	bool is_float, is_half;
-	int channels;
-	size_t width, height, depth;
-	bool builtin_free_cache;
+/* Image Parameters */
+class ImageParams {
+ public:
+  bool animated;
+  InterpolationType interpolation;
+  ExtensionType extension;
+  ImageAlphaType alpha_type;
+  ustring colorspace;
+  float frame;
 
-	/* Automatically set. */
-	ImageDataType type;
-	bool is_linear;
+  ImageParams()
+      : animated(false),
+        interpolation(INTERPOLATION_LINEAR),
+        extension(EXTENSION_CLIP),
+        alpha_type(IMAGE_ALPHA_AUTO),
+        colorspace(u_colorspace_raw),
+        frame(0.0f)
+  {
+  }
+
+  bool operator==(const ImageParams &other) const
+  {
+    return (animated == other.animated && interpolation == other.interpolation &&
+            extension == other.extension && alpha_type == other.alpha_type &&
+            colorspace == other.colorspace && frame == other.frame);
+  }
 };
 
+/* Image MetaData
+ *
+ * Information about the image that is available before the image pixels are loaded. */
+class ImageMetaData {
+ public:
+  /* Set by ImageLoader.load_metadata(). */
+  int channels;
+  size_t width, height, depth;
+  size_t byte_size;
+  ImageDataType type;
+
+  /* Optional color space, defaults to raw. */
+  ustring colorspace;
+  const char *colorspace_file_format;
+
+  /* Optional transform for 3D images. */
+  bool use_transform_3d;
+  Transform transform_3d;
+
+  /* Automatically set. */
+  bool compress_as_srgb;
+
+  ImageMetaData();
+  bool operator==(const ImageMetaData &other) const;
+  bool is_float() const;
+  void detect_colorspace();
+};
+
+/* Image loader base class, that can be subclassed to load image data
+ * from custom sources (file, memory, procedurally generated, etc). */
+class ImageLoader {
+ public:
+  ImageLoader();
+  virtual ~ImageLoader(){};
+
+  /* Load metadata without actual image yet, should be fast. */
+  virtual bool load_metadata(ImageMetaData &metadata) = 0;
+
+  /* Load actual image contents. */
+  virtual bool load_pixels(const ImageMetaData &metadata,
+                           void *pixels,
+                           const size_t pixels_size,
+                           const bool associate_alpha) = 0;
+
+  /* Name for logs and stats. */
+  virtual string name() const = 0;
+
+  /* Optional for OSL texture cache. */
+  virtual ustring osl_filepath() const;
+
+  /* Free any memory used for loading metadata and pixels. */
+  virtual void cleanup(){};
+
+  /* Compare avoid loading the same image multiple times. */
+  virtual bool equals(const ImageLoader &other) const = 0;
+  static bool equals(const ImageLoader *a, const ImageLoader *b);
+
+  virtual bool is_vdb_loader() const;
+
+  /* Work around for no RTTI. */
+};
+
+/* Image Handle
+ *
+ * Access handle for image in the image manager. Multiple shader nodes may
+ * share the same image, and this class handles reference counting for that. */
+class ImageHandle {
+ public:
+  ImageHandle();
+  ImageHandle(const ImageHandle &other);
+  ImageHandle &operator=(const ImageHandle &other);
+  ~ImageHandle();
+
+  bool operator==(const ImageHandle &other) const;
+
+  void clear();
+
+  bool empty();
+  int num_tiles();
+
+  ImageMetaData metadata();
+  int svm_slot(const int tile_index = 0) const;
+  device_texture *image_memory(const int tile_index = 0) const;
+
+  VDBImageLoader *vdb_loader(const int tile_index = 0) const;
+
+ protected:
+  vector<int> tile_slots;
+  ImageManager *manager;
+
+  friend class ImageManager;
+};
+
+/* Image Manager
+ *
+ * Handles loading and storage of all images in the scene. This includes 2D
+ * texture images and 3D volume images. */
 class ImageManager {
-public:
-	explicit ImageManager(const DeviceInfo& info);
-	~ImageManager();
+ public:
+  explicit ImageManager(const DeviceInfo &info);
+  ~ImageManager();
 
-	int add_image(const string& filename,
-	              void *builtin_data,
-	              bool animated,
-	              float frame,
-	              InterpolationType interpolation,
-	              ExtensionType extension,
-	              bool use_alpha,
-	              ImageMetaData& metadata);
-	void remove_image(int flat_slot);
-	void remove_image(const string& filename,
-	                  void *builtin_data,
-	                  InterpolationType interpolation,
-	                  ExtensionType extension,
-	                  bool use_alpha);
-	void tag_reload_image(const string& filename,
-	                      void *builtin_data,
-	                      InterpolationType interpolation,
-	                      ExtensionType extension,
-	                      bool use_alpha);
-	bool get_image_metadata(const string& filename,
-	                        void *builtin_data,
-	                        ImageMetaData& metadata);
-	bool get_image_metadata(int flat_slot,
-	                        ImageMetaData& metadata);
+  ImageHandle add_image(const string &filename, const ImageParams &params);
+  ImageHandle add_image(const string &filename,
+                        const ImageParams &params,
+                        const array<int> &tiles);
+  ImageHandle add_image(ImageLoader *loader, const ImageParams &params, const bool builtin = true);
 
-	void device_update(Device *device,
-	                   Scene *scene,
-	                   Progress& progress);
-	void device_update_slot(Device *device,
-	                        Scene *scene,
-	                        int flat_slot,
-	                        Progress *progress);
-	void device_free(Device *device);
-	void device_free_builtin(Device *device);
+  void device_update(Device *device, Scene *scene, Progress &progress);
+  void device_update_slot(Device *device, Scene *scene, int slot, Progress *progress);
+  void device_free(Device *device);
 
-	void set_osl_texture_system(void *texture_system);
-	bool set_animation_frame_update(int frame);
+  void device_load_builtin(Device *device, Scene *scene, Progress &progress);
+  void device_free_builtin(Device *device);
 
-	device_memory *image_memory(int flat_slot);
+  void set_osl_texture_system(void *texture_system);
+  bool set_animation_frame_update(int frame);
 
-	void collect_statistics(RenderStats *stats);
+  void collect_statistics(RenderStats *stats);
 
-	bool need_update;
+  bool need_update;
 
-	/* NOTE: Here pixels_size is a size of storage, which equals to
-	 *       width * height * depth.
-	 *       Use this to avoid some nasty memory corruptions.
-	 */
-	function<void(const string &filename,
-	              void *data,
-	              ImageMetaData& metadata)> builtin_image_info_cb;
-	function<bool(const string &filename,
-	              void *data,
-	              unsigned char *pixels,
-	              const size_t pixels_size,
-	              const bool free_cache)> builtin_image_pixels_cb;
-	function<bool(const string &filename,
-	              void *data,
-	              float *pixels,
-	              const size_t pixels_size,
-	              const bool free_cache)> builtin_image_float_pixels_cb;
+  struct Image {
+    ImageParams params;
+    ImageMetaData metadata;
+    ImageLoader *loader;
 
-	struct Image {
-		string filename;
-		void *builtin_data;
-		ImageMetaData metadata;
+    float frame;
+    bool need_metadata;
+    bool need_load;
+    bool builtin;
 
-		bool use_alpha;
-		bool need_load;
-		bool animated;
-		float frame;
-		InterpolationType interpolation;
-		ExtensionType extension;
+    string mem_name;
+    device_texture *mem;
 
-		string mem_name;
-		device_memory *mem;
+    int users;
+    thread_mutex mutex;
+  };
 
-		int users;
-	};
+ private:
+  bool has_half_images;
 
-private:
-	int tex_num_images[IMAGE_DATA_NUM_TYPES];
-	int max_num_images;
-	bool has_half_images;
+  thread_mutex device_mutex;
+  thread_mutex images_mutex;
+  int animation_frame;
 
-	thread_mutex device_mutex;
-	int animation_frame;
+  vector<Image *> images;
+  void *osl_texture_system;
 
-	vector<Image*> images[IMAGE_DATA_NUM_TYPES];
-	void *osl_texture_system;
+  int add_image_slot(ImageLoader *loader, const ImageParams &params, const bool builtin);
+  void add_image_user(int slot);
+  void remove_image_user(int slot);
 
-	bool file_load_image_generic(Image *img,
-	                             ImageInput **in);
+  void load_image_metadata(Image *img);
 
-	template<TypeDesc::BASETYPE FileFormat,
-	         typename StorageType,
-	         typename DeviceType>
-	bool file_load_image(Image *img,
-	                     ImageDataType type,
-	                     int texture_limit,
-	                     device_vector<DeviceType>& tex_img);
+  template<TypeDesc::BASETYPE FileFormat, typename StorageType>
+  bool file_load_image(Image *img, int texture_limit);
 
-	void device_load_image(Device *device,
-	                       Scene *scene,
-	                       ImageDataType type,
-	                       int slot,
-	                       Progress *progress);
-	void device_free_image(Device *device,
-	                       ImageDataType type,
-	                       int slot);
+  void device_load_image(Device *device, Scene *scene, int slot, Progress *progress);
+  void device_free_image(Device *device, int slot);
+
+  friend class ImageHandle;
 };
 
 CCL_NAMESPACE_END

@@ -18,10 +18,6 @@
  *  \ingroup intern
  */
 
-/** \defgroup elbeem elbeem
- *  \ingroup intern
- */
-
 /** \defgroup iksolver iksolver
  *  \ingroup intern
  */
@@ -71,7 +67,7 @@
  *  \ingroup audaspace
  */
 /** \defgroup audsrc Audaspace SRC
-
+ *
  *  \ingroup audaspace
  */
 /** \defgroup audffmpeg Audaspace FFMpeg
@@ -91,4 +87,3 @@
  * \ingroup intern GUI
  * \ref GHOSTPage
  */
-

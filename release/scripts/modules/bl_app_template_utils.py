@@ -33,7 +33,7 @@ __all__ = (
 
 import bpy as _bpy
 
-# Normally matches 'user_preferences.app_template_id',
+# Normally matches 'preferences.app_template_id',
 # but loading new preferences will get us out of sync.
 _app_template = {
     "id": "",
@@ -51,12 +51,10 @@ _modules = {}
 
 
 def _enable(template_id, *, handle_error=None, ignore_not_found=False):
-    import os
-    import sys
     from bpy_restrict_state import RestrictBlend
 
     if handle_error is None:
-        def handle_error(ex):
+        def handle_error(_ex):
             import traceback
             traceback.print_exc()
 
@@ -70,13 +68,14 @@ def _enable(template_id, *, handle_error=None, ignore_not_found=False):
         # 1) try import
         try:
             mod = import_from_id(template_id, ignore_not_found=ignore_not_found)
-            if mod is None:
-                return None
-            mod.__template_enabled__ = False
-            _modules[template_id] = mod
         except Exception as ex:
             handle_error(ex)
             return None
+
+        _modules[template_id] = mod
+        if mod is None:
+            return None
+        mod.__template_enabled__ = False
 
         # 2) try run the modules register function
         try:
@@ -107,16 +106,18 @@ def _disable(template_id, *, handle_error=None):
        taking an exception argument.
     :type handle_error: function
     """
-    import sys
 
     if handle_error is None:
-        def handle_error(ex):
+        def handle_error(_ex):
             import traceback
             traceback.print_exc()
 
-    mod = _modules.get(template_id)
+    mod = _modules.get(template_id, False)
 
-    if mod and getattr(mod, "__template_enabled__", False) is not False:
+    if mod is None:
+        # Loaded but has no module, remove since there is no use in keeping it.
+        del _modules[template_id]
+    elif getattr(mod, "__template_enabled__", False) is not False:
         mod.__template_enabled__ = False
 
         try:
@@ -127,7 +128,7 @@ def _disable(template_id, *, handle_error=None):
             handle_error(ex)
     else:
         print("\tapp_template_utils.disable: %s not %s." %
-              (template_id, "disabled" if mod is None else "loaded"))
+              (template_id, "disabled" if mod is False else "loaded"))
 
     if _bpy.app.debug_python:
         print("\tapp_template_utils.disable", template_id)
@@ -173,12 +174,8 @@ def activate(template_id=None):
     if template_id_prev:
         _disable(template_id_prev)
 
-    # Disable all addons, afterwards caller must reset.
-    import addon_utils
-    addon_utils.disable_all()
-
     # ignore_not_found so modules that don't contain scripts don't raise errors
-    mod = _enable(template_id, ignore_not_found=True) if template_id else None
+    _mod = _enable(template_id, ignore_not_found=True) if template_id else None
 
     _app_template["id"] = template_id
 
@@ -187,7 +184,7 @@ def reset(*, reload_scripts=False):
     """
     Sets default state.
     """
-    template_id = _bpy.context.user_preferences.app_template
+    template_id = _bpy.context.preferences.app_template
     if _bpy.app.debug_python:
         print("bl_app_template_utils.reset('%s')" % template_id)
 

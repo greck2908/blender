@@ -37,7 +37,7 @@ class ConsoleExec(Operator):
     bl_idname = "console.execute"
     bl_label = "Console Execute"
 
-    interactive = BoolProperty(
+    interactive: BoolProperty(
         options={'SKIP_SAVE'},
     )
 
@@ -85,7 +85,7 @@ class ConsoleAutocomplete(Operator):
 class ConsoleCopyAsScript(Operator):
     """Copy the console contents for use in a script"""
     bl_idname = "console.copy_as_script"
-    bl_label = "Copy to Clipboard (as script)"
+    bl_label = "Copy to Clipboard (as Script)"
 
     @classmethod
     def poll(cls, context):
@@ -137,7 +137,7 @@ class ConsoleLanguage(Operator):
     bl_idname = "console.language"
     bl_label = "Console Language"
 
-    language = StringProperty(
+    language: StringProperty(
         name="Language",
         maxlen=32,
     )

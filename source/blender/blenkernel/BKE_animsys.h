@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,92 +15,81 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation, Joshua Leung
  * All rights reserved.
- *
- * Contributor(s): Joshua Leung (original author)
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-#ifndef __BKE_ANIMSYS_H__
-#define __BKE_ANIMSYS_H__
+#pragma once
 
-/** \file BKE_animsys.h
- *  \ingroup bke
- *  \author Joshua Leung
+/** \file
+ * \ingroup bke
  */
 
+#include "BLI_sys_types.h" /* for bool */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct AnimData;
+struct BlendDataReader;
+struct BlendExpander;
+struct BlendLibReader;
+struct BlendWriter;
+struct Depsgraph;
+struct FCurve;
 struct ID;
+struct KS_Path;
+struct KeyingSet;
 struct ListBase;
 struct Main;
-struct AnimData;
-struct FCurve;
-struct KeyingSet;
-struct KS_Path;
+struct NlaKeyframingContext;
 struct PathResolvedRNA;
-struct bContext;
-
 struct PointerRNA;
 struct PropertyRNA;
-struct ReportList;
 struct bAction;
 struct bActionGroup;
-struct AnimMapper;
+struct bContext;
 
-/* ************************************* */
-/* AnimData API */
+/* Container for data required to do FCurve and Driver evaluation. */
+typedef struct AnimationEvalContext {
+  /* For drivers, so that they have access to the dependency graph and the current view layer. See
+   * T77086. */
+  struct Depsgraph *depsgraph;
 
-/* Check if the given ID-block can have AnimData */
-bool id_type_can_have_animdata(const short id_type);
-bool id_can_have_animdata(const struct ID *id);
+  /* FCurves and Drivers can be evaluated at a different time than the current scene time, for
+   * example when evaluating NLA strips. This means that, even though the current time is stored in
+   * the dependency graph, we need an explicit evaluation time. */
+  float eval_time;
+} AnimationEvalContext;
 
-/* Get AnimData from the given ID-block */
-struct AnimData *BKE_animdata_from_id(struct ID *id);
-
-/* Add AnimData to the given ID-block */
-struct AnimData *BKE_animdata_add_id(struct ID *id);
-
-/* Set active action used by AnimData from the given ID-block */
-bool BKE_animdata_set_action(struct ReportList *reports, struct ID *id, struct bAction *act);
-
-/* Free AnimData */
-void BKE_animdata_free(struct ID *id, const bool do_id_user);
-
-/* Copy AnimData */
-struct AnimData *BKE_animdata_copy(struct Main *bmain, struct AnimData *adt, const bool do_action);
-
-/* Copy AnimData */
-bool BKE_animdata_copy_id(struct Main *bmain, struct ID *id_to, struct ID *id_from, const bool do_action);
-
-/* Copy AnimData Actions */
-void BKE_animdata_copy_id_action(struct Main *bmain, struct ID *id, const bool set_newid);
-
-/* Merge copies of data from source AnimData block */
-typedef enum eAnimData_MergeCopy_Modes {
-	/* Keep destination action */
-	ADT_MERGECOPY_KEEP_DST = 0,
-
-	/* Use src action (make a new copy) */
-	ADT_MERGECOPY_SRC_COPY = 1,
-
-	/* Use src action (but just reference the existing version) */
-	ADT_MERGECOPY_SRC_REF  = 2
-} eAnimData_MergeCopy_Modes;
-
-void BKE_animdata_merge_copy(
-        struct Main *bmain, struct ID *dst_id, struct ID *src_id,
-        eAnimData_MergeCopy_Modes action_mode, bool fix_drivers);
+AnimationEvalContext BKE_animsys_eval_context_construct(struct Depsgraph *depsgraph,
+                                                        float eval_time);
+AnimationEvalContext BKE_animsys_eval_context_construct_at(
+    const AnimationEvalContext *anim_eval_context, float eval_time);
 
 /* ************************************* */
 /* KeyingSets API */
 
-/* Used to create a new 'custom' KeyingSet for the user, that will be automatically added to the stack */
-struct KeyingSet *BKE_keyingset_add(struct ListBase *list, const char idname[], const char name[], short flag, short keyingflag);
+/* Used to create a new 'custom' KeyingSet for the user,
+ * that will be automatically added to the stack */
+struct KeyingSet *BKE_keyingset_add(
+    struct ListBase *list, const char idname[], const char name[], short flag, short keyingflag);
 
 /* Add a path to a KeyingSet */
-struct KS_Path *BKE_keyingset_add_path(struct KeyingSet *ks, struct ID *id, const char group_name[], const char rna_path[], int array_index, short flag, short groupmode);
+struct KS_Path *BKE_keyingset_add_path(struct KeyingSet *ks,
+                                       struct ID *id,
+                                       const char group_name[],
+                                       const char rna_path[],
+                                       int array_index,
+                                       short flag,
+                                       short groupmode);
 
 /* Find the destination matching the criteria given */
-struct KS_Path *BKE_keyingset_find_path(struct KeyingSet *ks, struct ID *id, const char group_name[], const char rna_path[], int array_index, int group_mode);
+struct KS_Path *BKE_keyingset_find_path(struct KeyingSet *ks,
+                                        struct ID *id,
+                                        const char group_name[],
+                                        const char rna_path[],
+                                        int array_index,
+                                        int group_mode);
 
 /* Copy all KeyingSets in the given list */
 void BKE_keyingsets_copy(struct ListBase *newlist, const struct ListBase *list);
@@ -116,38 +103,84 @@ void BKE_keyingset_free(struct KeyingSet *ks);
 /* Free all the KeyingSets in the given list */
 void BKE_keyingsets_free(struct ListBase *list);
 
+void BKE_keyingsets_blend_write(struct BlendWriter *writer, struct ListBase *list);
+void BKE_keyingsets_blend_read_data(struct BlendDataReader *reader, struct ListBase *list);
+void BKE_keyingsets_blend_read_lib(struct BlendLibReader *reader,
+                                   struct ID *id,
+                                   struct ListBase *list);
+void BKE_keyingsets_blend_read_expand(struct BlendExpander *expander, struct ListBase *list);
+
 /* ************************************* */
 /* Path Fixing API */
 
 /* Get a "fixed" version of the given path (oldPath) */
-char *BKE_animsys_fix_rna_path_rename(ID *owner_id, char *old_path, const char *prefix, const char *oldName,
-                                      const char *newName, int oldSubscript, int newSubscript, bool verify_paths);
+char *BKE_animsys_fix_rna_path_rename(struct ID *owner_id,
+                                      char *old_path,
+                                      const char *prefix,
+                                      const char *oldName,
+                                      const char *newName,
+                                      int oldSubscript,
+                                      int newSubscript,
+                                      bool verify_paths);
 
 /* Fix all the paths for the given ID + Action */
-void BKE_action_fix_paths_rename(struct ID *owner_id, struct bAction *act, const char *prefix, const char *oldName,
-                                 const char *newName, int oldSubscript, int newSubscript, bool verify_paths);
+void BKE_action_fix_paths_rename(struct ID *owner_id,
+                                 struct bAction *act,
+                                 const char *prefix,
+                                 const char *oldName,
+                                 const char *newName,
+                                 int oldSubscript,
+                                 int newSubscript,
+                                 bool verify_paths);
 
 /* Fix all the paths for the given ID+AnimData */
-void BKE_animdata_fix_paths_rename(struct ID *owner_id, struct AnimData *adt, struct ID *ref_id, const char *prefix,
-                                   const char *oldName, const char *newName, int oldSubscript, int newSubscript,
+void BKE_animdata_fix_paths_rename(struct ID *owner_id,
+                                   struct AnimData *adt,
+                                   struct ID *ref_id,
+                                   const char *prefix,
+                                   const char *oldName,
+                                   const char *newName,
+                                   int oldSubscript,
+                                   int newSubscript,
                                    bool verify_paths);
 
 /* Fix all the paths for the entire database... */
-void BKE_animdata_fix_paths_rename_all(ID *ref_id, const char *prefix, const char *oldName, const char *newName);
+void BKE_animdata_fix_paths_rename_all(struct ID *ref_id,
+                                       const char *prefix,
+                                       const char *oldName,
+                                       const char *newName);
 
-/* Fix the path after removing elements that are not ID (e.g., node) */
-void BKE_animdata_fix_paths_remove(struct ID *id, const char *path);
+/* Fix all the paths for the entire bmain with extra parameters. */
+void BKE_animdata_fix_paths_rename_all_ex(struct Main *bmain,
+                                          struct ID *ref_id,
+                                          const char *prefix,
+                                          const char *oldName,
+                                          const char *newName,
+                                          const int oldSubscript,
+                                          const int newSubscript,
+                                          const bool verify_paths);
+
+/* Fix the path after removing elements that are not ID (e.g., node).
+ * Return true if any animation data was affected. */
+bool BKE_animdata_fix_paths_remove(struct ID *id, const char *path);
 
 /* -------------------------------------- */
 
-/* Move animation data from src to destination if it's paths are based on basepaths */
-void BKE_animdata_separate_by_basepath(
-        struct Main *bmain, struct ID *srcID, struct ID *dstID, struct ListBase *basepaths);
+typedef struct AnimationBasePathChange {
+  struct AnimationBasePathChange *next, *prev;
+  const char *src_basepath;
+  const char *dst_basepath;
+} AnimationBasePathChange;
 
-/* Move F-Curves from src to destination if it's path is based on basepath */
-void action_move_fcurves_by_basepath(struct bAction *srcAct, struct bAction *dstAct, const char basepath[]);
+/* Move animation data from src to destination if its paths are based on basepaths */
+void BKE_animdata_transfer_by_basepath(struct Main *bmain,
+                                       struct ID *srcID,
+                                       struct ID *dstID,
+                                       struct ListBase *basepaths);
 
-char *BKE_animdata_driver_path_hack(struct bContext *C, struct PointerRNA *ptr, struct PropertyRNA *prop,
+char *BKE_animdata_driver_path_hack(struct bContext *C,
+                                    struct PointerRNA *ptr,
+                                    struct PropertyRNA *prop,
                                     char *base_path);
 
 /* ************************************* */
@@ -159,15 +192,36 @@ typedef void (*ID_AnimData_Edit_Callback)(struct ID *id, struct AnimData *adt, v
 /* Define for callback looper used in BKE_fcurves_main_cb */
 typedef void (*ID_FCurve_Edit_Callback)(struct ID *id, struct FCurve *fcu, void *user_data);
 
-
 /* Loop over all datablocks applying callback */
 void BKE_animdata_main_cb(struct Main *bmain, ID_AnimData_Edit_Callback func, void *user_data);
 
 /* Loop over all datablocks applying callback to all its F-Curves */
 void BKE_fcurves_main_cb(struct Main *bmain, ID_FCurve_Edit_Callback func, void *user_data);
 
+/* Look over all f-curves of a given ID. */
+void BKE_fcurves_id_cb(struct ID *id, ID_FCurve_Edit_Callback func, void *user_data);
+
 /* ************************************* */
 // TODO: overrides, remapping, and path-finding api's
+
+/* ------------ NLA Keyframing --------------- */
+
+typedef struct NlaKeyframingContext NlaKeyframingContext;
+
+struct NlaKeyframingContext *BKE_animsys_get_nla_keyframing_context(
+    struct ListBase *cache,
+    struct PointerRNA *ptr,
+    struct AnimData *adt,
+    const struct AnimationEvalContext *anim_eval_context,
+    const bool flush_to_original);
+bool BKE_animsys_nla_remap_keyframe_values(struct NlaKeyframingContext *context,
+                                           struct PointerRNA *prop_ptr,
+                                           struct PropertyRNA *prop,
+                                           float *values,
+                                           int count,
+                                           int index,
+                                           bool *r_force_all);
+void BKE_animsys_free_nla_keyframing_context_cache(struct ListBase *cache);
 
 /* ************************************* */
 /* Evaluation API */
@@ -175,39 +229,68 @@ void BKE_fcurves_main_cb(struct Main *bmain, ID_FCurve_Edit_Callback func, void 
 /* ------------- Main API -------------------- */
 /* In general, these ones should be called to do all animation evaluation */
 
+/* Flags for recalc parameter, indicating which part to recalculate. */
+typedef enum eAnimData_Recalc {
+  ADT_RECALC_DRIVERS = (1 << 0),
+  ADT_RECALC_ANIM = (1 << 1),
+  ADT_RECALC_ALL = (ADT_RECALC_DRIVERS | ADT_RECALC_ANIM),
+} eAnimData_Recalc;
+
+bool BKE_animsys_store_rna_setting(struct PointerRNA *ptr,
+                                   const char *rna_path,
+                                   const int array_index,
+                                   struct PathResolvedRNA *r_result);
+bool BKE_animsys_read_rna_setting(struct PathResolvedRNA *anim_rna, float *r_value);
+bool BKE_animsys_write_rna_setting(struct PathResolvedRNA *anim_rna, const float value);
+
 /* Evaluation loop for evaluating animation data  */
-void BKE_animsys_evaluate_animdata(struct Scene *scene, struct ID *id, struct AnimData *adt, float ctime, short recalc);
+void BKE_animsys_evaluate_animdata(struct ID *id,
+                                   struct AnimData *adt,
+                                   const struct AnimationEvalContext *anim_eval_context,
+                                   eAnimData_Recalc recalc,
+                                   const bool flush_to_original);
 
 /* Evaluation of all ID-blocks with Animation Data blocks - Animation Data Only */
-void BKE_animsys_evaluate_all_animation(struct Main *main, struct Scene *scene, float ctime);
-
-/* TODO(sergey): This is mainly a temp public function. */
-struct FCurve;
-bool BKE_animsys_execute_fcurve(struct PointerRNA *ptr, struct AnimMapper *remap, struct FCurve *fcu, float curval);
+void BKE_animsys_evaluate_all_animation(struct Main *main,
+                                        struct Depsgraph *depsgraph,
+                                        float ctime);
 
 /* ------------ Specialized API --------------- */
 /* There are a few special tools which require these following functions. They are NOT to be used
  * for standard animation evaluation UNDER ANY CIRCUMSTANCES!
  *
  * i.e. Pose Library (PoseLib) uses some of these for selectively applying poses, but
- *	    Particles/Sequencer performing funky time manipulation is not ok.
+ *      Particles/Sequencer performing funky time manipulation is not ok.
  */
 
 /* Evaluate Action (F-Curve Bag) */
-void animsys_evaluate_action(struct PointerRNA *ptr, struct bAction *act, struct AnimMapper *remap, float ctime);
+void animsys_evaluate_action(struct PointerRNA *ptr,
+                             struct bAction *act,
+                             const struct AnimationEvalContext *anim_eval_context,
+                             const bool flush_to_original);
 
 /* Evaluate Action Group */
-void animsys_evaluate_action_group(struct PointerRNA *ptr, struct bAction *act, struct bActionGroup *agrp, struct AnimMapper *remap, float ctime);
+void animsys_evaluate_action_group(struct PointerRNA *ptr,
+                                   struct bAction *act,
+                                   struct bActionGroup *agrp,
+                                   const struct AnimationEvalContext *anim_eval_context);
 
 /* ************************************* */
 
 /* ------------ Evaluation API --------------- */
 
-struct EvaluationContext;
+struct Depsgraph;
 
-void BKE_animsys_eval_animdata(struct EvaluationContext *eval_ctx, struct ID *id);
-void BKE_animsys_eval_driver(struct EvaluationContext *eval_ctx, struct ID *id, struct FCurve *fcurve);
+void BKE_animsys_eval_animdata(struct Depsgraph *depsgraph, struct ID *id);
+void BKE_animsys_eval_driver(struct Depsgraph *depsgraph,
+                             struct ID *id,
+                             int driver_index,
+                             struct FCurve *fcu_orig);
+
+void BKE_animsys_update_driver_array(struct ID *id);
 
 /* ************************************* */
 
-#endif /* __BKE_ANIMSYS_H__*/
+#ifdef __cplusplus
+}
+#endif

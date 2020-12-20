@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,20 +15,14 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_script/space_script.c
- *  \ingroup spscript
+/** \file
+ * \ingroup spscript
  */
 
-
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
@@ -40,10 +32,8 @@
 #include "BKE_context.h"
 #include "BKE_screen.h"
 
-#include "ED_space_api.h"
 #include "ED_screen.h"
-
-#include "BIF_gl.h"
+#include "ED_space_api.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -54,172 +44,168 @@
 #ifdef WITH_PYTHON
 #endif
 
-#include "script_intern.h"  // own include
+#include "GPU_framebuffer.h"
+#include "script_intern.h" /* own include */
 
-
-//static script_run_python(char *funcname, )
-
+// static script_run_python(char *funcname, )
 
 /* ******************** default callbacks for script space ***************** */
 
-static SpaceLink *script_new(const bContext *UNUSED(C))
+static SpaceLink *script_create(const ScrArea *UNUSED(area), const Scene *UNUSED(scene))
 {
-	ARegion *ar;
-	SpaceScript *sscript;
+  ARegion *region;
+  SpaceScript *sscript;
 
-	sscript = MEM_callocN(sizeof(SpaceScript), "initscript");
-	sscript->spacetype = SPACE_SCRIPT;
+  sscript = MEM_callocN(sizeof(SpaceScript), "initscript");
+  sscript->spacetype = SPACE_SCRIPT;
 
+  /* header */
+  region = MEM_callocN(sizeof(ARegion), "header for script");
 
-	/* header */
-	ar = MEM_callocN(sizeof(ARegion), "header for script");
+  BLI_addtail(&sscript->regionbase, region);
+  region->regiontype = RGN_TYPE_HEADER;
+  region->alignment = (U.uiflag & USER_HEADER_BOTTOM) ? RGN_ALIGN_BOTTOM : RGN_ALIGN_TOP;
 
-	BLI_addtail(&sscript->regionbase, ar);
-	ar->regiontype = RGN_TYPE_HEADER;
-	ar->alignment = RGN_ALIGN_BOTTOM;
+  /* main region */
+  region = MEM_callocN(sizeof(ARegion), "main region for script");
 
-	/* main region */
-	ar = MEM_callocN(sizeof(ARegion), "main region for script");
+  BLI_addtail(&sscript->regionbase, region);
+  region->regiontype = RGN_TYPE_WINDOW;
 
-	BLI_addtail(&sscript->regionbase, ar);
-	ar->regiontype = RGN_TYPE_WINDOW;
+  /* channel list region XXX */
 
-	/* channel list region XXX */
-
-
-	return (SpaceLink *)sscript;
+  return (SpaceLink *)sscript;
 }
 
 /* not spacelink itself */
 static void script_free(SpaceLink *sl)
 {
-	SpaceScript *sscript = (SpaceScript *) sl;
+  SpaceScript *sscript = (SpaceScript *)sl;
 
 #ifdef WITH_PYTHON
-	/*free buttons references*/
-	if (sscript->but_refs) {
-// XXX		BPy_Set_DrawButtonsList(sscript->but_refs);
-//		BPy_Free_DrawButtonsList();
-		sscript->but_refs = NULL;
-	}
+  /*free buttons references*/
+  if (sscript->but_refs) {
+    sscript->but_refs = NULL;
+  }
 #endif
-	sscript->script = NULL;
+  sscript->script = NULL;
 }
 
-
 /* spacetype; init callback */
-static void script_init(struct wmWindowManager *UNUSED(wm), ScrArea *UNUSED(sa))
+static void script_init(struct wmWindowManager *UNUSED(wm), ScrArea *UNUSED(area))
 {
-
 }
 
 static SpaceLink *script_duplicate(SpaceLink *sl)
 {
-	SpaceScript *sscriptn = MEM_dupallocN(sl);
+  SpaceScript *sscriptn = MEM_dupallocN(sl);
 
-	/* clear or remove stuff from old */
+  /* clear or remove stuff from old */
 
-	return (SpaceLink *)sscriptn;
+  return (SpaceLink *)sscriptn;
 }
-
-
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void script_main_region_init(wmWindowManager *wm, ARegion *ar)
+static void script_main_region_init(wmWindowManager *wm, ARegion *region)
 {
-	wmKeyMap *keymap;
+  wmKeyMap *keymap;
 
-	UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_STANDARD, ar->winx, ar->winy);
+  UI_view2d_region_reinit(&region->v2d, V2D_COMMONVIEW_STANDARD, region->winx, region->winy);
 
-	/* own keymap */
-	keymap = WM_keymap_ensure(wm->defaultconf, "Script", SPACE_SCRIPT, 0);
-	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, &ar->v2d.mask, &ar->winrct);
+  /* own keymap */
+  keymap = WM_keymap_ensure(wm->defaultconf, "Script", SPACE_SCRIPT, 0);
+  WM_event_add_keymap_handler_v2d_mask(&region->handlers, keymap);
 }
 
-static void script_main_region_draw(const bContext *C, ARegion *ar)
+static void script_main_region_draw(const bContext *C, ARegion *region)
 {
-	/* draw entirely, view changes should be handled here */
-	SpaceScript *sscript = (SpaceScript *)CTX_wm_space_data(C);
-	View2D *v2d = &ar->v2d;
+  /* draw entirely, view changes should be handled here */
+  SpaceScript *sscript = (SpaceScript *)CTX_wm_space_data(C);
+  View2D *v2d = &region->v2d;
 
-	/* clear and setup matrix */
-	UI_ThemeClearColor(TH_BACK);
-	glClear(GL_COLOR_BUFFER_BIT);
+  /* clear and setup matrix */
+  UI_ThemeClearColor(TH_BACK);
 
-	UI_view2d_view_ortho(v2d);
+  UI_view2d_view_ortho(v2d);
 
-	/* data... */
-	// BPY_script_exec(C, "/root/blender-svn/blender25/test.py", NULL);
+  /* data... */
+  // BPY_script_exec(C, "/root/blender-svn/blender25/test.py", NULL);
 
 #ifdef WITH_PYTHON
-	if (sscript->script) {
-		// BPY_run_script_space_draw(C, sscript);
-	}
+  if (sscript->script) {
+    // BPY_run_script_space_draw(C, sscript);
+  }
 #else
-	(void)sscript;
+  (void)sscript;
 #endif
 
-	/* reset view matrix */
-	UI_view2d_view_restore(C);
+  /* reset view matrix */
+  UI_view2d_view_restore(C);
 
-	/* scrollers? */
+  /* scrollers? */
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
-static void script_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
+static void script_header_region_init(wmWindowManager *UNUSED(wm), ARegion *region)
 {
-	ED_region_header_init(ar);
+  ED_region_header_init(region);
 }
 
-static void script_header_region_draw(const bContext *C, ARegion *ar)
+static void script_header_region_draw(const bContext *C, ARegion *region)
 {
-	ED_region_header(C, ar);
+  ED_region_header(C, region);
 }
 
-static void script_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *UNUSED(ar), wmNotifier *UNUSED(wmn))
+static void script_main_region_listener(wmWindow *UNUSED(win),
+                                        ScrArea *UNUSED(area),
+                                        ARegion *UNUSED(region),
+                                        wmNotifier *UNUSED(wmn),
+                                        const Scene *UNUSED(scene))
 {
-	/* context changes */
-	// XXX - Todo, need the ScriptSpace accessible to get the python script to run.
-	// BPY_run_script_space_listener()
+/* context changes */
+/* XXX - Todo, need the ScriptSpace accessible to get the python script to run. */
+#if 0
+  BPY_run_script_space_listener()
+#endif
 }
 
 /* only called once, from space/spacetypes.c */
 void ED_spacetype_script(void)
 {
-	SpaceType *st = MEM_callocN(sizeof(SpaceType), "spacetype script");
-	ARegionType *art;
+  SpaceType *st = MEM_callocN(sizeof(SpaceType), "spacetype script");
+  ARegionType *art;
 
-	st->spaceid = SPACE_SCRIPT;
-	strncpy(st->name, "Script", BKE_ST_MAXNAME);
+  st->spaceid = SPACE_SCRIPT;
+  strncpy(st->name, "Script", BKE_ST_MAXNAME);
 
-	st->new = script_new;
-	st->free = script_free;
-	st->init = script_init;
-	st->duplicate = script_duplicate;
-	st->operatortypes = script_operatortypes;
-	st->keymap = script_keymap;
+  st->create = script_create;
+  st->free = script_free;
+  st->init = script_init;
+  st->duplicate = script_duplicate;
+  st->operatortypes = script_operatortypes;
+  st->keymap = script_keymap;
 
-	/* regions: main window */
-	art = MEM_callocN(sizeof(ARegionType), "spacetype script region");
-	art->regionid = RGN_TYPE_WINDOW;
-	art->init = script_main_region_init;
-	art->draw = script_main_region_draw;
-	art->listener = script_main_region_listener;
-	art->keymapflag = ED_KEYMAP_VIEW2D |   ED_KEYMAP_UI | ED_KEYMAP_FRAMES; // XXX need to further test this ED_KEYMAP_UI is needed for button interaction
+  /* regions: main window */
+  art = MEM_callocN(sizeof(ARegionType), "spacetype script region");
+  art->regionid = RGN_TYPE_WINDOW;
+  art->init = script_main_region_init;
+  art->draw = script_main_region_draw;
+  art->listener = script_main_region_listener;
+  /* XXX: Need to further test this ED_KEYMAP_UI is needed for button interaction. */
+  art->keymapflag = ED_KEYMAP_VIEW2D | ED_KEYMAP_UI | ED_KEYMAP_FRAMES;
 
-	BLI_addhead(&st->regiontypes, art);
+  BLI_addhead(&st->regiontypes, art);
 
-	/* regions: header */
-	art = MEM_callocN(sizeof(ARegionType), "spacetype script region");
-	art->regionid = RGN_TYPE_HEADER;
-	art->prefsizey = HEADERY;
-	art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_VIEW2D | ED_KEYMAP_HEADER;
+  /* regions: header */
+  art = MEM_callocN(sizeof(ARegionType), "spacetype script region");
+  art->regionid = RGN_TYPE_HEADER;
+  art->prefsizey = HEADERY;
+  art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_VIEW2D | ED_KEYMAP_HEADER;
 
-	art->init = script_header_region_init;
-	art->draw = script_header_region_draw;
+  art->init = script_header_region_init;
+  art->draw = script_header_region_draw;
 
-	BLI_addhead(&st->regiontypes, art);
+  BLI_addhead(&st->regiontypes, art);
 
-
-	BKE_spacetype_register(st);
+  BKE_spacetype_register(st);
 }

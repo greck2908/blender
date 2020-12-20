@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,15 +12,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-#ifndef __BLI_DIAL_2D_H__
-#define __BLI_DIAL_2D_H__
+#pragma once
 
-/** \file BLI_dial_2d.h
- *  \ingroup bli
+/** \file
+ * \ingroup bli
  *
  * \note dials act similar to old rotation based phones and output an angle.
  *
@@ -42,18 +37,24 @@
  * float angle;
  * Dial *dial;
  *
- * dial = BLI_dial_initialize(start_position, threshold);
+ * dial = BLI_dial_init(start_position, threshold);
  *
- * angle = BLI_dial_angle(dial, curent_position);
+ * angle = BLI_dial_angle(dial, current_position);
  *
  * MEM_freeN(dial);
  * \endcode
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct Dial Dial;
 
-Dial *BLI_dial_initialize(const float start_position[2], float threshold);
+Dial *BLI_dial_init(const float start_position[2], float threshold);
 
 float BLI_dial_angle(Dial *dial, const float current_position[2]);
 
-#endif  /* __BLI_DIAL_2D_H__ */
+#ifdef __cplusplus
+}
+#endif

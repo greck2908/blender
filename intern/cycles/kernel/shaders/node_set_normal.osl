@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-#include "stdosl.h"
+#include "stdcycles.h"
 
-surface node_set_normal(
-	normal Direction = N,
-	output normal Normal = N)
+surface node_set_normal(normal Direction = N, output normal Normal = N)
 {
-	N = Direction;
-	Normal = Direction;
+  N = Direction;
+  Normal = Direction;
 }
-

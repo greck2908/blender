@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -16,15 +14,42 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  * The Original Code is Copyright (C) 2015, Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ED_outliner.h
- *  \ingroup editors
+/** \file
+ * \ingroup editors
  */
 
-#ifndef __ED_OUTLINER_H__
-#define __ED_OUTLINER_H__
+#pragma once
 
-#endif /*  __ED_OUTLINER_H__ */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct Base;
+struct ListBase;
+struct SpaceOutliner;
+struct bContext;
+
+bool ED_outliner_collections_editor_poll(struct bContext *C);
+
+void ED_outliner_selected_objects_get(const struct bContext *C, struct ListBase *objects);
+
+struct Base *ED_outliner_give_base_under_cursor(struct bContext *C, const int mval[2]);
+
+void ED_outliner_select_sync_from_object_tag(struct bContext *C);
+void ED_outliner_select_sync_from_edit_bone_tag(struct bContext *C);
+void ED_outliner_select_sync_from_pose_bone_tag(struct bContext *C);
+void ED_outliner_select_sync_from_sequence_tag(struct bContext *C);
+void ED_outliner_select_sync_from_all_tag(struct bContext *C);
+
+bool ED_outliner_select_sync_is_dirty(const struct bContext *C);
+
+void ED_outliner_select_sync_from_outliner(struct bContext *C,
+                                           struct SpaceOutliner *space_outliner);
+
+void ED_outliner_select_sync_flag_outliners(const struct bContext *C);
+
+#ifdef __cplusplus
+}
+#endif

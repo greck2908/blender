@@ -40,20 +40,20 @@ class ANIM_OT_keying_set_export(Operator):
     bl_idname = "anim.keying_set_export"
     bl_label = "Export Keying Set..."
 
-    filepath = StringProperty(
+    filepath: StringProperty(
         subtype='FILE_PATH',
     )
-    filter_folder = BoolProperty(
+    filter_folder: BoolProperty(
         name="Filter folders",
         default=True,
         options={'HIDDEN'},
     )
-    filter_text = BoolProperty(
+    filter_text: BoolProperty(
         name="Filter text",
         default=True,
         options={'HIDDEN'},
     )
-    filter_python = BoolProperty(
+    filter_python: BoolProperty(
         name="Filter python",
         default=True,
         options={'HIDDEN'},
@@ -79,7 +79,7 @@ class ANIM_OT_keying_set_export(Operator):
         f.write("# Keying Set Level declarations\n")
         f.write("ks = scene.keying_sets.new(idname=\"%s\", name=\"%s\")\n"
                 "" % (ks.bl_idname, ks.bl_label))
-        f.write("ks.bl_description = \"%s\"\n" % ks.bl_description)
+        f.write("ks.bl_description = %r\n" % ks.bl_description)
 
         if not ks.is_path_absolute:
             f.write("ks.is_path_absolute = False\n")
@@ -105,12 +105,12 @@ class ANIM_OT_keying_set_export(Operator):
             # - idtype_list is used to get the list of id-datablocks from
             #   bpy.data.* since this info isn't available elsewhere
             # - id.bl_rna.name gives a name suitable for UI,
-            #   with a capitalised first letter, but we need
+            #   with a capitalized first letter, but we need
             #   the plural form that's all lower case
             # - special handling is needed for "nested" ID-blocks
             #   (e.g. nodetree in Material)
             if ksp.id.bl_rna.identifier.startswith("ShaderNodeTree"):
-                # Find material or lamp using this node tree...
+                # Find material or light using this node tree...
                 id_bpy_path = "bpy.data.nodes[\"%s\"]"
                 found = False
 
@@ -121,14 +121,14 @@ class ANIM_OT_keying_set_export(Operator):
                         break
 
                 if not found:
-                    for lamp in bpy.data.lamps:
-                        if lamp.node_tree == ksp.id:
-                            id_bpy_path = "bpy.data.lamps[\"%s\"].node_tree" % (lamp.name)
+                    for light in bpy.data.lights:
+                        if light.node_tree == ksp.id:
+                            id_bpy_path = "bpy.data.lights[\"%s\"].node_tree" % (light.name)
                             found = True
                             break
 
                 if not found:
-                    self.report({'WARN'}, "Could not find material or lamp using Shader Node Tree - %s" % (ksp.id))
+                    self.report({'WARN'}, "Could not find material or light using Shader Node Tree - %s" % (ksp.id))
             elif ksp.id.bl_rna.identifier.startswith("CompositorNodeTree"):
                 # Find compositor nodetree using this node tree...
                 for scene in bpy.data.scenes:
@@ -191,63 +191,68 @@ class ANIM_OT_keying_set_export(Operator):
 
         return {'FINISHED'}
 
-    def invoke(self, context, event):
+    def invoke(self, context, _event):
         wm = context.window_manager
         wm.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
 
-class BakeAction(Operator):
-    """Bake all selected objects loc/scale/rotation animation to an action"""
+class NLA_OT_bake(Operator):
+    """Bake all selected objects location/scale/rotation animation to an action"""
     bl_idname = "nla.bake"
     bl_label = "Bake Action"
     bl_options = {'REGISTER', 'UNDO'}
 
-    frame_start = IntProperty(
+    frame_start: IntProperty(
         name="Start Frame",
         description="Start frame for baking",
         min=0, max=300000,
         default=1,
     )
-    frame_end = IntProperty(
+    frame_end: IntProperty(
         name="End Frame",
         description="End frame for baking",
         min=1, max=300000,
         default=250,
     )
-    step = IntProperty(
+    step: IntProperty(
         name="Frame Step",
         description="Frame Step",
         min=1, max=120,
         default=1,
     )
-    only_selected = BoolProperty(
+    only_selected: BoolProperty(
         name="Only Selected Bones",
         description="Only key selected bones (Pose baking only)",
         default=True,
     )
-    visual_keying = BoolProperty(
+    visual_keying: BoolProperty(
         name="Visual Keying",
         description="Keyframe from the final transformations (with constraints applied)",
         default=False,
     )
-    clear_constraints = BoolProperty(
+    clear_constraints: BoolProperty(
         name="Clear Constraints",
         description="Remove all constraints from keyed object/bones, and do 'visual' keying",
         default=False,
     )
-    clear_parents = BoolProperty(
+    clear_parents: BoolProperty(
         name="Clear Parents",
         description="Bake animation onto the object then clear parents (objects only)",
         default=False,
     )
-    use_current_action = BoolProperty(
+    use_current_action: BoolProperty(
         name="Overwrite Current Action",
         description="Bake animation into current action, instead of creating a new one "
         "(useful for baking only part of bones in an armature)",
         default=False,
     )
-    bake_types = EnumProperty(
+    clean_curves: BoolProperty(
+        name="Clean Curves",
+        description="After baking curves, remove redundant keys",
+        default=False,
+    )
+    bake_types: EnumProperty(
         name="Bake Data",
         description="Which data's transformations to bake",
         options={'ENUM_FLAG'},
@@ -260,7 +265,13 @@ class BakeAction(Operator):
 
     def execute(self, context):
         from bpy_extras import anim_utils
+        do_pose = 'POSE' in self.bake_types
+        do_object = 'OBJECT' in self.bake_types
+
         objects = context.selected_editable_objects
+        if do_pose and not do_object:
+            objects = [obj for obj in objects if obj.pose is not None]
+
         object_action_pairs = (
             [(obj, getattr(obj.animation_data, "action", None)) for obj in objects]
             if self.use_current_action else
@@ -271,12 +282,12 @@ class BakeAction(Operator):
             object_action_pairs,
             frames=range(self.frame_start, self.frame_end + 1, self.step),
             only_selected=self.only_selected,
-            do_pose='POSE' in self.bake_types,
-            do_object='OBJECT' in self.bake_types,
+            do_pose=do_pose,
+            do_object=do_object,
             do_visual_keying=self.visual_keying,
             do_constraint_clear=self.clear_constraints,
             do_parents_clear=self.clear_parents,
-            do_clean=True,
+            do_clean=self.clean_curves,
         )
 
         if not any(actions):
@@ -285,7 +296,7 @@ class BakeAction(Operator):
 
         return {'FINISHED'}
 
-    def invoke(self, context, event):
+    def invoke(self, context, _event):
         scene = context.scene
         self.frame_start = scene.frame_start
         self.frame_end = scene.frame_end
@@ -296,23 +307,23 @@ class BakeAction(Operator):
 
 
 class ClearUselessActions(Operator):
-    """Mark actions with no F-Curves for deletion after save & reload of """ \
+    """Mark actions with no F-Curves for deletion after save and reload of """ \
         """file preserving \"action libraries\""""
     bl_idname = "anim.clear_useless_actions"
     bl_label = "Clear Useless Actions"
     bl_options = {'REGISTER', 'UNDO'}
 
-    only_unused = BoolProperty(
+    only_unused: BoolProperty(
         name="Only Unused",
         description="Only unused (Fake User only) actions get considered",
         default=True,
     )
 
     @classmethod
-    def poll(cls, context):
+    def poll(cls, _context):
         return bool(bpy.data.actions)
 
-    def execute(self, context):
+    def execute(self, _context):
         removed = 0
 
         for action in bpy.data.actions:
@@ -341,8 +352,8 @@ class UpdateAnimatedTransformConstraint(Operator):
     bl_label = "Update Animated Transform Constraints"
     bl_options = {'REGISTER', 'UNDO'}
 
-    use_convert_to_radians = BoolProperty(
-        name="Convert To Radians",
+    use_convert_to_radians: BoolProperty(
+        name="Convert to Radians",
         description="Convert fcurves/drivers affecting rotations to radians (Warning: use this only once!)",
         default=True,
     )
@@ -418,9 +429,22 @@ class UpdateAnimatedTransformConstraint(Operator):
         return {'FINISHED'}
 
 
+class ANIM_OT_show_group_colors_deprecated(Operator):
+    """This option moved to Preferences > Animation"""
+
+    bl_idname = "anim.show_group_colors_deprecated"
+    bl_label = "Show Group Colors"
+    bl_options = {'REGISTER'}
+
+    @classmethod
+    def poll(cls, context) -> bool:
+        return False
+
+
 classes = (
     ANIM_OT_keying_set_export,
-    BakeAction,
+    NLA_OT_bake,
     ClearUselessActions,
     UpdateAnimatedTransformConstraint,
+    ANIM_OT_show_group_colors_deprecated,
 )

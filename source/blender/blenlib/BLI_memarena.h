@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,26 +15,19 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file BLI_memarena.h
- *  \ingroup bli
+/** \file
+ * \ingroup bli
  */
 
-#ifndef __BLI_MEMARENA_H__
-#define __BLI_MEMARENA_H__
+#pragma once
+
+#include "BLI_compiler_attrs.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "BLI_compiler_attrs.h"
 
 /* A reasonable standard buffer size, big
  * enough to not cause much internal fragmentation,
@@ -47,18 +38,19 @@ extern "C" {
 struct MemArena;
 typedef struct MemArena MemArena;
 
-struct MemArena    *BLI_memarena_new(const size_t bufsize, const char *name) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(2) ATTR_MALLOC;
-void                BLI_memarena_free(struct MemArena *ma) ATTR_NONNULL(1);
-void                BLI_memarena_use_malloc(struct MemArena *ma) ATTR_NONNULL(1);
-void                BLI_memarena_use_calloc(struct MemArena *ma) ATTR_NONNULL(1);
-void                BLI_memarena_use_align(struct MemArena *ma, const size_t align) ATTR_NONNULL(1);
-void               *BLI_memarena_alloc(struct MemArena *ma, size_t size) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1) ATTR_MALLOC ATTR_ALLOC_SIZE(2);
-void               *BLI_memarena_calloc(struct MemArena *ma, size_t size) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1) ATTR_MALLOC ATTR_ALLOC_SIZE(2);
+struct MemArena *BLI_memarena_new(const size_t bufsize, const char *name) ATTR_WARN_UNUSED_RESULT
+    ATTR_NONNULL(2) ATTR_MALLOC;
+void BLI_memarena_free(struct MemArena *ma) ATTR_NONNULL(1);
+void BLI_memarena_use_malloc(struct MemArena *ma) ATTR_NONNULL(1);
+void BLI_memarena_use_calloc(struct MemArena *ma) ATTR_NONNULL(1);
+void BLI_memarena_use_align(struct MemArena *ma, const size_t align) ATTR_NONNULL(1);
+void *BLI_memarena_alloc(struct MemArena *ma, size_t size) ATTR_WARN_UNUSED_RESULT
+    ATTR_NONNULL(1) ATTR_MALLOC ATTR_ALLOC_SIZE(2);
+void *BLI_memarena_calloc(struct MemArena *ma, size_t size) ATTR_WARN_UNUSED_RESULT
+    ATTR_NONNULL(1) ATTR_MALLOC ATTR_ALLOC_SIZE(2);
 
 void BLI_memarena_clear(MemArena *ma) ATTR_NONNULL(1);
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif  /* __BLI_MEMARENA_H__ */

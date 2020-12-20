@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,33 +15,28 @@
  *
  * The Original Code is Copyright (C) 2013 Blender Foundation.
  * All rights reserved.
- *
- * Original Author: Joshua Leung
- * Contributor(s): None Yet
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/intern/eval/deg_eval_flush.h
- *  \ingroup depsgraph
+/** \file
+ * \ingroup depsgraph
  *
  * Core routines for how the Depsgraph works.
  */
 
 #pragma once
 
-struct Main;
-
-namespace DEG {
+namespace blender {
+namespace deg {
 
 struct Depsgraph;
 
 /* Flush updates from tagged nodes outwards until all affected nodes
  * are tagged.
  */
-void deg_graph_flush_updates(struct Main *bmain, struct Depsgraph *graph);
+void deg_graph_flush_updates(struct Depsgraph *graph);
 
 /* Clear tags from all operation nodes. */
 void deg_graph_clear_tags(struct Depsgraph *graph);
 
-}  // namespace DEG
+}  // namespace deg
+}  // namespace blender

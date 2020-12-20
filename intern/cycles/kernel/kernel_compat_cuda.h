@@ -32,32 +32,40 @@
 
 /* Manual definitions so we can compile without CUDA toolkit. */
 
+#ifdef __CUDACC_RTC__
 typedef unsigned int uint32_t;
 typedef unsigned long long uint64_t;
+#else
+#  include <stdint.h>
+#endif
 typedef unsigned short half;
 typedef unsigned long long CUtexObject;
 
-#define FLT_MIN 1.175494350822287507969e-38f
-#define FLT_MAX 340282346638528859811704183484516925440.0f
+#ifdef CYCLES_CUBIN_CC
+#  define FLT_MIN 1.175494350822287507969e-38f
+#  define FLT_MAX 340282346638528859811704183484516925440.0f
+#  define FLT_EPSILON 1.192092896e-07F
+#endif
 
 __device__ half __float2half(const float f)
 {
-       half val;
-       asm("{  cvt.rn.f16.f32 %0, %1;}\n" : "=h"(val) : "f"(f));
-       return val;
+  half val;
+  asm("{  cvt.rn.f16.f32 %0, %1;}\n" : "=h"(val) : "f"(f));
+  return val;
 }
 
 /* Qualifier wrappers for different names on different devices */
 
-#define ccl_device  __device__ __inline__
+#define ccl_device __device__ __inline__
 #if __CUDA_ARCH__ < 500
-#  define ccl_device_inline  __device__ __forceinline__
-#  define ccl_device_forceinline  __device__ __forceinline__
+#  define ccl_device_inline __device__ __forceinline__
+#  define ccl_device_forceinline __device__ __forceinline__
 #else
-#  define ccl_device_inline  __device__ __inline__
-#  define ccl_device_forceinline  __device__ __forceinline__
+#  define ccl_device_inline __device__ __inline__
+#  define ccl_device_forceinline __device__ __forceinline__
 #endif
-#define ccl_device_noinline  __device__ __noinline__
+#define ccl_device_noinline __device__ __noinline__
+#define ccl_device_noinline_cpu ccl_device
 #define ccl_global
 #define ccl_static_constant __constant__
 #define ccl_constant const
@@ -67,16 +75,17 @@ __device__ half __float2half(const float f)
 #define ccl_may_alias
 #define ccl_addr_space
 #define ccl_restrict __restrict__
+#define ccl_loop_no_unroll
 /* TODO(sergey): In theory we might use references with CUDA, however
  * performance impact yet to be investigated.
  */
 #define ccl_ref
 #define ccl_align(n) __align__(n)
+#define ccl_optional_struct_init
 
 #define ATTR_FALLTHROUGH
 
-#define CCL_MAX_LOCAL_SIZE (CUDA_THREADS_BLOCK_WIDTH*CUDA_THREADS_BLOCK_WIDTH)
-
+#define CCL_MAX_LOCAL_SIZE (CUDA_THREADS_BLOCK_WIDTH * CUDA_THREADS_BLOCK_WIDTH)
 
 /* No assert supported for CUDA */
 
@@ -91,46 +100,62 @@ __device__ half __float2half(const float f)
 
 ccl_device_inline uint ccl_local_id(uint d)
 {
-	switch(d) {
-		case 0: return threadIdx.x;
-		case 1: return threadIdx.y;
-		case 2: return threadIdx.z;
-		default: return 0;
-	}
+  switch (d) {
+    case 0:
+      return threadIdx.x;
+    case 1:
+      return threadIdx.y;
+    case 2:
+      return threadIdx.z;
+    default:
+      return 0;
+  }
 }
 
 #define ccl_global_id(d) (ccl_group_id(d) * ccl_local_size(d) + ccl_local_id(d))
 
 ccl_device_inline uint ccl_local_size(uint d)
 {
-	switch(d) {
-		case 0: return blockDim.x;
-		case 1: return blockDim.y;
-		case 2: return blockDim.z;
-		default: return 0;
-	}
+  switch (d) {
+    case 0:
+      return blockDim.x;
+    case 1:
+      return blockDim.y;
+    case 2:
+      return blockDim.z;
+    default:
+      return 0;
+  }
 }
 
 #define ccl_global_size(d) (ccl_num_groups(d) * ccl_local_size(d))
 
 ccl_device_inline uint ccl_group_id(uint d)
 {
-	switch(d) {
-		case 0: return blockIdx.x;
-		case 1: return blockIdx.y;
-		case 2: return blockIdx.z;
-		default: return 0;
-	}
+  switch (d) {
+    case 0:
+      return blockIdx.x;
+    case 1:
+      return blockIdx.y;
+    case 2:
+      return blockIdx.z;
+    default:
+      return 0;
+  }
 }
 
 ccl_device_inline uint ccl_num_groups(uint d)
 {
-	switch(d) {
-		case 0: return gridDim.x;
-		case 1: return gridDim.y;
-		case 2: return gridDim.z;
-		default: return 0;
-	}
+  switch (d) {
+    case 0:
+      return gridDim.x;
+    case 1:
+      return gridDim.y;
+    case 2:
+      return gridDim.z;
+    default:
+      return 0;
+  }
 }
 
 /* Textures */

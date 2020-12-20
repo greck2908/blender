@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,18 +15,13 @@
  *
  * The Original Code is Copyright (C) 2016 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Kevin Dietrich.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_cachefile_types.h
- *  \ingroup DNA
+/** \file
+ * \ingroup DNA
  */
 
-#ifndef __DNA_CACHEFILE_TYPES_H__
-#define __DNA_CACHEFILE_TYPES_H__
+#pragma once
 
 #include "DNA_ID.h"
 
@@ -36,55 +29,73 @@
 extern "C" {
 #endif
 
+struct GSet;
+
 /* CacheFile::flag */
 enum {
-	CACHEFILE_DS_EXPAND = (1 << 0),
-	CACHEFILE_DIRTY     = (1 << 1),
+  CACHEFILE_DS_EXPAND = (1 << 0),
+  CACHEFILE_UNUSED_0 = (1 << 1),
 };
 
+#if 0 /* UNUSED */
 /* CacheFile::draw_flag */
 enum {
-	CACHEFILE_KEYFRAME_DRAWN = (1 << 0),
+  CACHEFILE_KEYFRAME_DRAWN = (1 << 0),
 };
+#endif
 
 /* Representation of an object's path inside the Alembic file.
  * Note that this is not a file path. */
 typedef struct AlembicObjectPath {
-	struct AlembicObjectPath *next, *prev;
+  struct AlembicObjectPath *next, *prev;
 
-	char path[4096];
+  char path[4096];
 } AlembicObjectPath;
 
+/* CacheFile::velocity_unit
+ * Determines what temporal unit is used to interpret velocity vectors for motion blur effects. */
+enum {
+  CACHEFILE_VELOCITY_UNIT_FRAME,
+  CACHEFILE_VELOCITY_UNIT_SECOND,
+};
+
 typedef struct CacheFile {
-	ID id;
-	struct AnimData *adt;
+  ID id;
+  struct AnimData *adt;
 
-	struct AbcArchiveHandle *handle;
-	void *handle_mutex;
+  /** Paths of the objects inside of the Alembic archive referenced by this CacheFile. */
+  ListBase object_paths;
 
-	/* Paths of the objects inside of the Alembic archive referenced by this
-	 * CacheFile. */
-	ListBase object_paths;
+  /** 1024 = FILE_MAX. */
+  char filepath[1024];
 
-	char filepath[1024];  /* 1024 = FILE_MAX */
+  char is_sequence;
+  char forward_axis;
+  char up_axis;
+  char override_frame;
 
-	char is_sequence;
-	char forward_axis;
-	char up_axis;
-	char override_frame;
+  float scale;
+  /** The frame/time to lookup in the cache file. */
+  float frame;
+  /** The frame offset to subtract. */
+  float frame_offset;
 
-	float scale;
-	float frame;  /* The frame/time to lookup in the cache file. */
-	float frame_offset; /* The frame offset to subtract. */
+  /** Animation flag. */
+  short flag;
+  short draw_flag; /* UNUSED */
 
-	short flag;  /* Animation flag. */
-	short draw_flag;
+  char _pad[3];
 
-	char padding[4];
+  char velocity_unit;
+  /* Name of the velocity property in the Alembic file. */
+  char velocity_name[64];
+
+  /* Runtime */
+  struct AbcArchiveHandle *handle;
+  char handle_filepath[1024];
+  struct GSet *handle_readers;
 } CacheFile;
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif  /* __DNA_CACHEFILE_TYPES_H__ */

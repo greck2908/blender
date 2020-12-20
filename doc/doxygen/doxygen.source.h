@@ -1,10 +1,4 @@
 
-/** \defgroup blenderplayer Blender Player */
-
-/** \defgroup blc bad level calls
- *  \ingroup blenderplayer
- */
-
 /** \defgroup render Rendering
  *  \ingroup blender
  */
@@ -29,70 +23,13 @@
  *  \ingroup python
  */
 
-/** \defgroup blpluginapi Blender pluginapi
- *  \ingroup blender
- *  \attention not in use currently
- */
-
-/* ================================ */
-
-/** \defgroup bge Game Engine */
-/** \defgroup gamelogic Game Logic
- *  \ingroup bge
- */
-/** \defgroup bgeconv Converter
- *  \ingroup bge
- */
-/** \defgroup blroutines Blender Routines
- *  \ingroup bge
- */
-/** \defgroup expressions Expressions
- *  \ingroup bge
- */
-/** \defgroup player Game Player
- *  \ingroup bge
- */
-/** \defgroup ketsji Ketsji
- *  \ingroup bge
- *  \todo check all headers and code files for proper licenses
- */
-/** \defgroup ketsjinet Ketsji Network
- *  \ingroup ketsji
- */
-/** \defgroup bgenet Network
- *  \ingroup bge
- */
-/** \defgroup bgenetlb Loopback Network
- *  \ingroup bgenet
- */
-/** \defgroup phys Physics
- *  \ingroup bge
- */
-/** \defgroup physbullet Bullet Physics
- *  \ingroup phys
- */
-/** \defgroup physdummy Dummy Physics (none)
- *  \ingroup phys
- */
-/** \defgroup bgerast Rasterizer
- *  \ingroup bge
- */
-/** \defgroup bgerastoglfilters OpenGL Filters
- *  \ingroup bgerast
- */
-/** \defgroup bgerastogl OpenGL Rasterizer
- *  \ingroup bgerast
- */
-/** \defgroup bgesg BGE SceneGraph
- *  \ingroup bge
- */
-/** \defgroup bgevideotex BGE Video Texture
- *  \ingroup bge
- */
-
 /* ================================ */
 
 /** \defgroup blender Blender */
+
+/** \defgroup balembic BlenderAlembic
+ *  \ingroup blender
+ */
 
 /** \defgroup blt BlenTranslation
  *  \ingroup blender
@@ -134,6 +71,10 @@
  *  \ingroup nodes
  */
 /** \defgroup modifiers Object Modifiers
+ *  \ingroup blender
+ */
+
+/** \defgroup shader_fx Shader Effects
  *  \ingroup blender
  */
 
@@ -180,11 +121,19 @@
  *  \ingroup editors
  */
 
+/** \defgroup edasset asset
+ *  \ingroup editors
+ */
+
 /** \defgroup edcurve curve
  *  \ingroup editors
  */
 
 /** \defgroup eddatafiles datafiles
+ *  \ingroup editors
+ */
+
+/** \defgroup edgizmolib gizmo library
  *  \ingroup editors
  */
 
@@ -221,6 +170,10 @@
  */
 
 /** \defgroup edscr screen
+ *  \ingroup editors
+ */
+
+/** \defgroup edscene scene
  *  \ingroup editors
  */
 
@@ -261,10 +214,6 @@
  */
 
 /** \defgroup spinfo info space
- *  \ingroup editors
- */
-
-/** \defgroup splogic game logic editor
  *  \ingroup editors
  */
 

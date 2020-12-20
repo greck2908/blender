@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,25 +12,23 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/editlattice.c
- *  \ingroup bke
+/** \file
+ * \ingroup bke
  */
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_listBase.h"
-#include "DNA_object_types.h"
+#include "DNA_curve_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lattice_types.h"
+#include "DNA_listBase.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_curve_types.h"
+#include "DNA_object_types.h"
 
-#include "BLI_math_vector.h"
 #include "BLI_listbase.h"
+#include "BLI_math_vector.h"
 
 #include "BKE_deform.h"
 #include "BKE_key.h"
@@ -41,107 +37,113 @@
 
 void BKE_editlattice_free(Object *ob)
 {
-	Lattice *lt = ob->data;
+  Lattice *lt = ob->data;
 
-	if (lt->editlatt) {
-		Lattice *editlt = lt->editlatt->latt;
+  if (lt->editlatt) {
+    Lattice *editlt = lt->editlatt->latt;
 
-		if (editlt->def) {
-			MEM_freeN(editlt->def);
-		}
-		if (editlt->dvert) {
-			BKE_defvert_array_free(editlt->dvert, editlt->pntsu * editlt->pntsv * editlt->pntsw);
-		}
-		MEM_freeN(editlt);
-		MEM_freeN(lt->editlatt);
+    if (editlt->def) {
+      MEM_freeN(editlt->def);
+    }
+    if (editlt->dvert) {
+      BKE_defvert_array_free(editlt->dvert, editlt->pntsu * editlt->pntsv * editlt->pntsw);
+    }
+    MEM_freeN(editlt);
+    MEM_freeN(lt->editlatt);
 
-		lt->editlatt = NULL;
-	}
+    lt->editlatt = NULL;
+  }
 }
 
 void BKE_editlattice_make(Object *obedit)
 {
-	Lattice *lt = obedit->data;
-	KeyBlock *actkey;
+  Lattice *lt = obedit->data;
+  KeyBlock *actkey;
 
-	BKE_editlattice_free(obedit);
+  BKE_editlattice_free(obedit);
 
-	actkey = BKE_keyblock_from_object(obedit);
-	if (actkey) {
-		BKE_keyblock_convert_to_lattice(actkey, lt);
-	}
-	lt->editlatt = MEM_callocN(sizeof(EditLatt), "editlatt");
-	lt->editlatt->latt = MEM_dupallocN(lt);
-	lt->editlatt->latt->def = MEM_dupallocN(lt->def);
+  actkey = BKE_keyblock_from_object(obedit);
+  if (actkey) {
+    BKE_keyblock_convert_to_lattice(actkey, lt);
+  }
+  lt->editlatt = MEM_callocN(sizeof(EditLatt), "editlatt");
+  lt->editlatt->latt = MEM_dupallocN(lt);
+  lt->editlatt->latt->def = MEM_dupallocN(lt->def);
 
-	if (lt->dvert) {
-		int tot = lt->pntsu * lt->pntsv * lt->pntsw;
-		lt->editlatt->latt->dvert = MEM_mallocN(sizeof(MDeformVert) * tot, "Lattice MDeformVert");
-		BKE_defvert_array_copy(lt->editlatt->latt->dvert, lt->dvert, tot);
-	}
+  if (lt->dvert) {
+    int tot = lt->pntsu * lt->pntsv * lt->pntsw;
+    lt->editlatt->latt->dvert = MEM_mallocN(sizeof(MDeformVert) * tot, "Lattice MDeformVert");
+    BKE_defvert_array_copy(lt->editlatt->latt->dvert, lt->dvert, tot);
+  }
 
-	if (lt->key) {
-		lt->editlatt->shapenr = obedit->shapenr;
-	}
+  if (lt->key) {
+    lt->editlatt->shapenr = obedit->shapenr;
+  }
 }
 
 void BKE_editlattice_load(Object *obedit)
 {
-	Lattice *lt, *editlt;
-	KeyBlock *actkey;
-	BPoint *bp;
-	float *fp;
-	int tot;
+  Lattice *lt, *editlt;
+  KeyBlock *actkey;
+  BPoint *bp;
+  float *fp;
+  int tot;
 
-	lt = obedit->data;
-	editlt = lt->editlatt->latt;
+  lt = obedit->data;
+  editlt = lt->editlatt->latt;
 
-	if (lt->editlatt->shapenr) {
-		actkey = BLI_findlink(&lt->key->block, lt->editlatt->shapenr - 1);
+  MEM_freeN(lt->def);
 
-		/* active key: vertices */
-		tot = editlt->pntsu * editlt->pntsv * editlt->pntsw;
+  lt->def = MEM_dupallocN(editlt->def);
 
-		if (actkey->data) {
-			MEM_freeN(actkey->data);
-		}
+  lt->flag = editlt->flag;
 
-		fp = actkey->data = MEM_callocN(lt->key->elemsize * tot, "actkey->data");
-		actkey->totelem = tot;
+  lt->pntsu = editlt->pntsu;
+  lt->pntsv = editlt->pntsv;
+  lt->pntsw = editlt->pntsw;
 
-		bp = editlt->def;
-		while (tot--) {
-			copy_v3_v3(fp, bp->vec);
-			fp += 3;
-			bp++;
-		}
-	}
-	else {
-		MEM_freeN(lt->def);
+  lt->typeu = editlt->typeu;
+  lt->typev = editlt->typev;
+  lt->typew = editlt->typew;
+  lt->actbp = editlt->actbp;
 
-		lt->def = MEM_dupallocN(editlt->def);
+  lt->fu = editlt->fu;
+  lt->fv = editlt->fv;
+  lt->fw = editlt->fw;
+  lt->du = editlt->du;
+  lt->dv = editlt->dv;
+  lt->dw = editlt->dw;
 
-		lt->flag = editlt->flag;
+  if (lt->editlatt->shapenr) {
+    actkey = BLI_findlink(&lt->key->block, lt->editlatt->shapenr - 1);
 
-		lt->pntsu = editlt->pntsu;
-		lt->pntsv = editlt->pntsv;
-		lt->pntsw = editlt->pntsw;
+    /* active key: vertices */
+    tot = editlt->pntsu * editlt->pntsv * editlt->pntsw;
 
-		lt->typeu = editlt->typeu;
-		lt->typev = editlt->typev;
-		lt->typew = editlt->typew;
-		lt->actbp = editlt->actbp;
-	}
+    if (actkey->data) {
+      MEM_freeN(actkey->data);
+    }
 
-	if (lt->dvert) {
-		BKE_defvert_array_free(lt->dvert, lt->pntsu * lt->pntsv * lt->pntsw);
-		lt->dvert = NULL;
-	}
+    fp = actkey->data = MEM_callocN(lt->key->elemsize * tot, "actkey->data");
+    actkey->totelem = tot;
 
-	if (editlt->dvert) {
-		tot = lt->pntsu * lt->pntsv * lt->pntsw;
+    bp = editlt->def;
+    while (tot--) {
+      copy_v3_v3(fp, bp->vec);
+      fp += 3;
+      bp++;
+    }
+  }
 
-		lt->dvert = MEM_mallocN(sizeof(MDeformVert) * tot, "Lattice MDeformVert");
-		BKE_defvert_array_copy(lt->dvert, editlt->dvert, tot);
-	}
+  if (lt->dvert) {
+    BKE_defvert_array_free(lt->dvert, lt->pntsu * lt->pntsv * lt->pntsw);
+    lt->dvert = NULL;
+  }
+
+  if (editlt->dvert) {
+    tot = lt->pntsu * lt->pntsv * lt->pntsw;
+
+    lt->dvert = MEM_mallocN(sizeof(MDeformVert) * tot, "Lattice MDeformVert");
+    BKE_defvert_array_copy(lt->dvert, editlt->dvert, tot);
+  }
 }

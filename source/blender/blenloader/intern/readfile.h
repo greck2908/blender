@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,110 +15,128 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  * blenloader readfile private function prototypes
  */
 
-/** \file blender/blenloader/intern/readfile.h
- *  \ingroup blenloader
+/** \file
+ * \ingroup blenloader
  */
 
-#ifndef __READFILE_H__
-#define __READFILE_H__
+#pragma once
 
+#ifdef WIN32
+#  include "BLI_winstuff.h"
+#endif
+
+#include "DNA_sdna_types.h"
+#include "DNA_space_types.h"
+#include "DNA_windowmanager_types.h" /* for ReportType */
 #include "zlib.h"
-#include "DNA_windowmanager_types.h"  /* for ReportType */
 
-struct OldNewMap;
-struct MemFile;
-struct ReportList;
-struct Object;
-struct PartEff;
-struct View3D;
+struct BLOCacheStorage;
+struct IDNameLib_Map;
 struct Key;
+struct MemFile;
+struct Object;
+struct OldNewMap;
+struct ReportList;
+struct UserDef;
+
+typedef struct IDNameLib_Map IDNameLib_Map;
+
+enum eFileDataFlag {
+  FD_FLAGS_SWITCH_ENDIAN = 1 << 0,
+  FD_FLAGS_FILE_POINTSIZE_IS_4 = 1 << 1,
+  FD_FLAGS_POINTSIZE_DIFFERS = 1 << 2,
+  FD_FLAGS_FILE_OK = 1 << 3,
+  FD_FLAGS_NOT_MY_BUFFER = 1 << 4,
+  /* XXX Unused in practice (checked once but never set). */
+  FD_FLAGS_NOT_MY_LIBMAP = 1 << 5,
+};
+
+/* Disallow since it's 32bit on ms-windows. */
+#ifdef __GNUC__
+#  pragma GCC poison off_t
+#endif
+
+#if defined(_MSC_VER) || defined(__APPLE__) || defined(__HAIKU__) || defined(__NetBSD__)
+typedef int64_t off64_t;
+#endif
+
+typedef ssize_t(FileDataReadFn)(struct FileData *filedata,
+                                void *buffer,
+                                size_t size,
+                                bool *r_is_memchunk_identical);
+typedef off64_t(FileDataSeekFn)(struct FileData *filedata, off64_t offset, int whence);
 
 typedef struct FileData {
-	// linked list of BHeadN's
-	ListBase listbase;
-	int flags;
-	int eof;
-	int buffersize;
-	int seek;
-	int (*read)(struct FileData *filedata, void *buffer, unsigned int size);
+  /** Linked list of BHeadN's. */
+  ListBase bhead_list;
+  enum eFileDataFlag flags;
+  bool is_eof;
+  size_t buffersize;
+  off64_t file_offset;
 
-	// variables needed for reading from memory / stream
-	const char *buffer;
-	// variables needed for reading from memfile (undo)
-	struct MemFile *memfile;
+  FileDataReadFn *read;
+  FileDataSeekFn *seek;
 
-	// variables needed for reading from file
-	int filedes;
-	gzFile gzfiledes;
+  /** Regular file reading. */
+  int filedes;
 
-	// now only in use for library appending
-	char relabase[FILE_MAX];
+  /** Variables needed for reading from memory / stream. */
+  const char *buffer;
+  /** Variables needed for reading from memfile (undo). */
+  struct MemFile *memfile;
+  /** Whether we are undoing (< 0) or redoing (> 0), used to choose which 'unchanged' flag to use
+   * to detect unchanged data from memfile. */
+  short undo_direction;
 
-	// variables needed for reading from stream
-	char headerdone;
-	int inbuffer;
+  /** Variables needed for reading from file. */
+  gzFile gzfiledes;
+  /** Gzip stream for memory decompression. */
+  z_stream strm;
 
-	// gzip stream for memory decompression
-	z_stream strm;
+  /** Now only in use for library appending. */
+  char relabase[FILE_MAX];
 
-	// general reading variables
-	struct SDNA *filesdna;
-	const struct SDNA *memsdna;
-	const char *compflags;  /* array of eSDNA_StructCompare */
+  /** General reading variables. */
+  struct SDNA *filesdna;
+  const struct SDNA *memsdna;
+  /** Array of #eSDNA_StructCompare. */
+  const char *compflags;
+  struct DNA_ReconstructInfo *reconstruct_info;
 
-	int fileversion;
-	int id_name_offs;       /* used to retrieve ID names from (bhead+1) */
-	int globalf, fileflags; /* for do_versions patching */
+  int fileversion;
+  /** Used to retrieve ID names from (bhead+1). */
+  int id_name_offs;
+  /** Used to retrieve asset data from (bhead+1). NOTE: This may not be available in old files,
+   * will be -1 then! */
+  int id_asset_data_offs;
+  /** For do_versions patching. */
+  int globalf, fileflags;
 
-	eBLOReadSkip skip_flags;  /* skip some data-blocks */
+  /** Optionally skip some data-blocks when they're not needed. */
+  eBLOReadSkip skip_flags;
 
-	struct OldNewMap *datamap;
-	struct OldNewMap *globmap;
-	struct OldNewMap *libmap;
-	struct OldNewMap *imamap;
-	struct OldNewMap *movieclipmap;
-	struct OldNewMap *soundmap;
-	struct OldNewMap *packedmap;
+  struct OldNewMap *datamap;
+  struct OldNewMap *globmap;
+  struct OldNewMap *libmap;
+  struct OldNewMap *packedmap;
+  struct BLOCacheStorage *cache_storage;
 
-	struct BHeadSort *bheadmap;
-	int tot_bheadmap;
+  struct BHeadSort *bheadmap;
+  int tot_bheadmap;
 
-	/* see: USE_GHASH_BHEAD */
-	struct GHash *bhead_idname_hash;
+  /** See: #USE_GHASH_BHEAD. */
+  struct GHash *bhead_idname_hash;
 
-	ListBase *mainlist;
-	ListBase *old_mainlist;  /* Used for undo. */
+  ListBase *mainlist;
+  /** Used for undo. */
+  ListBase *old_mainlist;
+  struct IDNameLib_Map *old_idmap;
 
-	/* ick ick, used to return
-	 * data through streamglue.
-	 */
-	BlendFileData **bfd_r;
-	struct ReportList *reports;
+  struct ReportList *reports;
 } FileData;
-
-typedef struct BHeadN {
-	struct BHeadN *next, *prev;
-	struct BHead bhead;
-} BHeadN;
-
-/* FileData->flags */
-enum {
-	FD_FLAGS_SWITCH_ENDIAN         = 1 << 0,
-	FD_FLAGS_FILE_POINTSIZE_IS_4   = 1 << 1,
-	FD_FLAGS_POINTSIZE_DIFFERS     = 1 << 2,
-	FD_FLAGS_FILE_OK               = 1 << 3,
-	FD_FLAGS_NOT_MY_BUFFER         = 1 << 4,
-	FD_FLAGS_NOT_MY_LIBMAP         = 1 << 5,  /* XXX Unused in practice (checked once but never set). */
-};
 
 #define SIZEOFBLENDERHEADER 12
 
@@ -131,47 +147,64 @@ void blo_split_main(ListBase *mainlist, struct Main *main);
 
 BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath);
 
-FileData *blo_openblenderfile(const char *filepath, struct ReportList *reports);
-FileData *blo_openblendermemory(const void *buffer, int buffersize, struct ReportList *reports);
-FileData *blo_openblendermemfile(struct MemFile *memfile, struct ReportList *reports);
+FileData *blo_filedata_from_file(const char *filepath, struct ReportList *reports);
+FileData *blo_filedata_from_memory(const void *mem, int memsize, struct ReportList *reports);
+FileData *blo_filedata_from_memfile(struct MemFile *memfile,
+                                    const struct BlendFileReadParams *params,
+                                    struct ReportList *reports);
 
-void blo_clear_proxy_pointers_from_lib(Main *oldmain);
-void blo_make_image_pointer_map(FileData *fd, Main *oldmain);
-void blo_end_image_pointer_map(FileData *fd, Main *oldmain);
-void blo_make_movieclip_pointer_map(FileData *fd, Main *oldmain);
-void blo_end_movieclip_pointer_map(FileData *fd, Main *oldmain);
-void blo_make_sound_pointer_map(FileData *fd, Main *oldmain);
-void blo_end_sound_pointer_map(FileData *fd, Main *oldmain);
-void blo_make_packed_pointer_map(FileData *fd, Main *oldmain);
-void blo_end_packed_pointer_map(FileData *fd, Main *oldmain);
+void blo_clear_proxy_pointers_from_lib(struct Main *oldmain);
+void blo_make_packed_pointer_map(FileData *fd, struct Main *oldmain);
+void blo_end_packed_pointer_map(FileData *fd, struct Main *oldmain);
 void blo_add_library_pointer_map(ListBase *old_mainlist, FileData *fd);
+void blo_make_old_idmap_from_main(FileData *fd, struct Main *bmain);
 
-void blo_freefiledata(FileData *fd);
+BHead *blo_read_asset_data_block(FileData *fd, BHead *bhead, struct AssetMetaData **r_asset_data);
 
-BHead *blo_firstbhead(FileData *fd);
-BHead *blo_nextbhead(FileData *fd, BHead *thisblock);
-BHead *blo_prevbhead(FileData *fd, BHead *thisblock);
+void blo_cache_storage_init(FileData *fd, struct Main *bmain);
+void blo_cache_storage_old_bmain_clear(FileData *fd, struct Main *bmain_old);
+void blo_cache_storage_end(FileData *fd);
 
-const char *bhead_id_name(const FileData *fd, const BHead *bhead);
+void blo_filedata_free(FileData *fd);
+
+BHead *blo_bhead_first(FileData *fd);
+BHead *blo_bhead_next(FileData *fd, BHead *thisblock);
+BHead *blo_bhead_prev(FileData *fd, BHead *thisblock);
+
+const char *blo_bhead_id_name(const FileData *fd, const BHead *bhead);
+struct AssetMetaData *blo_bhead_id_asset_data_address(const FileData *fd, const BHead *bhead);
 
 /* do versions stuff */
 
-void blo_reportf_wrap(struct ReportList *reports, ReportType type, const char *format, ...) ATTR_PRINTF_FORMAT(3, 4);
+void blo_do_versions_dna(struct SDNA *sdna, const int versionfile, const int subversionfile);
 
-void blo_do_versions_oldnewmap_insert(struct OldNewMap *onm, const void *oldaddr, void *newaddr, int nr);
+void blo_do_versions_oldnewmap_insert(struct OldNewMap *onm,
+                                      const void *oldaddr,
+                                      void *newaddr,
+                                      int nr);
 void *blo_do_versions_newlibadr(struct FileData *fd, const void *lib, const void *adr);
 void *blo_do_versions_newlibadr_us(struct FileData *fd, const void *lib, const void *adr);
 
-struct PartEff *blo_do_version_give_parteff_245(struct Object *ob);
 void blo_do_version_old_trackto_to_constraints(struct Object *ob);
-void blo_do_versions_view3d_split_250(struct View3D *v3d, struct ListBase *regions);
 void blo_do_versions_key_uidgen(struct Key *key);
+
+void blo_do_versions_userdef(struct UserDef *userdef);
 
 void blo_do_versions_pre250(struct FileData *fd, struct Library *lib, struct Main *bmain);
 void blo_do_versions_250(struct FileData *fd, struct Library *lib, struct Main *bmain);
 void blo_do_versions_260(struct FileData *fd, struct Library *lib, struct Main *bmain);
 void blo_do_versions_270(struct FileData *fd, struct Library *lib, struct Main *bmain);
+void blo_do_versions_280(struct FileData *fd, struct Library *lib, struct Main *bmain);
+void blo_do_versions_290(struct FileData *fd, struct Library *lib, struct Main *bmain);
+void blo_do_versions_cycles(struct FileData *fd, struct Library *lib, struct Main *bmain);
 
+void do_versions_after_linking_250(struct Main *bmain);
+void do_versions_after_linking_260(struct Main *bmain);
 void do_versions_after_linking_270(struct Main *bmain);
+void do_versions_after_linking_280(struct Main *bmain, struct ReportList *reports);
+void do_versions_after_linking_290(struct Main *bmain, struct ReportList *reports);
+void do_versions_after_linking_cycles(struct Main *bmain);
 
-#endif
+/* This is rather unfortunate to have to expose this here, but better use that nasty hack in
+ * do_version than readfile itself. */
+void *blo_read_get_new_globaldata_address(struct FileData *fd, const void *adr);

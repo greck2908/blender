@@ -23,13 +23,13 @@
 #ifndef WITH_CYCLES_OPTIMIZED_KERNEL_SSE3
 #  define KERNEL_STUB
 #else
-/* SSE optimization disabled for now on 32 bit, see bug #36316 */
+/* SSE optimization disabled for now on 32 bit, see bug T36316. */
 #  if !(defined(__GNUC__) && (defined(i386) || defined(_M_IX86)))
 #    define __KERNEL_SSE2__
 #    define __KERNEL_SSE3__
 #    define __KERNEL_SSSE3__
 #  endif
-#endif  /* WITH_CYCLES_OPTIMIZED_KERNEL_SSE3 */
+#endif /* WITH_CYCLES_OPTIMIZED_KERNEL_SSE3 */
 
 #include "kernel/filter/filter.h"
 #define KERNEL_ARCH cpu_sse3

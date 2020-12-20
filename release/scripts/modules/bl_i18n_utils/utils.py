@@ -21,7 +21,6 @@
 # Some misc utilities...
 
 import collections
-import concurrent.futures
 import copy
 import hashlib
 import os
@@ -36,13 +35,8 @@ from bl_i18n_utils import (
     utils_rtl,
 )
 
-import bpy
-
 
 ##### Misc Utils #####
-from bpy.app.translations import locale_explode
-
-
 _valid_po_path_re = re.compile(r"^\S+:[0-9]+$")
 
 
@@ -78,6 +72,28 @@ def get_best_similar(data):
                     tmp = x
                     use_similar = sratio
     return key, tmp
+
+
+_locale_explode_re = re.compile(r"^([a-z]{2,})(?:_([A-Z]{2,}))?(?:@([a-z]{2,}))?$")
+
+
+def locale_explode(locale):
+    """Copies behavior of `BLT_lang_locale_explode`, keep them in sync."""
+    ret = (None, None, None, None, None)
+    m = _locale_explode_re.match(locale)
+    if m:
+        lang, country, variant = m.groups()
+        return (lang, country, variant,
+                "%s_%s" % (lang, country) if country else None,
+                "%s@%s" % (lang, variant) if variant else None)
+
+    try:
+        import bpy.app.translations as bpy_translations
+        assert(ret == bpy_translations.locale_explode(locale))
+    except ModuleNotFoundError:
+        pass
+
+    return ret
 
 
 def locale_match(loc1, loc2):
@@ -165,6 +181,36 @@ def get_po_files_from_dir(root_dir, langs=set()):
         yield uid, po_file
 
 
+def list_po_dir(root_path, settings):
+    """
+    Generator. List given directory (expecting one sub-directory per languages)
+    and return all files matching languages listed in settings.
+
+    Yield tuples (can_use, uid, num_id, name, isocode, po_path)
+
+    Note that po_path may not actually exists.
+    """
+    isocodes = ((e, os.path.join(root_path, e, e + ".po")) for e in os.listdir(root_path))
+    isocodes = dict(e for e in isocodes if os.path.isfile(e[1]))
+    for num_id, name, uid in settings.LANGUAGES[2:]:  # Skip "default" and "en" languages!
+        best_po = find_best_isocode_matches(uid, isocodes)
+        #print(uid, "->", best_po)
+        if best_po:
+            isocode = best_po[0]
+            yield (True, uid, num_id, name, isocode, isocodes[isocode])
+        else:
+            yielded = False
+            language, _1, _2, language_country, language_variant = locale_explode(uid)
+            for isocode in (language, language_variant, language_country, uid):
+                p = os.path.join(root_path, isocode, isocode + ".po")
+                if not os.path.exists(p):
+                    yield (True, uid, num_id, name, isocode, p)
+                    yielded = True
+                    break
+            if not yielded:
+                yield (False, uid, num_id, name, None, None)
+
+
 def enable_addons(addons=None, support=None, disable=False, check_only=False):
     """
     Enable (or disable) addons based either on a set of names, or a set of 'support' types.
@@ -173,33 +219,45 @@ def enable_addons(addons=None, support=None, disable=False, check_only=False):
     """
     import addon_utils
 
+    try:
+        import bpy
+    except ModuleNotFoundError:
+        print("Could not import bpy, enable_addons must be run from whithin Blender.")
+        return
+
     if addons is None:
         addons = {}
     if support is None:
         support = {}
 
-    userpref = bpy.context.user_preferences
-    used_ext = {ext.module for ext in userpref.addons}
+    prefs = bpy.context.preferences
+    used_ext = {ext.module for ext in prefs.addons}
+    # In case we need to blacklist some add-ons...
+    black_list = {}
 
     ret = [
         mod for mod in addon_utils.modules()
-        if ((addons and mod.__name__ in addons) or
-            (not addons and addon_utils.module_bl_info(mod)["support"] in support))
+        if (((addons and mod.__name__ in addons) or
+             (not addons and addon_utils.module_bl_info(mod)["support"] in support)) and
+            (mod.__name__ not in black_list))
     ]
 
     if not check_only:
         for mod in ret:
-            module_name = mod.__name__
-            if disable:
-                if module_name not in used_ext:
-                    continue
-                print("    Disabling module ", module_name)
-                bpy.ops.wm.addon_disable(module=module_name)
-            else:
-                if module_name in used_ext:
-                    continue
-                print("    Enabling module ", module_name)
-                bpy.ops.wm.addon_enable(module=module_name)
+            try:
+                module_name = mod.__name__
+                if disable:
+                    if module_name not in used_ext:
+                        continue
+                    print("    Disabling module ", module_name)
+                    bpy.ops.preferences.addon_disable(module=module_name)
+                else:
+                    if module_name in used_ext:
+                        continue
+                    print("    Enabling module ", module_name)
+                    bpy.ops.preferences.addon_enable(module=module_name)
+            except Exception as e:  # XXX TEMP WORKAROUND
+                print(e)
 
         # XXX There are currently some problems with bpy/rna...
         #     *Very* tricky to solve!
@@ -231,6 +289,12 @@ class I18nMessage:
         self.comment_lines = comment_lines or []
         self.is_fuzzy = is_fuzzy
         self.is_commented = is_commented
+
+    # ~ def __getstate__(self):
+        # ~ return {key: getattr(self, key) for key in self.__slots__}
+
+    # ~ def __getstate__(self):
+        # ~ return {key: getattr(self, key) for key in self.__slots__}
 
     def _get_msgctxt(self):
         return "".join(self.msgctxt_lines)
@@ -420,6 +484,14 @@ class I18nMessages:
 
         self._reverse_cache = None
 
+    def __getstate__(self):
+        return (self.settings, self.uid, self.msgs, self.parsing_errors)
+
+    def __setstate__(self, data):
+        self.__init__()
+        self.settings, self.uid, self.msgs, self.parsing_errors = data
+        self.update_info()
+
     @staticmethod
     def _new_messages():
         return getattr(collections, 'OrderedDict', dict)()
@@ -560,24 +632,23 @@ class I18nMessages:
 
         # Next process new keys.
         if use_similar > 0.0:
-            with concurrent.futures.ProcessPoolExecutor() as exctr:
-                for key, msgid in exctr.map(get_best_similar,
-                                            tuple((nk, use_similar, tuple(similar_pool.keys())) for nk in new_keys)):
-                    if msgid:
-                        # Try to get the same context, else just get one...
-                        skey = (key[0], msgid)
-                        if skey not in similar_pool[msgid]:
-                            skey = tuple(similar_pool[msgid])[0]
-                        # We keep org translation and comments, and mark message as fuzzy.
-                        msg, refmsg = self.msgs[skey].copy(), ref.msgs[key]
-                        msg.msgctxt = refmsg.msgctxt
-                        msg.msgid = refmsg.msgid
-                        msg.sources = refmsg.sources
-                        msg.is_fuzzy = True
-                        msg.is_commented = refmsg.is_commented
-                        msgs[key] = msg
-                    else:
-                        msgs[key] = ref.msgs[key]
+            for key, msgid in map(get_best_similar,
+                                  tuple((nk, use_similar, tuple(similar_pool.keys())) for nk in new_keys)):
+                if msgid:
+                    # Try to get the same context, else just get one...
+                    skey = (key[0], msgid)
+                    if skey not in similar_pool[msgid]:
+                        skey = tuple(similar_pool[msgid])[0]
+                    # We keep org translation and comments, and mark message as fuzzy.
+                    msg, refmsg = self.msgs[skey].copy(), ref.msgs[key]
+                    msg.msgctxt = refmsg.msgctxt
+                    msg.msgid = refmsg.msgid
+                    msg.sources = refmsg.sources
+                    msg.is_fuzzy = True
+                    msg.is_commented = refmsg.is_commented
+                    msgs[key] = msg
+                else:
+                    msgs[key] = ref.msgs[key]
         else:
             for key in new_keys:
                 msgs[key] = ref.msgs[key]
@@ -707,6 +778,13 @@ class I18nMessages:
                 rna_ctxt: the labels' i18n context.
                 rna_struct_name, rna_prop_name, rna_enum_name: should be self-explanatory!
         """
+        try:
+            import bpy
+        except ModuleNotFoundError:
+            print("Could not import bpy, find_best_messages_matches must be run from whithin Blender.")
+            return
+
+
         # Build helper mappings.
         # Note it's user responsibility to know when to invalidate (and hence force rebuild) this cache!
         if self._reverse_cache is None:
@@ -828,7 +906,7 @@ class I18nMessages:
     def parse_messages_from_po(self, src, key=None):
         """
         Parse a po file.
-        Note: This function will silently "arrange" mis-formated entries, thus using afterward write_messages() should
+        Note: This function will silently "arrange" mis-formatted entries, thus using afterward write_messages() should
               always produce a po-valid file, though not correct!
         """
         reading_msgid = False
@@ -1069,9 +1147,7 @@ class I18nMessages:
                 "-o",
                 fname,
             )
-            print("Running ", " ".join(cmd))
             ret = subprocess.call(cmd)
-            print("Finished.")
             return
         # XXX Code below is currently broken (generates corrupted mo files it seems :( )!
         # Using http://www.gnu.org/software/gettext/manual/html_node/MO-Files.html notation.
@@ -1152,7 +1228,7 @@ class I18n:
             print("WARNING: skipping file {}, too huge!".format(path))
             return None, None, None, False
         txt = ""
-        with open(path) as f:
+        with open(path, encoding="utf8") as f:
             txt = f.read()
         _in = 0
         _out = len(txt)
@@ -1259,7 +1335,7 @@ class I18n:
                 msgs.print_stats(prefix=msgs_prefix)
                 print(prefix)
 
-        nbr_contexts = len(self.contexts - {bpy.app.translations.contexts.default})
+        nbr_contexts = len(self.contexts - {self.settings.DEFAULT_CONTEXT})
         if nbr_contexts != 1:
             if nbr_contexts == 0:
                 nbr_contexts = "No"
@@ -1277,7 +1353,7 @@ class I18n:
             "    The org msgids are currently made of {} signs.\n".format(self.nbr_signs),
             "    All processed translations are currently made of {} signs.\n".format(self.nbr_trans_signs),
             "    {} specific context{} present:\n".format(self.nbr_contexts, _ctx_txt)) +
-            tuple("            " + c + "\n" for c in self.contexts - {bpy.app.translations.contexts.default}) +
+            tuple("            " + c + "\n" for c in self.contexts - {self.settings.DEFAULT_CONTEXT}) +
             ("\n",)
         )
         print(prefix.join(lines))
@@ -1333,7 +1409,7 @@ class I18n:
     def parse_from_py(self, src, langs=set()):
         """
         src must be a valid path, either a py file or a module directory (in which case all py files inside it
-        will be checked, first file macthing will win!).
+        will be checked, first file matching will win!).
         if langs set is void, all languages found are loaded.
         """
         default_context = self.settings.DEFAULT_CONTEXT
@@ -1407,8 +1483,8 @@ class I18n:
                 "#       and edit the translations by hand.",
                 "#       Just carefully respect the format of the tuple!",
                 "",
-                "# Tuple of tuples "
-                "((msgctxt, msgid), (sources, gen_comments), (lang, translation, (is_fuzzy, comments)), ...)",
+                "# Tuple of tuples:",
+                "# ((msgctxt, msgid), (sources, gen_comments), (lang, translation, (is_fuzzy, comments)), ...)",
                 "translations_tuple = (",
             ]
             # First gather all keys (msgctxt, msgid) - theoretically, all translations should share the same, but...
@@ -1538,7 +1614,7 @@ class I18n:
                 "",
                 self.settings.PARSER_PY_MARKER_END,
             ]
-        with open(dst, 'w') as f:
+        with open(dst, 'w', encoding="utf8") as f:
             f.write((prev or "") + "\n".join(txt) + (nxt or ""))
         self.unescape()
 

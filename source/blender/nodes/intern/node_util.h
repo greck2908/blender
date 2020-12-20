@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,21 +15,13 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Nathan Letwory.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/nodes/intern/node_util.h
- *  \ingroup nodes
+/** \file
+ * \ingroup nodes
  */
 
-
-#ifndef __NODE_UTIL_H__
-#define __NODE_UTIL_H__
+#pragma once
 
 #include "DNA_listBase.h"
 
@@ -47,17 +37,21 @@
 
 #include "RNA_access.h"
 
-struct bNodeTree;
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct bNode;
+struct bNodeTree;
 
 /* data for initializing node execution */
 typedef struct bNodeExecContext {
-	struct bNodeInstanceHash *previews;
+  struct bNodeInstanceHash *previews;
 } bNodeExecContext;
 
 typedef struct bNodeExecData {
-	void *data;						/* custom data storage */
-	struct bNodePreview *preview;	/* optional preview image */
+  void *data;                   /* custom data storage */
+  struct bNodePreview *preview; /* optional preview image */
 } bNodeExecData;
 
 /**** Storage Data ****/
@@ -65,28 +59,53 @@ typedef struct bNodeExecData {
 extern void node_free_curves(struct bNode *node);
 extern void node_free_standard_storage(struct bNode *node);
 
-extern void node_copy_curves(struct bNodeTree *dest_ntree, struct bNode *dest_node, struct bNode *src_node);
-extern void node_copy_standard_storage(struct bNodeTree *dest_ntree, struct bNode *dest_node, struct bNode *src_node);
-extern void *node_initexec_curves(struct bNodeExecContext *context, struct bNode *node, bNodeInstanceKey key);
+extern void node_copy_curves(struct bNodeTree *dest_ntree,
+                             struct bNode *dest_node,
+                             const struct bNode *src_node);
+extern void node_copy_standard_storage(struct bNodeTree *dest_ntree,
+                                       struct bNode *dest_node,
+                                       const struct bNode *src_node);
+extern void *node_initexec_curves(struct bNodeExecContext *context,
+                                  struct bNode *node,
+                                  bNodeInstanceKey key);
+
+/**** Updates ****/
+void node_sock_label(struct bNodeSocket *sock, const char *name);
+void node_math_update(struct bNodeTree *ntree, struct bNode *node);
 
 /**** Labels ****/
-
 void node_blend_label(struct bNodeTree *ntree, struct bNode *node, char *label, int maxlen);
 void node_image_label(struct bNodeTree *ntree, struct bNode *node, char *label, int maxlen);
 void node_math_label(struct bNodeTree *ntree, struct bNode *node, char *label, int maxlen);
-void node_vect_math_label(struct bNodeTree *ntree, struct bNode *node, char *label, int maxlen);
+void node_vector_math_label(struct bNodeTree *ntree, struct bNode *node, char *label, int maxlen);
 void node_filter_label(struct bNodeTree *ntree, struct bNode *node, char *label, int maxlen);
-
 
 /*** Link Handling */
 void node_insert_link_default(struct bNodeTree *ntree, struct bNode *node, struct bNodeLink *link);
 void node_update_internal_links_default(struct bNodeTree *ntree, struct bNode *node);
 
 float node_socket_get_float(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock);
-void node_socket_set_float(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock, float value);
-void node_socket_get_color(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock, float *value);
-void node_socket_set_color(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock, const float *value);
-void node_socket_get_vector(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock, float *value);
-void node_socket_set_vector(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock, const float *value);
+void node_socket_set_float(struct bNodeTree *ntree,
+                           struct bNode *node,
+                           struct bNodeSocket *sock,
+                           float value);
+void node_socket_get_color(struct bNodeTree *ntree,
+                           struct bNode *node,
+                           struct bNodeSocket *sock,
+                           float *value);
+void node_socket_set_color(struct bNodeTree *ntree,
+                           struct bNode *node,
+                           struct bNodeSocket *sock,
+                           const float *value);
+void node_socket_get_vector(struct bNodeTree *ntree,
+                            struct bNode *node,
+                            struct bNodeSocket *sock,
+                            float *value);
+void node_socket_set_vector(struct bNodeTree *ntree,
+                            struct bNode *node,
+                            struct bNodeSocket *sock,
+                            const float *value);
 
+#ifdef __cplusplus
+}
 #endif
