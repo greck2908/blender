@@ -16,11 +16,16 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
+#
+# The Original Code is: all of this file.
+#
+# Contributor(s): Jacques Beaurain.
+#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
-  .
-  include
+	.
+	include
 )
 
 set(INC_SYS
@@ -28,11 +33,8 @@ set(INC_SYS
 )
 
 set(SRC
-  include/sdlew.h
-  src/sdlew.c
+	include/sdlew.h
+	src/sdlew.c
 )
 
-set(LIB
-)
-
-blender_add_lib(extern_sdlew "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+blender_add_lib(extern_sdlew "${SRC}" "${INC}" "${INC_SYS}")

@@ -18,7 +18,6 @@
 #define __TABLES_H__
 
 #include "util/util_list.h"
-#include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -30,23 +29,23 @@ enum { TABLE_CHUNK_SIZE = 256 };
 enum { TABLE_OFFSET_INVALID = -1 };
 
 class LookupTables {
- public:
-  struct Table {
-    size_t offset;
-    size_t size;
-  };
+public:
+	struct Table {
+		size_t offset;
+		size_t size;
+	};
 
-  bool need_update;
-  list<Table> lookup_tables;
+	bool need_update;
+	list<Table> lookup_tables;
 
-  LookupTables();
-  ~LookupTables();
+	LookupTables();
+	~LookupTables();
 
-  void device_update(Device *device, DeviceScene *dscene, Scene *scene);
-  void device_free(Device *device, DeviceScene *dscene);
+	void device_update(Device *device, DeviceScene *dscene);
+	void device_free(Device *device, DeviceScene *dscene);
 
-  size_t add_table(DeviceScene *dscene, vector<float> &data);
-  void remove_table(size_t *offset);
+	size_t add_table(DeviceScene *dscene, vector<float>& data);
+	void remove_table(size_t *offset);
 };
 
 CCL_NAMESPACE_END

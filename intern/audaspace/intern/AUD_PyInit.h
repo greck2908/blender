@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * Copyright 2009-2011 Jörg Hermann Müller
  *
  * This file is part of AudaSpace.
@@ -16,31 +18,34 @@
  * You should have received a copy of the GNU General Public License
  * along with Audaspace; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup audaspaceintern
+/** \file audaspace/intern/AUD_PyInit.h
+ *  \ingroup audaspaceintern
  */
+
 
 #ifndef __AUD_PYINIT_H__
 #define __AUD_PYINIT_H__
 
 #ifdef WITH_PYTHON
-#  include "Python.h"
+#include "Python.h"
 
-#  ifdef __cplusplus
+#ifdef __cplusplus
 extern "C" {
-#  endif
+#endif
 
 /**
  * Initializes the Python module.
  */
 extern PyObject *AUD_initPython(void);
 
-#  ifdef __cplusplus
+#ifdef __cplusplus
 }
-#  endif
+#endif
 
 #endif
 
-#endif  //__AUD_PYINIT_H__
+#endif //__AUD_PYINIT_H__

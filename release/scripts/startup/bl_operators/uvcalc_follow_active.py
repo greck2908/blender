@@ -18,43 +18,37 @@
 
 # <pep8 compliant>
 
+# for full docs see...
+# http://mediawiki.blender.org/index.php/Scripts/Manual/UV_Calculate/Follow_active_quads
+
 import bpy
 from bpy.types import Operator
 
-from bpy.props import (
-    EnumProperty,
-)
 
-STATUS_OK = (1 << 0)
-STATUS_ERR_ACTIVE_FACE = (1 << 1)
-STATUS_ERR_NOT_SELECTED = (1 << 2)
-STATUS_ERR_NOT_QUAD = (1 << 3)
+def extend(obj, operator, EXTEND_MODE):
 
-
-def extend(obj, EXTEND_MODE):
     import bmesh
     me = obj.data
+    # script will fail without UVs
+    if not me.uv_textures:
+        me.uv_textures.new()
 
     bm = bmesh.from_edit_mesh(me)
 
-    faces = [f for f in bm.faces if f.select and len(f.verts) == 4]
-    if not faces:
-        return 0
-
     f_act = bm.faces.active
+    uv_act = bm.loops.layers.uv.active
 
     if f_act is None:
-        return STATUS_ERR_ACTIVE_FACE
+        operator.report({'ERROR'}, "No active face")
+        return
     if not f_act.select:
-        return STATUS_ERR_NOT_SELECTED
+        operator.report({'ERROR'}, "No active face is not selected")
+        return
     elif len(f_act.verts) != 4:
-        return STATUS_ERR_NOT_QUAD
+        operator.report({'ERROR'}, "Active face must be a quad")
+        return
 
-    # Script will fail without UVs.
-    if not me.uv_layers:
-        me.uv_layers.new()
-
-    uv_act = bm.loops.layers.uv.active
+    faces = [f for f in bm.faces if f.select and len(f.verts) == 4]
 
     # our own local walker
     def walk_face_init(faces, f_act):
@@ -111,15 +105,13 @@ def extend(obj, EXTEND_MODE):
             else:
                 break
 
-    def extrapolate_uv(
-            fac,
-            l_a_outer, l_a_inner,
-            l_b_outer, l_b_inner,
-    ):
+    def extrapolate_uv(fac,
+                       l_a_outer, l_a_inner,
+                       l_b_outer, l_b_inner):
         l_b_inner[:] = l_a_inner
         l_b_outer[:] = l_a_inner + ((l_a_inner - l_a_outer) * fac)
 
-    def apply_uv(_f_prev, l_prev, _f_next):
+    def apply_uv(f_prev, l_prev, f_next):
         l_a = [None, None, None, None]
         l_b = [None, None, None, None]
 
@@ -160,12 +152,7 @@ def extend(obj, EXTEND_MODE):
         l_b_uv = [l[uv_act].uv for l in l_b]
 
         if EXTEND_MODE == 'LENGTH_AVERAGE':
-            d1 = edge_lengths[l_a[1].edge.index][0]
-            d2 = edge_lengths[l_b[2].edge.index][0]
-            try:
-                fac = d2 / d1
-            except ZeroDivisionError:
-                fac = 1.0
+            fac = edge_lengths[l_b[2].edge.index][0] / edge_lengths[l_a[1].edge.index][0]
         elif EXTEND_MODE == 'LENGTH':
             a0, b0, c0 = l_a[3].vert.co, l_a[0].vert.co, l_b[3].vert.co
             a1, b1, c1 = l_a[2].vert.co, l_a[1].vert.co, l_b[2].vert.co
@@ -225,31 +212,12 @@ def extend(obj, EXTEND_MODE):
         apply_uv(*f_triple)
 
     bmesh.update_edit_mesh(me, False)
-    return STATUS_OK
 
 
 def main(context, operator):
-    num_meshes = 0
-    num_errors = 0
-    status = 0
+    obj = context.active_object
 
-    ob_list = context.objects_in_mode_unique_data
-    for ob in ob_list:
-        num_meshes += 1
-
-        ret = extend(ob, operator.properties.mode)
-        if ret != STATUS_OK:
-            num_errors += 1
-            status |= ret
-
-    if num_errors == num_meshes:
-        if status & STATUS_ERR_NOT_QUAD:
-            operator.report({'ERROR'}, "Active face must be a quad")
-        elif status & STATUS_ERR_NOT_SELECTED:
-            operator.report({'ERROR'}, "Active face not selected")
-        else:
-            assert((status & STATUS_ERR_ACTIVE_FACE) != 0)
-            operator.report({'ERROR'}, "No active face")
+    extend(obj, operator, operator.properties.mode)
 
 
 class FollowActiveQuads(Operator):
@@ -258,26 +226,26 @@ class FollowActiveQuads(Operator):
     bl_label = "Follow Active Quads"
     bl_options = {'REGISTER', 'UNDO'}
 
-    mode: EnumProperty(
+    mode = bpy.props.EnumProperty(
         name="Edge Length Mode",
         description="Method to space UV edge loops",
-        items=(
-            ('EVEN', "Even", "Space all UVs evenly"),
-            ('LENGTH', "Length", "Average space UVs edge length of each loop"),
-            ('LENGTH_AVERAGE', "Length Average", "Average space UVs edge length of each loop"),
-        ),
+        items=(('EVEN', "Even", "Space all UVs evenly"),
+               ('LENGTH', "Length", "Average space UVs edge length of each loop"),
+               ('LENGTH_AVERAGE', "Length Average", "Average space UVs edge length of each loop"),
+               ),
         default='LENGTH_AVERAGE',
     )
 
     @classmethod
     def poll(cls, context):
-        return context.mode == 'EDIT_MESH'
+        obj = context.active_object
+        return (obj is not None and obj.type == 'MESH')
 
     def execute(self, context):
         main(context, self)
         return {'FINISHED'}
 
-    def invoke(self, context, _event):
+    def invoke(self, context, event):
         wm = context.window_manager
         return wm.invoke_props_dialog(self)
 

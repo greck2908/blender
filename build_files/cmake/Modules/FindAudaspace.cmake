@@ -11,26 +11,22 @@
 #  AUDASPACE_PY_INCLUDE_DIRS - the audaspace's python binding include directories
 #  AUDASPACE_PY_LIBRARIES - link these to use audaspace's python binding
 
-#=============================================================================
-# Copyright 2014 Blender Foundation.
-#
-# Distributed under the OSI-approved BSD 3-Clause License,
-# see accompanying file BSD-3-Clause-license.txt for details.
-#=============================================================================
-
 IF(NOT AUDASPACE_ROOT_DIR AND NOT $ENV{AUDASPACE_ROOT_DIR} STREQUAL "")
  SET(AUDASPACE_ROOT_DIR $ENV{AUDASPACE_ROOT_DIR})
 ENDIF()
 
 SET(_audaspace_SEARCH_DIRS
   ${AUDASPACE_ROOT_DIR}
+  /usr/local
+  /sw # Fink
+  /opt/local # DarwinPorts
 )
 
 # Use pkg-config to get hints about paths
 FIND_PACKAGE(PkgConfig)
 IF(PKG_CONFIG_FOUND)
   PKG_CHECK_MODULES(AUDASPACE_PKGCONF audaspace)
-ENDIF()
+ENDIF(PKG_CONFIG_FOUND)
 
 # Include dir
 FIND_PATH(AUDASPACE_INCLUDE_DIR
@@ -88,17 +84,17 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(Audaspace_Py  DEFAULT_MSG  AUDASPACE_PY_LIBRAR
 IF(AUDASPACE_FOUND)
   SET(AUDASPACE_LIBRARIES ${AUDASPACE_LIBRARY})
   SET(AUDASPACE_INCLUDE_DIRS ${AUDASPACE_INCLUDE_DIR})
-ENDIF()
+ENDIF(AUDASPACE_FOUND)
 
 IF(AUDASPACE_C_FOUND)
   SET(AUDASPACE_C_LIBRARIES ${AUDASPACE_C_LIBRARY})
   SET(AUDASPACE_C_INCLUDE_DIRS ${AUDASPACE_C_INCLUDE_DIR})
-ENDIF()
+ENDIF(AUDASPACE_C_FOUND)
 
 IF(AUDASPACE_PY_FOUND)
   SET(AUDASPACE_PY_LIBRARIES ${AUDASPACE_PY_LIBRARY})
   SET(AUDASPACE_PY_INCLUDE_DIRS ${AUDASPACE_PY_INCLUDE_DIR})
-ENDIF()
+ENDIF(AUDASPACE_PY_FOUND)
 
 MARK_AS_ADVANCED(
   AUDASPACE_LIBRARY

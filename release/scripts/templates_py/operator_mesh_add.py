@@ -1,6 +1,5 @@
 import bpy
 import bmesh
-from bpy_extras.object_utils import AddObjectHelper
 
 
 def add_box(width, height, depth):
@@ -39,7 +38,6 @@ def add_box(width, height, depth):
 from bpy.props import (
     BoolProperty,
     BoolVectorProperty,
-    EnumProperty,
     FloatProperty,
     FloatVectorProperty,
 )
@@ -51,25 +49,25 @@ class AddBox(bpy.types.Operator):
     bl_label = "Add Box"
     bl_options = {'REGISTER', 'UNDO'}
 
-    width: FloatProperty(
+    width = FloatProperty(
         name="Width",
         description="Box Width",
         min=0.01, max=100.0,
         default=1.0,
     )
-    height: FloatProperty(
+    height = FloatProperty(
         name="Height",
         description="Box Height",
         min=0.01, max=100.0,
         default=1.0,
     )
-    depth: FloatProperty(
+    depth = FloatProperty(
         name="Depth",
         description="Box Depth",
         min=0.01, max=100.0,
         default=1.0,
     )
-    layers: BoolVectorProperty(
+    layers = BoolVectorProperty(
         name="Layers",
         description="Object Layers",
         size=20,
@@ -77,22 +75,15 @@ class AddBox(bpy.types.Operator):
     )
 
     # generic transform props
-    align_items = (
-        ('WORLD', "World", "Align the new object to the world"),
-        ('VIEW', "View", "Align the new object to the view"),
-        ('CURSOR', "3D Cursor", "Use the 3D cursor orientation for the new object")
+    view_align = BoolProperty(
+        name="Align to View",
+        default=False,
     )
-    align: EnumProperty(
-        name="Align",
-        items=align_items,
-        default='WORLD',
-        update=AddObjectHelper.align_update_callback,
-    )
-    location: FloatVectorProperty(
+    location = FloatVectorProperty(
         name="Location",
         subtype='TRANSLATION',
     )
-    rotation: FloatVectorProperty(
+    rotation = FloatVectorProperty(
         name="Rotation",
         subtype='EULER',
     )
@@ -132,12 +123,12 @@ def menu_func(self, context):
 
 def register():
     bpy.utils.register_class(AddBox)
-    bpy.types.VIEW3D_MT_mesh_add.append(menu_func)
+    bpy.types.INFO_MT_mesh_add.append(menu_func)
 
 
 def unregister():
     bpy.utils.unregister_class(AddBox)
-    bpy.types.VIEW3D_MT_mesh_add.remove(menu_func)
+    bpy.types.INFO_MT_mesh_add.remove(menu_func)
 
 
 if __name__ == "__main__":

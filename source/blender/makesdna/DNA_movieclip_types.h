@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,195 +17,152 @@
  *
  * The Original Code is Copyright (C) 2011 Blender Foundation.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): Blender Foundation,
+ *                 Sergey Sharybin
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup DNA
+/** \file DNA_movieclip_types.h
+ *  \ingroup DNA
+ *  \since may-2011
+ *  \author Sergey Sharybin
  */
 
-#pragma once
+#ifndef __DNA_MOVIECLIP_TYPES_H__
+#define __DNA_MOVIECLIP_TYPES_H__
 
 #include "DNA_ID.h"
-#include "DNA_color_types.h"    /* for color management */
-#include "DNA_tracking_types.h" /* for #MovieTracking */
+#include "DNA_tracking_types.h"
+#include "DNA_color_types.h"  /* for color management */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
+struct anim;
 struct AnimData;
+struct bGPdata;
 struct ImBuf;
 struct MovieClipProxy;
-struct MovieTrackingMarker;
 struct MovieTrackingTrack;
-struct anim;
-struct bGPdata;
+struct MovieTrackingMarker;
 
 typedef struct MovieClipUser {
-  /** Current frame number. */
-  int framenr;
-  /** Proxy render size. */
-  short render_size, render_flag;
+	int framenr;    /* current frame number */
+	short render_size, render_flag;     /* proxy render size */
 } MovieClipUser;
 
 typedef struct MovieClipProxy {
-  /** 768=FILE_MAXDIR custom directory for index and proxy files (defaults to BL_proxy). */
-  char dir[768];
+	char dir[768];          /* 768=FILE_MAXDIR custom directory for index and proxy files (defaults to BL_proxy) */
 
-  /** Time code in use. */
-  short tc;
-  /** Proxy build quality. */
-  short quality;
-  /** Size flags (see below) of all proxies to build. */
-  short build_size_flag;
-  /** Time code flags (see below) of all tc indices to build. */
-  short build_tc_flag;
+	short tc;               /* time code in use */
+	short quality;          /* proxy build quality */
+	short build_size_flag;  /* size flags (see below) of all proxies to build */
+	short build_tc_flag;    /* time code flags (see below) of all tc indices to build */
 } MovieClipProxy;
 
-typedef struct MovieClip_RuntimeGPUTexture {
-  void *next, *prev;
-  MovieClipUser user;
-  /** Not written in file 3 = TEXTARGET_COUNT. */
-  struct GPUTexture *gputexture[3];
-} MovieClip_RuntimeGPUTexture;
-
-typedef struct MovieClip_Runtime {
-  struct ListBase gputextures;
-} MovieClip_Runtime;
-
 typedef struct MovieClip {
-  ID id;
-  /** Animation data (must be immediately after id for utilities to use it). */
-  struct AnimData *adt;
+	ID id;
+	struct AnimData *adt;   /* animation data (must be immediately after id for utilities to use it) */
 
-  /** File path, 1024 = FILE_MAX. */
-  char filepath[1024];
+	char name[1024];        /* file path, 1024 = FILE_MAX */
 
-  /** Sequence or movie. */
-  int source;
-  /** Last accessed frame number. */
-  int lastframe;
-  /** Size of last accessed frame. */
-  int lastsize[2];
+	int source;         /* sequence or movie */
+	int lastframe;      /* last accessed frame number */
+	int lastsize[2];    /* size of last accessed frame */
 
-  /** Display aspect. */
-  float aspx, aspy;
+	float aspx, aspy;   /* display aspect */
 
-  /** Movie source data. */
-  struct anim *anim;
-  /** Cache for different stuff, not in file. */
-  struct MovieClipCache *cache;
-  /** Grease pencil data. */
-  struct bGPdata *gpd;
+	struct anim *anim;  /* movie source data */
+	struct MovieClipCache *cache;       /* cache for different stuff, not in file */
+	struct bGPdata *gpd;                /* grease pencil data */
 
-  /** Data for SfM tracking. */
-  struct MovieTracking tracking;
-  /**
-   * Context of tracking job used to synchronize data
-   * like frame-number in SpaceClip clip user.
-   */
-  void *tracking_context;
+	struct MovieTracking tracking;      /* data for SfM tracking */
+	void *tracking_context;             /* context of tracking job
+	                                     * used to synchronize data like framenumber
+	                                     * in SpaceClip clip user */
 
-  /** Proxy to clip data. */
-  struct MovieClipProxy proxy;
-  int flag;
+	struct MovieClipProxy proxy;        /* proxy to clip data */
+	int flag;
 
-  /** Length of movie. */
-  int len;
+	int len;    /* length of movie */
 
-  /**
-   * Scene frame number footage starts playing at affects all data
-   * which is associated with a clip such as motion tracking,
-   * camera Reconstruction and so.
-   */
-  int start_frame;
-  /**
-   * Offset which is adding to a file number when reading frame from a file.
-   * affects only a way how scene frame is mapping to a file name and not
-   * touches other data associated with a clip. */
-  int frame_offset;
+	int start_frame;    /* scene frame number footage starts playing at */
+	                    /* affects all data which is associated with a clip */
+	                    /* such as motion tracking, camera reconstruciton and so */
 
-  /* color management */
-  ColorManagedColorspaceSettings colorspace_settings;
+	int frame_offset;   /* offset which is adding to a file number when reading frame */
+	                    /* from a file. affects only a way how scene frame is mapping */
+	                    /* to a file name and not touches other data associated with */
+	                    /* a clip */
 
-  struct MovieClip_Runtime runtime;
+	/* color management */
+	ColorManagedColorspaceSettings colorspace_settings;
 } MovieClip;
 
 typedef struct MovieClipScopes {
-  /** 1 means scopes are ok and recalculation is unneeded. */
-  short ok;
-  /** Whether track's mask should be applied on preview. */
-  short use_track_mask;
-  /** Height of track preview widget. */
-  int track_preview_height;
-  /** Width and height of frame for which scopes are calculated. */
-  int frame_width, frame_height;
-  /** Undistorted position of marker used for pattern sampling. */
-  struct MovieTrackingMarker undist_marker;
-  /** Search area of a track. */
-  struct ImBuf *track_search;
-  /** #ImBuf displayed in track preview. */
-  struct ImBuf *track_preview;
-  /** Sub-pizel position of marker in track ImBuf. */
-  float track_pos[2];
-  /** Active track is disabled, special notifier should be drawn. */
-  short track_disabled;
-  /** Active track is locked, no transformation should be allowed. */
-  short track_locked;
-  /** Frame number scopes are created for. */
-  int framenr;
-  /** Track scopes are created for. */
-  struct MovieTrackingTrack *track;
-  /** Marker scopes are created for. */
-  struct MovieTrackingMarker *marker;
-  /** Scale used for sliding from previewe area. */
-  float slide_scale[2];
+	short ok;                       /* 1 means scopes are ok and recalculation is unneeded */
+	short use_track_mask;           /* whether track's mask should be applied on preview */
+	int track_preview_height;       /* height of track preview widget */
+	int frame_width, frame_height;  /* width and height of frame for which scopes are calculated */
+	struct MovieTrackingMarker undist_marker;   /* undistorted position of marker used for pattern sampling */
+	struct ImBuf *track_search;     /* search area of a track */
+	struct ImBuf *track_preview;    /* ImBuf displayed in track preview */
+	float track_pos[2];             /* sub-pizel position of marker in track ImBuf */
+	short track_disabled;           /* active track is disabled, special notifier should be drawn */
+	short track_locked;             /* active track is locked, no transformation should be allowed */
+	int framenr;                    /* frame number scopes are created for */
+	struct MovieTrackingTrack *track;   /* track scopes are created for */
+	struct MovieTrackingMarker *marker; /* marker scopes are created for */
+	float slide_scale[2];           /* scale used for sliding from previewe area */
 } MovieClipScopes;
 
 /* MovieClipProxy->build_size_flag */
 enum {
-  MCLIP_PROXY_SIZE_25 = (1 << 0),
-  MCLIP_PROXY_SIZE_50 = (1 << 1),
-  MCLIP_PROXY_SIZE_75 = (1 << 2),
-  MCLIP_PROXY_SIZE_100 = (1 << 3),
-  MCLIP_PROXY_UNDISTORTED_SIZE_25 = (1 << 4),
-  MCLIP_PROXY_UNDISTORTED_SIZE_50 = (1 << 5),
-  MCLIP_PROXY_UNDISTORTED_SIZE_75 = (1 << 6),
-  MCLIP_PROXY_UNDISTORTED_SIZE_100 = (1 << 7),
+	MCLIP_PROXY_SIZE_25              = (1 << 0),
+	MCLIP_PROXY_SIZE_50              = (1 << 1),
+	MCLIP_PROXY_SIZE_75              = (1 << 2),
+	MCLIP_PROXY_SIZE_100             = (1 << 3),
+	MCLIP_PROXY_UNDISTORTED_SIZE_25  = (1 << 4),
+	MCLIP_PROXY_UNDISTORTED_SIZE_50  = (1 << 5),
+	MCLIP_PROXY_UNDISTORTED_SIZE_75  = (1 << 6),
+	MCLIP_PROXY_UNDISTORTED_SIZE_100 = (1 << 7)
 };
 
 /* MovieClip->source */
 enum {
-  MCLIP_SRC_SEQUENCE = 1,
-  MCLIP_SRC_MOVIE = 2,
+	MCLIP_SRC_SEQUENCE = 1,
+	MCLIP_SRC_MOVIE    = 2
+};
+
+/* MovieClip->selection types */
+enum {
+	MCLIP_SEL_NONE  = 0,
+	MCLIP_SEL_TRACK = 1
 };
 
 /* MovieClip->flag */
 enum {
-  MCLIP_USE_PROXY = (1 << 0),
-  MCLIP_USE_PROXY_CUSTOM_DIR = (1 << 1),
-  /* MCLIP_CUSTOM_START_FRAME    = (1 << 2), */ /* UNUSED */
-  MCLIP_DATA_EXPAND = (1 << 3),
+	MCLIP_USE_PROXY               = (1 << 0),
+	MCLIP_USE_PROXY_CUSTOM_DIR    = (1 << 1),
+	/* MCLIP_CUSTOM_START_FRAME    = (1<<2), */ /* UNUSED */
+	MCLIP_DATA_EXPAND             = (1 << 3),
 
-  MCLIP_TIMECODE_FLAGS = (MCLIP_USE_PROXY | MCLIP_USE_PROXY_CUSTOM_DIR),
+	MCLIP_TIMECODE_FLAGS          =  (MCLIP_USE_PROXY | MCLIP_USE_PROXY_CUSTOM_DIR)
 };
 
 /* MovieClip->render_size */
 enum {
-  MCLIP_PROXY_RENDER_SIZE_FULL = 0,
-  MCLIP_PROXY_RENDER_SIZE_25 = 1,
-  MCLIP_PROXY_RENDER_SIZE_50 = 2,
-  MCLIP_PROXY_RENDER_SIZE_75 = 3,
-  MCLIP_PROXY_RENDER_SIZE_100 = 4,
+	MCLIP_PROXY_RENDER_SIZE_FULL = 0,
+	MCLIP_PROXY_RENDER_SIZE_25   = 1,
+	MCLIP_PROXY_RENDER_SIZE_50   = 2,
+	MCLIP_PROXY_RENDER_SIZE_75   = 3,
+	MCLIP_PROXY_RENDER_SIZE_100  = 4
 };
 
 /* MovieClip->render_flag */
 enum {
-  MCLIP_PROXY_RENDER_UNDISTORT = 1,
-  /** Use original, if proxy is not found. */
-  MCLIP_PROXY_RENDER_USE_FALLBACK_RENDER = 2,
+	MCLIP_PROXY_RENDER_UNDISTORT = 1
 };
 
-#ifdef __cplusplus
-}
 #endif

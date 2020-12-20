@@ -57,6 +57,7 @@
 
 import struct
 import sys
+import getopt                   # command line arguments handling
 from string import Template     # strings completion
 
 

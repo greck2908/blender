@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,13 +17,22 @@
  *
  * The Original Code is Copyright (C) 2013 Blender Foundation
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __BKE_FREESTYLE_H__
+#define __BKE_FREESTYLE_H__
 
-/** \file
- * \ingroup bke
+/** \file BKE_freestyle.h
+ *  \ingroup bke
  */
+
+#include "DNA_scene_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,36 +44,29 @@ struct FreestyleModuleConfig;
 struct Main;
 
 /* RNA aliases */
-typedef struct FreestyleModuleSettings FreestyleModuleSettings;
 typedef struct FreestyleSettings FreestyleSettings;
+typedef struct FreestyleModuleSettings FreestyleModuleSettings;
 
 /* FreestyleConfig */
-void BKE_freestyle_config_init(struct FreestyleConfig *config);
-void BKE_freestyle_config_free(struct FreestyleConfig *config, const bool do_id_user);
-void BKE_freestyle_config_copy(struct FreestyleConfig *new_config,
-                               const struct FreestyleConfig *config,
-                               const int flag);
+void BKE_freestyle_config_init(FreestyleConfig *config);
+void BKE_freestyle_config_free(FreestyleConfig *config);
+void BKE_freestyle_config_copy(FreestyleConfig *new_config, FreestyleConfig *config, const int flag);
 
 /* FreestyleConfig.modules */
-struct FreestyleModuleConfig *BKE_freestyle_module_add(struct FreestyleConfig *config);
-bool BKE_freestyle_module_delete(struct FreestyleConfig *config,
-                                 struct FreestyleModuleConfig *module_conf);
-bool BKE_freestyle_module_move(struct FreestyleConfig *config,
-                               struct FreestyleModuleConfig *module_conf,
-                               int direction);
+FreestyleModuleConfig *BKE_freestyle_module_add(FreestyleConfig *config);
+bool BKE_freestyle_module_delete(FreestyleConfig *config, FreestyleModuleConfig *module_conf);
+bool BKE_freestyle_module_move(FreestyleConfig *config, FreestyleModuleConfig *module_conf, int direction);
 
 /* FreestyleConfig.linesets */
-struct FreestyleLineSet *BKE_freestyle_lineset_add(struct Main *bmain,
-                                                   struct FreestyleConfig *config,
-                                                   const char *name);
-bool BKE_freestyle_lineset_delete(struct FreestyleConfig *config,
-                                  struct FreestyleLineSet *lineset);
-struct FreestyleLineSet *BKE_freestyle_lineset_get_active(struct FreestyleConfig *config);
-short BKE_freestyle_lineset_get_active_index(struct FreestyleConfig *config);
-void BKE_freestyle_lineset_set_active_index(struct FreestyleConfig *config, short index);
-void BKE_freestyle_lineset_unique_name(struct FreestyleConfig *config,
-                                       struct FreestyleLineSet *lineset);
+FreestyleLineSet *BKE_freestyle_lineset_add(struct Main *bmain, FreestyleConfig *config, const char *name);
+bool BKE_freestyle_lineset_delete(FreestyleConfig *config, FreestyleLineSet *lineset);
+FreestyleLineSet *BKE_freestyle_lineset_get_active(FreestyleConfig *config);
+short BKE_freestyle_lineset_get_active_index(FreestyleConfig *config);
+void BKE_freestyle_lineset_set_active_index(FreestyleConfig *config, short index);
+void BKE_freestyle_lineset_unique_name(FreestyleConfig *config, FreestyleLineSet *lineset);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,17 +14,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Contributor(s): Campbell Barton
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup pythonintern
+/** \file blender/python/intern/bpy_props.h
+ *  \ingroup pythonintern
  */
 
-#pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef __BPY_PROPS_H__
+#define __BPY_PROPS_H__
 
 PyObject *BPY_rna_props(void);
 
@@ -30,8 +34,6 @@ PyObject *BPy_PointerProperty(PyObject *self, PyObject *args, PyObject *kw);
 PyObject *BPy_CollectionProperty(PyObject *self, PyObject *args, PyObject *kw);
 StructRNA *pointer_type_from_py(PyObject *value, const char *error_prefix);
 
-#define PYRNA_STACK_ARRAY RNA_STACK_ARRAY
+#define PYRNA_STACK_ARRAY 32
 
-#ifdef __cplusplus
-}
 #endif

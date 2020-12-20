@@ -53,7 +53,7 @@
 
 /* quiet unused define warnings */
 #if defined(__KERNEL_SSE2__)
-/* do nothing */
+    /* do nothing */
 #endif
 
 #include "kernel/kernel.h"
@@ -64,31 +64,31 @@ CCL_NAMESPACE_BEGIN
 
 /* Memory Copy */
 
-void kernel_const_copy(KernelGlobals *kg, const char *name, void *host, size_t)
+void kernel_const_copy(KernelGlobals *kg, const char *name, void *host, size_t size)
 {
-  if (strcmp(name, "__data") == 0) {
-    kg->__data = *(KernelData *)host;
-  }
-  else {
-    assert(0);
-  }
+	if(strcmp(name, "__data") == 0)
+		memcpy(&kg->__data, host, size);
+	else
+		assert(0);
 }
 
-void kernel_global_memory_copy(KernelGlobals *kg, const char *name, void *mem, size_t size)
+void kernel_tex_copy(KernelGlobals *kg,
+                     const char *name,
+                     void *mem,
+                     size_t size)
 {
-  if (0) {
-  }
+	if(0) {
+	}
 
 #define KERNEL_TEX(type, tname) \
-  else if (strcmp(name, #tname) == 0) \
-  { \
-    kg->tname.data = (type *)mem; \
-    kg->tname.width = size; \
-  }
+	else if(strcmp(name, #tname) == 0) { \
+		kg->tname.data = (type*)mem; \
+		kg->tname.width = size; \
+	}
 #include "kernel/kernel_textures.h"
-  else {
-    assert(0);
-  }
+	else {
+		assert(0);
+	}
 }
 
 CCL_NAMESPACE_END

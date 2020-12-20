@@ -43,10 +43,13 @@ class DATA_PT_context_lattice(DataButtonsPanel, Panel):
         lat = context.lattice
         space = context.space_data
 
+        split = layout.split(percentage=0.65)
         if ob:
-            layout.template_ID(ob, "data")
+            split.template_ID(ob, "data")
+            split.separator()
         elif lat:
-            layout.template_ID(space, "pin_id")
+            split.template_ID(space, "pin_id")
+            split.separator()
 
 
 class DATA_PT_lattice(DataButtonsPanel, Panel):
@@ -54,35 +57,28 @@ class DATA_PT_lattice(DataButtonsPanel, Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.use_property_split = True
 
         lat = context.lattice
 
-        col = layout.column()
+        row = layout.row()
+        row.prop(lat, "points_u")
+        row.prop(lat, "interpolation_type_u", text="")
 
-        sub = col.column(align=True)
-        sub.prop(lat, "points_u", text="Resolution U")
-        sub.prop(lat, "points_v", text="V")
-        sub.prop(lat, "points_w", text="W")
+        row = layout.row()
+        row.prop(lat, "points_v")
+        row.prop(lat, "interpolation_type_v", text="")
 
-        col.separator()
+        row = layout.row()
+        row.prop(lat, "points_w")
+        row.prop(lat, "interpolation_type_w", text="")
 
-        sub = col.column(align=True)
-        sub.prop(lat, "interpolation_type_u", text="Interpolation U")
-        sub.prop(lat, "interpolation_type_v", text="V")
-        sub.prop(lat, "interpolation_type_w", text="W")
-
-        col.separator()
-
-        col.prop(lat, "use_outside")
-
-        col.separator()
-
-        col.prop_search(lat, "vertex_group", context.object, "vertex_groups")
+        row = layout.row()
+        row.prop(lat, "use_outside")
+        row.prop_search(lat, "vertex_group", context.object, "vertex_groups", text="")
 
 
 class DATA_PT_custom_props_lattice(DataButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
     _context_path = "object.data"
     _property_type = bpy.types.Lattice
 

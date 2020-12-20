@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,40 +17,32 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
+ *
+ *
+ * Contributor(s): Blender Foundation
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup editors
+/** \file ED_mball.h
+ *  \ingroup editors
  */
 
-#pragma once
+#ifndef __ED_MBALL_H__
+#define __ED_MBALL_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct Base;
-struct Object;
-struct UndoType;
 struct bContext;
+struct Object;
 struct wmKeyConfig;
+struct UndoType;
 
 void ED_operatortypes_metaball(void);
 void ED_operatormacros_metaball(void);
 void ED_keymap_metaball(struct wmKeyConfig *keyconf);
 
-struct MetaElem *ED_mball_add_primitive(struct bContext *C,
-                                        struct Object *obedit,
-                                        bool obedit_is_new,
-                                        float mat[4][4],
-                                        float dia,
-                                        int type);
+struct MetaElem *ED_mball_add_primitive(struct bContext *C, struct Object *obedit, float mat[4][4], float dia, int type);
 
-bool ED_mball_select_pick(
-    struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle);
-
-bool ED_mball_deselect_all_multi_ex(struct Base **bases, uint bases_len);
-bool ED_mball_deselect_all_multi(struct bContext *C);
+bool ED_mball_select_pick(struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle);
 
 void ED_mball_editmball_free(struct Object *obedit);
 void ED_mball_editmball_make(struct Object *obedit);
@@ -57,10 +51,4 @@ void ED_mball_editmball_load(struct Object *obedit);
 /* editmball_undo.c */
 void ED_mball_undosys_type(struct UndoType *ut);
 
-#define MBALLSEL_STIFF (1u << 30)
-#define MBALLSEL_RADIUS (1u << 31)
-#define MBALLSEL_ANY (MBALLSEL_STIFF | MBALLSEL_RADIUS)
-
-#ifdef __cplusplus
-}
-#endif
+#endif  /* __ED_MBALL_H__ */

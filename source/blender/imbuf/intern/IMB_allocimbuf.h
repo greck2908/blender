@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,17 +17,21 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
+/**
+ * \file IMB_allocimbuf.h
  * \ingroup imbuf
  * \brief Header file for allocimbuf.c
  */
-#pragma once
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef __IMB_ALLOCIMBUF_H__
+#define __IMB_ALLOCIMBUF_H__
 
 struct ImBuf;
 
@@ -47,6 +53,4 @@ void imb_mmap_unlock(void);
 bool imb_addencodedbufferImBuf(struct ImBuf *ibuf);
 bool imb_enlargeencodedbufferImBuf(struct ImBuf *ibuf);
 
-#ifdef __cplusplus
-}
 #endif

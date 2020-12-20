@@ -1,4 +1,7 @@
 /*
+ * Copyright © 2001 Robert Penner
+ * All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -23,27 +26,22 @@
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * Copyright (c) 2001 Robert Penner
- * All rights reserved.
  */
 
-#pragma once
+#ifndef __BLI_EASING_H__
+#define __BLI_EASING_H__
 
-/** \file
- * \ingroup bli
+/** \file BLI_easing.h
+ *  \ingroup bli
  */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-float BLI_easing_back_ease_in(
-    float time, float begin, float change, float duration, float overshoot);
-float BLI_easing_back_ease_out(
-    float time, float begin, float change, float duration, float overshoot);
-float BLI_easing_back_ease_in_out(
-    float time, float begin, float change, float duration, float overshoot);
+float BLI_easing_back_ease_in(float time, float begin, float change, float duration, float overshoot);
+float BLI_easing_back_ease_out(float time, float begin, float change, float duration, float overshoot);
+float BLI_easing_back_ease_in_out(float time, float begin, float change, float duration, float overshoot);
 float BLI_easing_bounce_ease_out(float time, float begin, float change, float duration);
 float BLI_easing_bounce_ease_in(float time, float begin, float change, float duration);
 float BLI_easing_bounce_ease_in_out(float time, float begin, float change, float duration);
@@ -53,12 +51,9 @@ float BLI_easing_circ_ease_in_out(float time, float begin, float change, float d
 float BLI_easing_cubic_ease_in(float time, float begin, float change, float duration);
 float BLI_easing_cubic_ease_out(float time, float begin, float change, float duration);
 float BLI_easing_cubic_ease_in_out(float time, float begin, float change, float duration);
-float BLI_easing_elastic_ease_in(
-    float time, float begin, float change, float duration, float amplitude, float period);
-float BLI_easing_elastic_ease_out(
-    float time, float begin, float change, float duration, float amplitude, float period);
-float BLI_easing_elastic_ease_in_out(
-    float time, float begin, float change, float duration, float amplitude, float period);
+float BLI_easing_elastic_ease_in(float time, float begin, float change, float duration, float amplitude, float period);
+float BLI_easing_elastic_ease_out(float time, float begin, float change, float duration, float amplitude, float period);
+float BLI_easing_elastic_ease_in_out(float time, float begin, float change, float duration, float amplitude, float period);
 float BLI_easing_expo_ease_in(float time, float begin, float change, float duration);
 float BLI_easing_expo_ease_out(float time, float begin, float change, float duration);
 float BLI_easing_expo_ease_in_out(float time, float begin, float change, float duration);
@@ -79,3 +74,5 @@ float BLI_easing_sine_ease_in_out(float time, float begin, float change, float d
 #ifdef __cplusplus
 }
 #endif
+
+#endif  /* __BLI_EASING_H__ */

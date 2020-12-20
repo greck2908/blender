@@ -30,9 +30,7 @@
 
 #include "ceres/dogleg_strategy.h"
 
-#include <algorithm>
 #include <cmath>
-
 #include "Eigen/Dense"
 #include "ceres/array_utils.h"
 #include "ceres/internal/eigen.h"
@@ -49,7 +47,7 @@ namespace internal {
 namespace {
 const double kMaxMu = 1.0;
 const double kMinMu = 1e-8;
-}  // namespace
+}
 
 DoglegStrategy::DoglegStrategy(const TrustRegionStrategy::Options& options)
     : linear_solver_(options.linear_solver),
@@ -66,7 +64,7 @@ DoglegStrategy::DoglegStrategy(const TrustRegionStrategy::Options& options)
       dogleg_step_norm_(0.0),
       reuse_(false),
       dogleg_type_(options.dogleg_type) {
-  CHECK(linear_solver_ != nullptr);
+  CHECK_NOTNULL(linear_solver_);
   CHECK_GT(min_diagonal_, 0.0);
   CHECK_LE(min_diagonal_, max_diagonal_);
   CHECK_GT(max_radius_, 0.0);
@@ -81,9 +79,9 @@ TrustRegionStrategy::Summary DoglegStrategy::ComputeStep(
     SparseMatrix* jacobian,
     const double* residuals,
     double* step) {
-  CHECK(jacobian != nullptr);
-  CHECK(residuals != nullptr);
-  CHECK(step != nullptr);
+  CHECK_NOTNULL(jacobian);
+  CHECK_NOTNULL(residuals);
+  CHECK_NOTNULL(step);
 
   const int n = jacobian->num_cols();
   if (reuse_) {
@@ -122,8 +120,8 @@ TrustRegionStrategy::Summary DoglegStrategy::ComputeStep(
   //
   jacobian->SquaredColumnNorm(diagonal_.data());
   for (int i = 0; i < n; ++i) {
-    diagonal_[i] =
-        std::min(std::max(diagonal_[i], min_diagonal_), max_diagonal_);
+    diagonal_[i] = std::min(std::max(diagonal_[i], min_diagonal_),
+                            max_diagonal_);
   }
   diagonal_ = diagonal_.array().sqrt();
 
@@ -171,8 +169,9 @@ TrustRegionStrategy::Summary DoglegStrategy::ComputeStep(
 // The gradient, the Gauss-Newton step, the Cauchy point,
 // and all calculations involving the Jacobian have to
 // be adjusted accordingly.
-void DoglegStrategy::ComputeGradient(SparseMatrix* jacobian,
-                                     const double* residuals) {
+void DoglegStrategy::ComputeGradient(
+    SparseMatrix* jacobian,
+    const double* residuals) {
   gradient_.setZero();
   jacobian->LeftMultiply(residuals, gradient_.data());
   gradient_.array() /= diagonal_.array();
@@ -186,7 +185,8 @@ void DoglegStrategy::ComputeCauchyPoint(SparseMatrix* jacobian) {
   Jg.setZero();
   // The Jacobian is scaled implicitly by computing J * (D^-1 * (D^-1 * g))
   // instead of (J * D^-1) * (D^-1 * g).
-  Vector scaled_gradient = (gradient_.array() / diagonal_.array()).matrix();
+  Vector scaled_gradient =
+      (gradient_.array() / diagonal_.array()).matrix();
   jacobian->RightMultiply(scaled_gradient.data(), Jg.data());
   alpha_ = gradient_.squaredNorm() / Jg.squaredNorm();
 }
@@ -215,7 +215,7 @@ void DoglegStrategy::ComputeTraditionalDoglegStep(double* dogleg) {
   // Case 2. The Cauchy point and the Gauss-Newton steps lie outside
   // the trust region. Rescale the Cauchy point to the trust region
   // and return.
-  if (gradient_norm * alpha_ >= radius_) {
+  if  (gradient_norm * alpha_ >= radius_) {
     dogleg_step = -(radius_ / gradient_norm) * gradient_;
     dogleg_step_norm_ = radius_;
     dogleg_step.array() /= diagonal_.array();
@@ -240,12 +240,14 @@ void DoglegStrategy::ComputeTraditionalDoglegStep(double* dogleg) {
   //   = alpha * -gradient' gauss_newton_step - alpha^2 |gradient|^2
   const double c = b_dot_a - a_squared_norm;
   const double d = sqrt(c * c + b_minus_a_squared_norm *
-                                    (pow(radius_, 2.0) - a_squared_norm));
+                        (pow(radius_, 2.0) - a_squared_norm));
 
-  double beta = (c <= 0) ? (d - c) / b_minus_a_squared_norm
-                         : (radius_ * radius_ - a_squared_norm) / (d + c);
-  dogleg_step =
-      (-alpha_ * (1.0 - beta)) * gradient_ + beta * gauss_newton_step_;
+  double beta =
+      (c <= 0)
+      ? (d - c) /  b_minus_a_squared_norm
+      : (radius_ * radius_ - a_squared_norm) / (d + c);
+  dogleg_step = (-alpha_ * (1.0 - beta)) * gradient_
+      + beta * gauss_newton_step_;
   dogleg_step_norm_ = dogleg_step.norm();
   dogleg_step.array() /= diagonal_.array();
   VLOG(3) << "Dogleg step size: " << dogleg_step_norm_
@@ -341,13 +343,13 @@ void DoglegStrategy::ComputeSubspaceDoglegStep(double* dogleg) {
   // correctly determined.
   const double kCosineThreshold = 0.99;
   const Vector2d grad_minimum = subspace_B_ * minimum + subspace_g_;
-  const double cosine_angle =
-      -minimum.dot(grad_minimum) / (minimum.norm() * grad_minimum.norm());
+  const double cosine_angle = -minimum.dot(grad_minimum) /
+      (minimum.norm() * grad_minimum.norm());
   if (cosine_angle < kCosineThreshold) {
     LOG(WARNING) << "First order optimality seems to be violated "
                  << "in the subspace method!\n"
-                 << "Cosine of angle between x and B x + g is " << cosine_angle
-                 << ".\n"
+                 << "Cosine of angle between x and B x + g is "
+                 << cosine_angle << ".\n"
                  << "Taking a regular dogleg step instead.\n"
                  << "Please consider filing a bug report if this "
                  << "happens frequently or consistently.\n";
@@ -419,17 +421,15 @@ Vector DoglegStrategy::MakePolynomialForBoundaryConstrainedProblem() const {
   const double trB = subspace_B_.trace();
   const double r2 = radius_ * radius_;
   Matrix2d B_adj;
-  // clang-format off
   B_adj <<  subspace_B_(1, 1) , -subspace_B_(0, 1),
-           -subspace_B_(1, 0) ,  subspace_B_(0, 0);
-  // clang-format on
+            -subspace_B_(1, 0) ,  subspace_B_(0, 0);
 
   Vector polynomial(5);
   polynomial(0) = r2;
   polynomial(1) = 2.0 * r2 * trB;
   polynomial(2) = r2 * (trB * trB + 2.0 * detB) - subspace_g_.squaredNorm();
-  polynomial(3) =
-      -2.0 * (subspace_g_.transpose() * B_adj * subspace_g_ - r2 * detB * trB);
+  polynomial(3) = -2.0 * (subspace_g_.transpose() * B_adj * subspace_g_
+      - r2 * detB * trB);
   polynomial(4) = r2 * detB * detB - (B_adj * subspace_g_).squaredNorm();
 
   return polynomial;
@@ -469,7 +469,7 @@ double DoglegStrategy::EvaluateSubspaceModel(const Vector2d& x) const {
 // In the failure case, another step should be taken, such as the traditional
 // dogleg step.
 bool DoglegStrategy::FindMinimumOnTrustRegionBoundary(Vector2d* minimum) const {
-  CHECK(minimum != nullptr);
+  CHECK_NOTNULL(minimum);
 
   // Return (0, 0) in all error cases.
   minimum->setZero();
@@ -563,8 +563,10 @@ LinearSolver::Summary DoglegStrategy::ComputeGaussNewtonStep(
     // of Jx = -r and later set x = -y to avoid having to modify
     // either jacobian or residuals.
     InvalidateArray(n, gauss_newton_step_.data());
-    linear_solver_summary = linear_solver_->Solve(
-        jacobian, residuals, solve_options, gauss_newton_step_.data());
+    linear_solver_summary = linear_solver_->Solve(jacobian,
+                                                  residuals,
+                                                  solve_options,
+                                                  gauss_newton_step_.data());
 
     if (per_solve_options.dump_format_type == CONSOLE ||
         (per_solve_options.dump_format_type != CONSOLE &&
@@ -637,7 +639,9 @@ void DoglegStrategy::StepIsInvalid() {
   reuse_ = false;
 }
 
-double DoglegStrategy::Radius() const { return radius_; }
+double DoglegStrategy::Radius() const {
+  return radius_;
+}
 
 bool DoglegStrategy::ComputeSubspaceModel(SparseMatrix* jacobian) {
   // Compute an orthogonal basis for the subspace using QR decomposition.
@@ -695,8 +699,8 @@ bool DoglegStrategy::ComputeSubspaceModel(SparseMatrix* jacobian) {
 
   subspace_g_ = subspace_basis_.transpose() * gradient_;
 
-  Eigen::Matrix<double, 2, Eigen::Dynamic, Eigen::RowMajor> Jb(
-      2, jacobian->num_rows());
+  Eigen::Matrix<double, 2, Eigen::Dynamic, Eigen::RowMajor>
+      Jb(2, jacobian->num_rows());
   Jb.setZero();
 
   Vector tmp;

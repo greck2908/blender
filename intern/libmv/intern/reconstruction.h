@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,6 +17,11 @@
  *
  * The Original Code is Copyright (C) 2011 Blender Foundation.
  * All rights reserved.
+ *
+ * Contributor(s): Blender Foundation,
+ *                 Sergey Sharybin
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef LIBMV_C_API_RECONSTRUCTION_H_
@@ -31,22 +38,10 @@ struct libmv_CameraIntrinsicsOptions;
 typedef struct libmv_Reconstruction libmv_Reconstruction;
 
 enum {
-  LIBMV_REFINE_FOCAL_LENGTH             = (1 << 0),
-  LIBMV_REFINE_PRINCIPAL_POINT          = (1 << 1),
-
-  LIBMV_REFINE_RADIAL_DISTORTION_K1     = (1 << 2),
-  LIBMV_REFINE_RADIAL_DISTORTION_K2     = (1 << 3),
-  LIBMV_REFINE_RADIAL_DISTORTION_K3     = (1 << 4),
-  LIBMV_REFINE_RADIAL_DISTORTION_K4     = (1 << 5),
-  LIBMV_REFINE_RADIAL_DISTORTION        = (LIBMV_REFINE_RADIAL_DISTORTION_K1 |
-                                           LIBMV_REFINE_RADIAL_DISTORTION_K2 |
-                                           LIBMV_REFINE_RADIAL_DISTORTION_K3 |
-                                           LIBMV_REFINE_RADIAL_DISTORTION_K4),
-
-  LIBMV_REFINE_TANGENTIAL_DISTORTION_P1 = (1 << 6),
-  LIBMV_REFINE_TANGENTIAL_DISTORTION_P2 = (1 << 7),
-  LIBMV_REFINE_TANGENTIAL_DISTORTION = (LIBMV_REFINE_TANGENTIAL_DISTORTION_P1 |
-                                        LIBMV_REFINE_TANGENTIAL_DISTORTION_P2),
+  LIBMV_REFINE_FOCAL_LENGTH         = (1 << 0),
+  LIBMV_REFINE_PRINCIPAL_POINT      = (1 << 1),
+  LIBMV_REFINE_RADIAL_DISTORTION_K1 = (1 << 2),
+  LIBMV_REFINE_RADIAL_DISTORTION_K2 = (1 << 4),
 };
 
 typedef struct libmv_ReconstructionOptions {

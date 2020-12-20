@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,66 +17,70 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup GHOST
+/** \file ghost/intern/GHOST_Debug.h
+ *  \ingroup GHOST
  * Macro's used in GHOST debug target.
  */
 
-#pragma once
+#ifndef __GHOST_DEBUG_H__
+#define __GHOST_DEBUG_H__
 
 #ifdef _MSC_VER
 #  ifdef DEBUG
-/* Suppress stl-MSVC debug info warning. */
-#    pragma warning(disable : 4786)
-#  endif
-#endif
+#    pragma warning (disable:4786) // suppress stl-MSVC debug info warning
+     // #define GHOST_DEBUG
+#  endif // DEBUG
+#endif // _MSC_VER
 
 #ifdef WITH_GHOST_DEBUG
+#  define GHOST_DEBUG // spit ghost events to stdout
+#endif // WITH_GHOST_DEBUG
+
+#ifdef GHOST_DEBUG
 #  include <iostream>
-#  include <stdio.h>  //for printf()
-#endif                // WITH_GHOST_DEBUG
+#  include <stdio.h> //for printf()
+#endif // GHOST_DEBUG
 
-#ifdef WITH_GHOST_DEBUG
-#  define GHOST_PRINT(x) \
-    { \
-      std::cout << x; \
-    } \
-    (void)0
-#  define GHOST_PRINTF(x, ...) \
-    { \
-      printf(x, __VA_ARGS__); \
-    } \
-    (void)0
-#else  // WITH_GHOST_DEBUG
+
+#ifdef GHOST_DEBUG
+#  define GHOST_PRINT(x) { std::cout << x; } (void)0
+#  define GHOST_PRINTF(x, ...) { printf(x, __VA_ARGS__); } (void)0
+#else  // GHOST_DEBUG
 #  define GHOST_PRINT(x)
 #  define GHOST_PRINTF(x, ...)
-#endif  // WITH_GHOST_DEBUG
+#endif // GHOST_DEBUG
 
 #ifdef WITH_ASSERT_ABORT
-#  include <stdio.h>   //for fprintf()
-#  include <stdlib.h>  //for abort()
-#  define GHOST_ASSERT(x, info) \
-    { \
-      if (!(x)) { \
-        fprintf(stderr, "GHOST_ASSERT failed: "); \
-        fprintf(stderr, info); \
-        fprintf(stderr, "\n"); \
-        abort(); \
-      } \
-    } \
-    (void)0
-#elif defined(WITH_GHOST_DEBUG)
-#  define GHOST_ASSERT(x, info) \
-    { \
-      if (!(x)) { \
-        GHOST_PRINT("GHOST_ASSERT failed: "); \
-        GHOST_PRINT(info); \
-        GHOST_PRINT("\n"); \
-      } \
-    } \
-    (void)0
-#else  // WITH_GHOST_DEBUG
+#  include <stdio.h>  //for fprintf()
+#  include <stdlib.h> //for abort()
+#  define GHOST_ASSERT(x, info)                                               \
+	{                                                                         \
+		if (!(x)) {                                                           \
+			fprintf(stderr, "GHOST_ASSERT failed: ");                         \
+			fprintf(stderr, info);                                            \
+			fprintf(stderr, "\n");                                            \
+			abort();                                                          \
+		}                                                                     \
+	} (void)0
+#elif defined(GHOST_DEBUG)
+#  define GHOST_ASSERT(x, info)                                               \
+	{                                                                         \
+	    if (!(x)) {                                                           \
+	        GHOST_PRINT("GHOST_ASSERT failed: ");                             \
+	        GHOST_PRINT(info);                                                \
+	        GHOST_PRINT("\n");                                                \
+	    }                                                                     \
+	} (void)0
+#else  // GHOST_DEBUG
 #  define GHOST_ASSERT(x, info) ((void)0)
-#endif  // WITH_GHOST_DEBUG
+#endif // GHOST_DEBUG
+
+#endif // __GHOST_DEBUG_H__

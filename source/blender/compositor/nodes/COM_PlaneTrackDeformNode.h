@@ -1,4 +1,6 @@
 /*
+ * Copyright 2013, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,22 +15,23 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2013, Blender Foundation.
+ * Contributor:
+ *		Sergey Sharybin
  */
-
-#pragma once
 
 #include "COM_Node.h"
 
-#include "DNA_movieclip_types.h"
-#include "DNA_node_types.h"
+extern "C" {
+#  include "DNA_movieclip_types.h"
+#  include "DNA_node_types.h"
+}
 
 /**
  * \brief PlaneTrackDeformNode
  * \ingroup Node
  */
 class PlaneTrackDeformNode : public Node {
- public:
-  PlaneTrackDeformNode(bNode *editorNode);
-  void convertToOperations(NodeConverter &converter, const CompositorContext &context) const;
+public:
+	PlaneTrackDeformNode(bNode *editorNode);
+	void convertToOperations(NodeConverter &converter, const CompositorContext &context) const;
 };

@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,17 +17,25 @@
  *
  * The Original Code is Copyright (C) 2012 Blender Foundation.
  * All rights reserved.
+ *
+ * Contributor(s): Campbell Barton
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup pybmesh
+/** \file blender/python/bmesh/bmesh_py_ops_call.h
+ *  \ingroup pybmesh
  */
 
-#pragma once
+#ifndef __BMESH_PY_OPS_CALL_H__
+#define __BMESH_PY_OPS_CALL_H__
 
 typedef struct {
-  PyObject_HEAD /* required python macro   */
-      const char *opname;
+	PyObject_HEAD /* required python macro   */
+	const char *opname;
 } BPy_BMeshOpFunc;
 
+
 PyObject *BPy_BMO_call(BPy_BMeshOpFunc *self, PyObject *args, PyObject *kw);
+
+#endif /* __BMESH_PY_OPS_CALL_H__ */

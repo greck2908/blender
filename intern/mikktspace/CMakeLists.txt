@@ -16,17 +16,22 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
+#
+# The Original Code is: all of this file.
+#
+# Contributor(s): Daniel Genrich
+#
 # ***** END GPL LICENSE BLOCK *****
 
 if(CMAKE_COMPILER_IS_GNUCC)
-  remove_cc_flag(
-    "-Wshadow"
-    "-Werror=shadow"
-  )
+	remove_cc_flag(
+		"-Wshadow"
+		"-Werror=shadow"
+	)
 endif()
 
 set(INC
-  .
+	.
 )
 
 set(INC_SYS
@@ -34,12 +39,9 @@ set(INC_SYS
 )
 
 set(SRC
-  mikktspace.c
+	mikktspace.c
 
-  mikktspace.h
+	mikktspace.h
 )
 
-set(LIB
-)
-
-blender_add_lib(bf_intern_mikktspace "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+blender_add_lib(bf_intern_mikktspace "${SRC}" "${INC}" "${INC_SYS}")

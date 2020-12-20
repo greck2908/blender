@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,47 +14,31 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
-#pragma once
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/** \file
- * \ingroup bke
- */
-
-/**
- * The lines below use regex from scripts to extract their values,
- * Keep this in mind when modifying this file and keep this comment above the defines.
  *
- * \note Use #STRINGIFY() rather than defining with quotes.
+ * ***** END GPL LICENSE BLOCK *****
+ */
+#ifndef __BKE_BLENDER_VERSION_H__
+#define __BKE_BLENDER_VERSION_H__
+
+/** \file BKE_blender_version.h
+ *  \ingroup bke
  */
 
-/* Blender major and minor version. */
-#define BLENDER_VERSION 292
-/* Blender patch version for bugfix releases. */
-#define BLENDER_VERSION_PATCH 0
-/** Blender release cycle stage: alpha/beta/rc/release. */
-#define BLENDER_VERSION_CYCLE alpha
+/* these lines are grep'd, watch out for our not-so-awesome regex
+ * and keep comment above the defines.
+ * Use STRINGIFY() rather than defining with quotes */
+#define BLENDER_VERSION         279
+#define BLENDER_SUBVERSION      6
+/* Several breakages with 270, e.g. constraint deg vs rad */
+#define BLENDER_MINVERSION      270
+#define BLENDER_MINSUBVERSION   6
 
-/* Blender file format version. */
-#define BLENDER_FILE_VERSION BLENDER_VERSION
-#define BLENDER_FILE_SUBVERSION 8
+/* used by packaging tools */
+/* can be left blank, otherwise a,b,c... etc with no quotes */
+#define BLENDER_VERSION_CHAR
+/* alpha/beta/rc/release, docs use this */
+#define BLENDER_VERSION_CYCLE   alpha
 
-/* Minimum Blender version that supports reading file written with the current
- * version. Older Blender versions will test this and show a warning if the file
- * was written with too new a version. */
-#define BLENDER_FILE_MIN_VERSION 290
-#define BLENDER_FILE_MIN_SUBVERSION 0
+extern char versionstr[]; /* from blender.c */
 
-/** User readable version string. */
-const char *BKE_blender_version_string(void);
-
-/* Returns true when version cycle is alpha, otherwise (beta, rc) returns false. */
-bool BKE_blender_version_is_alpha(void);
-
-#ifdef __cplusplus
-}
-#endif
+#endif  /* __BKE_BLENDER_VERSION_H__ */

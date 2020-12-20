@@ -5,11 +5,9 @@ import os
 import subprocess
 import sys
 
-
 def run(cmd):
     print("   ", " ".join(cmd))
     subprocess.check_call(cmd)
-
 
 BASEDIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -20,9 +18,6 @@ if sys.platform == 'darwin':
     inkscape_app_path = '/Applications/Inkscape.app/Contents/Resources/script'
     if os.path.exists(inkscape_app_path):
         inkscape_bin = inkscape_app_path
-    blender_app_path = '/Applications/Blender.app/Contents/MacOS/Blender'
-    if os.path.exists(blender_app_path):
-        blender_bin = blender_app_path
 
 cmd = (
     inkscape_bin,

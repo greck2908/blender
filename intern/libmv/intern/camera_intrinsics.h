@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,6 +17,11 @@
  *
  * The Original Code is Copyright (C) 2011 Blender Foundation.
  * All rights reserved.
+ *
+ * Contributor(s): Blender Foundation,
+ *                 Sergey Sharybin
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef LIBMV_C_API_CAMERA_INTRINSICS_H_
@@ -29,13 +36,10 @@ typedef struct libmv_CameraIntrinsics libmv_CameraIntrinsics;
 enum {
   LIBMV_DISTORTION_MODEL_POLYNOMIAL = 0,
   LIBMV_DISTORTION_MODEL_DIVISION = 1,
-  LIBMV_DISTORTION_MODEL_NUKE = 2,
-  LIBMV_DISTORTION_MODEL_BROWN = 3,
 };
 
 typedef struct libmv_CameraIntrinsicsOptions {
   // Common settings of all distortion models.
-  int num_threads;
   int distortion_model;
   int image_width, image_height;
   double focal_length;
@@ -47,13 +51,6 @@ typedef struct libmv_CameraIntrinsicsOptions {
 
   // Division distortion model.
   double division_k1, division_k2;
-
-  // Nuke distortion model.
-  double nuke_k1, nuke_k2;
-
-  // Brown-Conrady distortion model.
-  double brown_k1, brown_k2, brown_k3, brown_k4;
-  double brown_p1, brown_p2;
 } libmv_CameraIntrinsicsOptions;
 
 libmv_CameraIntrinsics *libmv_cameraIntrinsicsNew(

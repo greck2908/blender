@@ -31,10 +31,9 @@
 #ifndef CERES_INTERNAL_BLOCK_JACOBI_PRECONDITIONER_H_
 #define CERES_INTERNAL_BLOCK_JACOBI_PRECONDITIONER_H_
 
-#include <memory>
-
+#include <vector>
 #include "ceres/block_random_access_diagonal_matrix.h"
-#include "ceres/internal/port.h"
+#include "ceres/internal/scoped_ptr.h"
 #include "ceres/preconditioner.h"
 
 namespace ceres {
@@ -53,26 +52,22 @@ struct CompressedRowBlockStructure;
 // update the matrix by running Update(A, D). The values of the matrix A are
 // inspected to construct the preconditioner. The vector D is applied as the
 // D^TD diagonal term.
-class CERES_EXPORT_INTERNAL BlockJacobiPreconditioner
-    : public BlockSparseMatrixPreconditioner {
+class BlockJacobiPreconditioner : public BlockSparseMatrixPreconditioner {
  public:
   // A must remain valid while the BlockJacobiPreconditioner is.
   explicit BlockJacobiPreconditioner(const BlockSparseMatrix& A);
-  BlockJacobiPreconditioner(const BlockJacobiPreconditioner&) = delete;
-  void operator=(const BlockJacobiPreconditioner&) = delete;
-
   virtual ~BlockJacobiPreconditioner();
 
   // Preconditioner interface
-  void RightMultiply(const double* x, double* y) const final;
-  int num_rows() const final { return m_->num_rows(); }
-  int num_cols() const final { return m_->num_rows(); }
+  virtual void RightMultiply(const double* x, double* y) const;
+  virtual int num_rows() const { return m_->num_rows(); }
+  virtual int num_cols() const { return m_->num_rows(); }
+
   const BlockRandomAccessDiagonalMatrix& matrix() const { return *m_; }
-
  private:
-  bool UpdateImpl(const BlockSparseMatrix& A, const double* D) final;
+  virtual bool UpdateImpl(const BlockSparseMatrix& A, const double* D);
 
-  std::unique_ptr<BlockRandomAccessDiagonalMatrix> m_;
+  scoped_ptr<BlockRandomAccessDiagonalMatrix> m_;
 };
 
 }  // namespace internal

@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,19 +14,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Contributor(s): Blender Foundation 2013
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
-#pragma once
+#ifndef __BKE_AUTOEXEC_H__
+#define __BKE_AUTOEXEC_H__
 
-/** \file
- * \ingroup bke
+/** \file BKE_autoexec.h
+ *  \ingroup bke
  */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 bool BKE_autoexec_match(const char *path);
 
-#ifdef __cplusplus
-}
-#endif
+#endif  /* __BKE_AUTOEXEC_H__ */

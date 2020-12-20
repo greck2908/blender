@@ -16,27 +16,29 @@
 #
 # The Original Code is Copyright (C) 2014, Blender Foundation
 # All rights reserved.
+#
+# The Original Code is: all of this file.
+#
+# Contributor(s): Jason Wilkins
+#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
-  .
+	.
 )
 
 set(INC_SYS
-  ${GLEW_INCLUDE_PATH}
+	${GLEW_INCLUDE_PATH}
 )
 
 set(SRC
-  intern/glew-mx.c
+	intern/glew-mx.c
 
-  glew-mx.h
-  intern/gl-deprecated.h
-  intern/symbol-binding.h
-)
-
-set(LIB
+	glew-mx.h
+	intern/gl-deprecated.h
+	intern/symbol-binding.h
 )
 
 add_definitions(${GL_DEFINITIONS})
 
-blender_add_lib(bf_intern_glew_mx "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+blender_add_lib(bf_intern_glew_mx "${SRC}" "${INC}" "${INC_SYS}")

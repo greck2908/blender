@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,53 +14,56 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __FREESTYLE_AVERAGE_AREA_GRID_DENSITY_PROVIDER_H__
+#define __FREESTYLE_AVERAGE_AREA_GRID_DENSITY_PROVIDER_H__
 
-/** \file
- * \ingroup freestyle
- * \brief Class to define a cell grid surrounding the projected image of a scene
+/** \file blender/freestyle/intern/view_map/AverageAreaGridDensityProvider.h
+ *  \ingroup freestyle
+ *  \brief Class to define a cell grid surrounding the projected image of a scene
+ *  \author Alexander Beels
+ *  \date 2011-2-9
  */
 
 #include "GridDensityProvider.h"
 
 namespace Freestyle {
 
-class AverageAreaGridDensityProvider : public GridDensityProvider {
-  // Disallow copying and assignment
-  AverageAreaGridDensityProvider(const AverageAreaGridDensityProvider &other);
-  AverageAreaGridDensityProvider &operator=(const AverageAreaGridDensityProvider &other);
+class AverageAreaGridDensityProvider : public GridDensityProvider
+{
+	// Disallow copying and assignment
+	AverageAreaGridDensityProvider(const AverageAreaGridDensityProvider& other);
+	AverageAreaGridDensityProvider& operator=(const AverageAreaGridDensityProvider& other);
 
- public:
-  AverageAreaGridDensityProvider(OccluderSource &source,
-                                 const real proscenium[4],
-                                 real sizeFactor);
-  AverageAreaGridDensityProvider(OccluderSource &source,
-                                 const BBox<Vec3r> &bbox,
-                                 const GridHelpers::Transform &transform,
-                                 real sizeFactor);
-  AverageAreaGridDensityProvider(OccluderSource &source, real sizeFactor);
-  virtual ~AverageAreaGridDensityProvider();
+public:
+	AverageAreaGridDensityProvider(OccluderSource& source, const real proscenium[4], real sizeFactor);
+	AverageAreaGridDensityProvider(OccluderSource& source, const BBox<Vec3r>& bbox,
+	                               const GridHelpers::Transform& transform, real sizeFactor);
+	AverageAreaGridDensityProvider(OccluderSource& source, real sizeFactor);
+	virtual ~AverageAreaGridDensityProvider();
 
- private:
-  void initialize(const real proscenium[4], real sizeFactor);
+private:
+	void initialize (const real proscenium[4], real sizeFactor);
 };
 
-class AverageAreaGridDensityProviderFactory : public GridDensityProviderFactory {
- public:
-  AverageAreaGridDensityProviderFactory(real sizeFactor);
-  ~AverageAreaGridDensityProviderFactory();
+class AverageAreaGridDensityProviderFactory : public GridDensityProviderFactory
+{
+public:
+	AverageAreaGridDensityProviderFactory(real sizeFactor);
+	~AverageAreaGridDensityProviderFactory();
 
-  AutoPtr<GridDensityProvider> newGridDensityProvider(OccluderSource &source,
-                                                      const real proscenium[4]);
-  AutoPtr<GridDensityProvider> newGridDensityProvider(OccluderSource &source,
-                                                      const BBox<Vec3r> &bbox,
-                                                      const GridHelpers::Transform &transform);
-  AutoPtr<GridDensityProvider> newGridDensityProvider(OccluderSource &source);
+	AutoPtr<GridDensityProvider> newGridDensityProvider(OccluderSource& source, const real proscenium[4]);
+	AutoPtr<GridDensityProvider> newGridDensityProvider(OccluderSource& source, const BBox<Vec3r>& bbox,
+	                                                    const GridHelpers::Transform& transform);
+	AutoPtr<GridDensityProvider> newGridDensityProvider(OccluderSource& source);
 
- protected:
-  real sizeFactor;
+protected:
+	real sizeFactor;
 };
 
 } /* namespace Freestyle */
+
+#endif // __FREESTYLE_AVERAGE_AREA_GRID_DENSITY_PROVIDER_H__

@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +17,20 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
+ *
+ *
+ * Contributor(s): Blender Foundation
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup spuserpref
+/** \file blender/editors/space_userpref/userpref_intern.h
+ *  \ingroup spuserpref
  */
 
-#pragma once
+#ifndef __USERPREF_INTERN_H__
+#define __USERPREF_INTERN_H__
 
 /* internal exports only */
+
+#endif /* __USERPREF_INTERN_H__ */

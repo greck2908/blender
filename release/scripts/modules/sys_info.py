@@ -70,22 +70,18 @@ def write_sysinfo(filepath):
             output.write("build linkflags: %s\n" % prepr(bpy.app.build_linkflags))
             output.write("build system: %s\n" % prepr(bpy.app.build_system))
 
-            # Python info.
+            # python info
             output.write(title("Python"))
-            output.write("version: %s\n" % (sys.version.replace("\n", " ")))
-            output.write("file system encoding: %s:%s\n" % (
-                sys.getfilesystemencoding(),
-                sys.getfilesystemencodeerrors(),
-            ))
+            output.write("version: %s\n" % (sys.version))
             output.write("paths:\n")
             for p in sys.path:
                 output.write("\t%r\n" % p)
 
             output.write(title("Python (External Binary)"))
-            output.write("binary path: %s\n" % prepr(sys.executable))
+            output.write("binary path: %s\n" % prepr(bpy.app.binary_path_python))
             try:
                 py_ver = prepr(subprocess.check_output([
-                    sys.executable,
+                    bpy.app.binary_path_python,
                     "--version",
                 ]).strip())
             except Exception as e:
@@ -176,13 +172,6 @@ def write_sysinfo(filepath):
             else:
                 output.write("Blender was built without Alembic support\n")
 
-            usd = bpy.app.usd
-            output.write("USD: ")
-            if usd.supported:
-                output.write("%s\n" % usd.version_string)
-            else:
-                output.write("Blender was built without USD support\n")
-
             if not bpy.app.build_options.sdl:
                 output.write("SDL: Blender was built without SDL support\n")
 
@@ -196,19 +185,14 @@ def write_sysinfo(filepath):
                 output.write("version:\t%r\n" % (bgl.glGetString(bgl.GL_VERSION)))
                 output.write("extensions:\n")
 
-                limit = bgl.Buffer(bgl.GL_INT, 1)
-                bgl.glGetIntegerv(bgl.GL_NUM_EXTENSIONS, limit)
-
-                glext = []
-                for i in range(limit[0]):
-                    glext.append(bgl.glGetStringi(bgl.GL_EXTENSIONS, i))
-
-                glext = sorted(glext)
-
+                glext = sorted(bgl.glGetString(bgl.GL_EXTENSIONS).split())
                 for l in glext:
                     output.write("\t%s\n" % l)
 
                 output.write(title("Implementation Dependent OpenGL Limits"))
+                limit = bgl.Buffer(bgl.GL_INT, 1)
+                bgl.glGetIntegerv(bgl.GL_MAX_TEXTURE_UNITS, limit)
+                output.write("Maximum Fixed Function Texture Units:\t%d\n" % limit[0])
                 bgl.glGetIntegerv(bgl.GL_MAX_ELEMENTS_VERTICES, limit)
                 output.write("Maximum DrawElements Vertices:\t%d\n" % limit[0])
                 bgl.glGetIntegerv(bgl.GL_MAX_ELEMENTS_INDICES, limit)
@@ -238,7 +222,7 @@ def write_sysinfo(filepath):
             import addon_utils
             addon_utils.modules()
             output.write(title("Enabled add-ons"))
-            for addon in bpy.context.preferences.addons.keys():
+            for addon in bpy.context.user_preferences.addons.keys():
                 addon_mod = addon_utils.addons_fake_modules.get(addon, None)
                 if addon_mod is None:
                     output.write("%s (MISSING)\n" % (addon))

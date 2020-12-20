@@ -62,6 +62,7 @@ class AppOverrideState:
         self._ui_ignore_store = None
 
     def _setup_classes(self):
+        import bpy
         assert(self._class_store is None)
         self._class_store = self.class_ignore()
         from bpy.utils import unregister_class
@@ -99,6 +100,7 @@ class AppOverrideState:
 
     def _setup_addons(self):
         import sys
+        import os
 
         sys_path = []
         if self.addon_paths is not None:

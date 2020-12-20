@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,84 +14,69 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Contributor(s): Campbell Barton
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __BKE_UNIT_H__
+#define __BKE_UNIT_H__
 
-/** \file
- * \ingroup bke
+/** \file BKE_unit.h
+ *  \ingroup bke
  */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct UnitSettings;
-
 /* in all cases the value is assumed to be scaled by the user preference */
 
 /* humanly readable representation of a value in units (used for button drawing) */
-size_t BKE_unit_value_as_string_adaptive(
-    char *str, int len_max, double value, int prec, int system, int type, bool split, bool pad);
-size_t BKE_unit_value_as_string(char *str,
-                                int len_max,
-                                double value,
-                                int prec,
-                                int type,
-                                const struct UnitSettings *settings,
-                                bool pad);
+size_t  bUnit_AsString(char *str, int len_max, double value, int prec, int system, int type, bool split, bool pad);
 
 /* replace units with values, used before python button evaluation */
-bool BKE_unit_replace_string(
-    char *str, int len_max, const char *str_prev, double scale_pref, int system, int type);
-
-/* return true if the string contains any valid unit for the given type */
-bool BKE_unit_string_contains_unit(const char *str, int type);
-
-/* If user does not specify a unit, this converts it to the unit from the settings. */
-double BKE_unit_apply_preferred_unit(const struct UnitSettings *settings, int type, double value);
+bool bUnit_ReplaceString(char *str, int len_max, const char *str_prev, double scale_pref, int system, int type);
 
 /* make string keyboard-friendly: 10µm --> 10um */
-void BKE_unit_name_to_alt(char *str, int len_max, const char *orig_str, int system, int type);
+void bUnit_ToUnitAltName(char *str, int len_max, const char *orig_str, int system, int type);
 
 /* the size of the unit used for this value (used for calculating the ckickstep) */
-double BKE_unit_closest_scalar(double value, int system, int type);
+double bUnit_ClosestScalar(double value, int system, int type);
 
 /* base scale for these units */
-double BKE_unit_base_scalar(int system, int type);
+double bUnit_BaseScalar(int system, int type);
 
 /* return true is the unit system exists */
-bool BKE_unit_is_valid(int system, int type);
+bool bUnit_IsValid(int system, int type);
 
 /* loop over scales, could add names later */
-// double bUnit_Iter(void **unit, char **name, int system, int type);
+//double bUnit_Iter(void **unit, char **name, int system, int type);
 
-void BKE_unit_system_get(int system, int type, const void **r_usys_pt, int *r_len);
-int BKE_unit_base_get(const void *usys_pt);
-int BKE_unit_base_of_type_get(int system, int type);
-const char *BKE_unit_name_get(const void *usys_pt, int index);
-const char *BKE_unit_display_name_get(const void *usys_pt, int index);
-const char *BKE_unit_identifier_get(const void *usys_pt, int index);
-double BKE_unit_scalar_get(const void *usys_pt, int index);
-bool BKE_unit_is_suppressed(const void *usys_pt, int index);
+void        bUnit_GetSystem(int system, int type, void const **r_usys_pt, int *r_len);
+int         bUnit_GetBaseUnit(const void *usys_pt);
+const char *bUnit_GetName(const void *usys_pt, int index);
+const char *bUnit_GetNameDisplay(const void *usys_pt, int index);
+double      bUnit_GetScaler(const void *usys_pt, int index);
 
 /* aligned with PropertyUnit */
 enum {
-  B_UNIT_NONE = 0,
-  B_UNIT_LENGTH = 1,
-  B_UNIT_AREA = 2,
-  B_UNIT_VOLUME = 3,
-  B_UNIT_MASS = 4,
-  B_UNIT_ROTATION = 5,
-  B_UNIT_TIME = 6,
-  B_UNIT_VELOCITY = 7,
-  B_UNIT_ACCELERATION = 8,
-  B_UNIT_CAMERA = 9,
-  B_UNIT_POWER = 10,
-  B_UNIT_TEMPERATURE = 11,
-  B_UNIT_TYPE_TOT = 12,
+	B_UNIT_NONE             = 0,
+	B_UNIT_LENGTH           = 1,
+	B_UNIT_AREA             = 2,
+	B_UNIT_VOLUME           = 3,
+	B_UNIT_MASS             = 4,
+	B_UNIT_ROTATION         = 5,
+	B_UNIT_TIME             = 6,
+	B_UNIT_VELOCITY         = 7,
+	B_UNIT_ACCELERATION     = 8,
+	B_UNIT_CAMERA           = 9,
+	B_UNIT_TYPE_TOT         = 10,
 };
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* __BKE_UNIT_H__ */

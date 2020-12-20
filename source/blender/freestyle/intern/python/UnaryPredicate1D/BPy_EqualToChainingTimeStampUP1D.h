@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,13 +14,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup freestyle
+/** \file source/blender/freestyle/intern/python/UnaryPredicate1D/BPy_EqualToChainingTimeStampUP1D.h
+ *  \ingroup freestyle
  */
 
-#pragma once
+#ifndef __FREESTYLE_PYTHON_EQUALTOCHAININGTIMESTAMPUP1D_H__
+#define __FREESTYLE_PYTHON_EQUALTOCHAININGTIMESTAMPUP1D_H__
 
 #include "../BPy_UnaryPredicate1D.h"
 
@@ -31,12 +36,11 @@ extern "C" {
 extern PyTypeObject EqualToChainingTimeStampUP1D_Type;
 
 #define BPy_EqualToChainingTimeStampUP1D_Check(v) \
-  (PyObject_IsInstance((PyObject *)v, (PyObject *)&EqualToChainingTimeStampUP1D_Type))
+            (PyObject_IsInstance((PyObject *)v, (PyObject *)&EqualToChainingTimeStampUP1D_Type))
 
-/*---------------------------Python BPy_EqualToChainingTimeStampUP1D structure
- * definition----------*/
+/*---------------------------Python BPy_EqualToChainingTimeStampUP1D structure definition----------*/
 typedef struct {
-  BPy_UnaryPredicate1D py_up1D;
+	BPy_UnaryPredicate1D py_up1D;
 } BPy_EqualToChainingTimeStampUP1D;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -44,3 +48,5 @@ typedef struct {
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* __FREESTYLE_PYTHON_EQUALTOCHAININGTIMESTAMPUP1D_H__ */

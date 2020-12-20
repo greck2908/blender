@@ -1,13 +1,16 @@
-if EXIST %PYTHON% (
-	goto detect_python_done
+if "%SVN%" == "" (
+	echo svn not found, cannot update libraries
+	goto UPDATE_GIT
 )
+"%SVN%" up "%BLENDER_DIR%/../lib/*"
 
-echo python not found in lib folder
-exit /b 1
+:UPDATE_GIT
 
-:detect_python_done
-
-REM Use -B to avoid writing __pycache__ in lib directory and causing update conflicts.
-%PYTHON% -B %BLENDER_DIR%\build_files\utils\make_update.py --git-command "%GIT%" --svn-command "%SVN%" %BUILD_UPDATE_ARGS%
+if "%GIT%" == "" (
+	echo Git not found, cannot update code
+	goto EOF
+)
+"%GIT%" pull --rebase
+"%GIT%" submodule foreach git pull --rebase origin master
 
 :EOF

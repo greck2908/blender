@@ -53,7 +53,7 @@ typedef unsigned short ushort;
 /* Fixed Bits Types */
 
 #ifdef __KERNEL_OPENCL__
-typedef unsigned long uint64_t;
+typedef ulong uint64_t;
 #endif
 
 #ifndef __KERNEL_GPU__
@@ -74,36 +74,31 @@ typedef int64_t ssize_t;
 #    else
 typedef int32_t ssize_t;
 #    endif
-#  endif /* _WIN32 */
+#  endif  /* _WIN32 */
 
 /* Generic Memory Pointer */
 
 typedef uint64_t device_ptr;
-#endif /* __KERNEL_GPU__ */
+#endif  /* __KERNEL_GPU__ */
 
 ccl_device_inline size_t align_up(size_t offset, size_t alignment)
 {
-  return (offset + alignment - 1) & ~(alignment - 1);
+	return (offset + alignment - 1) & ~(alignment - 1);
 }
 
 ccl_device_inline size_t divide_up(size_t x, size_t y)
 {
-  return (x + y - 1) / y;
+	return (x + y - 1) / y;
 }
 
 ccl_device_inline size_t round_up(size_t x, size_t multiple)
 {
-  return ((x + multiple - 1) / multiple) * multiple;
+	return ((x + multiple - 1) / multiple) * multiple;
 }
 
 ccl_device_inline size_t round_down(size_t x, size_t multiple)
 {
-  return (x / multiple) * multiple;
-}
-
-ccl_device_inline bool is_power_of_two(size_t x)
-{
-  return (x & (x - 1)) == 0;
+	return (x / multiple) * multiple;
 }
 
 CCL_NAMESPACE_END
@@ -153,13 +148,12 @@ CCL_NAMESPACE_END
 /* SSE types. */
 #ifndef __KERNEL_GPU__
 #  include "util/util_sseb.h"
-#  include "util/util_ssef.h"
 #  include "util/util_ssei.h"
-#  if defined(__KERNEL_AVX__) || defined(__KERNEL_AVX2__)
-#    include "util/util_avxb.h"
-#    include "util/util_avxf.h"
-#    include "util/util_avxi.h"
-#  endif
+#  include "util/util_ssef.h"
+#if defined(__KERNEL_AVX__) || defined(__KERNEL_AVX2__)
+#  include "util/util_avxb.h"
+#  include "util/util_avxf.h"
+#endif
 #endif
 
 #endif /* __UTIL_TYPES_H__ */

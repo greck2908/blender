@@ -16,17 +16,22 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
+#
+# The Original Code is: all of this file.
+#
+# Contributor(s): Jacques Beaurain.
+#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
-  .
-  ..
-  ../..
-  ../../../blenkernel
-  ../../../blenlib
-  ../../../makesdna
-  ../../../../../intern/guardedalloc
-  ../../../../../intern/utfconv
+	.
+	..
+	../..
+	../../../blenkernel
+	../../../blenlib
+	../../../makesdna
+	../../../../../intern/guardedalloc
+	../../../../../intern/utfconv
 )
 
 set(INC_SYS
@@ -34,23 +39,17 @@ set(INC_SYS
 )
 
 set(SRC
-  openexr_api.h
-  openexr_multi.h
+	openexr_api.h
+	openexr_multi.h
 
-  openexr_api.cpp
-)
-
-set(LIB
+	openexr_api.cpp
 )
 
 if(WITH_IMAGE_OPENEXR)
-  list(APPEND INC_SYS
-    ${OPENEXR_INCLUDE_DIRS}
-  )
-  list(APPEND LIB
-    ${OPENEXR_LIBRARIES}
-  )
-  add_definitions(-DWITH_OPENEXR)
+	list(APPEND INC_SYS
+		${OPENEXR_INCLUDE_DIRS}
+	)
+	add_definitions(-DWITH_OPENEXR)
 endif()
 
-blender_add_lib(bf_imbuf_openexr "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+blender_add_lib(bf_imbuf_openexr "${SRC}" "${INC}" "${INC_SYS}")

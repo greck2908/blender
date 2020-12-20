@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,11 +14,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup freestyle
- * \brief Class to display an oriented line representation.
+/** \file blender/freestyle/intern/scene_graph/OrientedLineRep.cpp
+ *  \ingroup freestyle
+ *  \brief Class to display an oriented line representation.
+ *  \author Stephane Grabli
+ *  \date 24/10/2002
  */
 
 #include "OrientedLineRep.h"
@@ -25,17 +31,13 @@
 
 namespace Freestyle {
 
-void OrientedLineRep::accept(SceneVisitor &v)
+void OrientedLineRep::accept(SceneVisitor& v)
 {
-  Rep::accept(v);  // NOLINT(bugprone-parent-virtual-call), this seems to intentionally *not* call
-                   // the parent class' accept() function, but rather the grandparent's. The
-                   // v.visitLineRep(*this); call below is actually what the parent class would do.
-  if (!frs_material()) {
-    v.visitOrientedLineRep(*this);
-  }
-  else {
-    v.visitLineRep(*this);
-  }
+	Rep::accept(v);
+	if (!frs_material())
+		v.visitOrientedLineRep(*this);
+	else
+		v.visitLineRep(*this);
 }
 
 } /* namespace Freestyle */

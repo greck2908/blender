@@ -28,19 +28,22 @@
 //
 // Author: richie.stebbing@gmail.com (Richard Stebbing)
 
-#include "ceres/dynamic_compressed_row_sparse_matrix.h"
-
 #include <cstring>
+#include "ceres/dynamic_compressed_row_sparse_matrix.h"
 
 namespace ceres {
 namespace internal {
 
 DynamicCompressedRowSparseMatrix::DynamicCompressedRowSparseMatrix(
-    int num_rows, int num_cols, int initial_max_num_nonzeros)
-    : CompressedRowSparseMatrix(num_rows, num_cols, initial_max_num_nonzeros) {
-  dynamic_cols_.resize(num_rows);
-  dynamic_values_.resize(num_rows);
-}
+  int num_rows,
+  int num_cols,
+  int initial_max_num_nonzeros)
+    : CompressedRowSparseMatrix(num_rows,
+                                num_cols,
+                                initial_max_num_nonzeros) {
+    dynamic_cols_.resize(num_rows);
+    dynamic_values_.resize(num_rows);
+  }
 
 void DynamicCompressedRowSparseMatrix::InsertEntry(int row,
                                                    int col,
@@ -53,7 +56,8 @@ void DynamicCompressedRowSparseMatrix::InsertEntry(int row,
   dynamic_values_[row].push_back(value);
 }
 
-void DynamicCompressedRowSparseMatrix::ClearRows(int row_start, int num_rows) {
+void DynamicCompressedRowSparseMatrix::ClearRows(int row_start,
+                                                 int num_rows) {
   for (int r = 0; r < num_rows; ++r) {
     const int i = row_start + r;
     CHECK_GE(i, 0);
@@ -95,8 +99,8 @@ void DynamicCompressedRowSparseMatrix::Finalize(int num_additional_elements) {
   mutable_rows()[num_rows()] = index_into_values_and_cols;
 
   CHECK_EQ(index_into_values_and_cols, num_jacobian_nonzeros)
-      << "Ceres bug: final index into values_ and cols_ should be equal to "
-      << "the number of jacobian nonzeros. Please contact the developers!";
+    << "Ceres bug: final index into values_ and cols_ should be equal to "
+    << "the number of jacobian nonzeros. Please contact the developers!";
 }
 
 }  // namespace internal

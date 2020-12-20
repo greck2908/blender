@@ -28,13 +28,8 @@
 import json
 import os
 import sys
-import types
 
-try:
-    import bpy
-except ModuleNotFoundError:
-    print("Could not import bpy, some features are not available when not run from Blender.")
-    bpy = None
+import bpy
 
 ###############################################################################
 # MISC
@@ -49,7 +44,7 @@ LANGUAGES_CATEGORIES = (
 )
 LANGUAGES = (
     # ID, UI english label, ISO code.
-    (0, "Automatic (Automatic)", "DEFAULT"),
+    (0, "Default (Default)", "DEFAULT"),
     (1, "English (English)", "en_US"),
     (2, "Japanese (日本語)", "ja_JP"),
     (3, "Dutch (Nederlandse taal)", "nl_NL"),
@@ -96,16 +91,10 @@ LANGUAGES = (
     (41, "Vietnamese (tiếng Việt)", "vi_VN"),
     (42, "Basque (Euskara)", "eu_EU"),
     (43, "Hausa (Hausa)", "ha"),
-    (44, "Kazakh (қазақша)", "kk_KZ"),
-    (45, "Abkhaz (Аԥсуа бызшәа)", "ab"),
-    (46, "Thai (ภาษาไทย)", "th_TH"),
-    (47, "Slovak (Slovenčina)", "sk_SK"),
 )
 
-# Default context, in py (keep in sync with `BLT_translation.h`)!
-if bpy is not None:
-    assert(bpy.app.translations.contexts.default == "*")
-DEFAULT_CONTEXT = "*"
+# Default context, in py!
+DEFAULT_CONTEXT = bpy.app.translations.contexts.default
 
 # Name of language file used by Blender to generate translations' menu.
 LANGUAGES_FILE = "languages"
@@ -115,7 +104,7 @@ IMPORT_MIN_LEVEL = 0.0
 
 # Languages in /branches we do not want to import in /trunk currently...
 IMPORT_LANGUAGES_SKIP = {
-    'am_ET', 'bg_BG', 'fi_FI', 'el_GR', 'et_EE', 'ne_NP', 'ro_RO', 'uz_UZ', 'uz_UZ@cyrillic', 'kk_KZ', 'es_ES',
+    'am_ET', 'bg_BG', 'fi_FI', 'el_GR', 'et_EE', 'ne_NP', 'ro_RO', 'uz_UZ', 'uz_UZ@cyrillic',
 }
 
 # Languages that need RTL pre-processing.
@@ -295,14 +284,9 @@ WARN_MSGID_NOT_CAPITALIZED_ALLOWED = {
     "along %s Y",
     "along %s Z",
     "along local Z",
-    "arccos(A)",
-    "arcsin(A)",
-    "arctan(A)",
     "ascii",
     "author",                        # Addons' field. :/
     "bItasc",
-    "cos(A)",
-    "cosh(A)",
     "dbl-",                          # Compacted for 'double', for keymap items.
     "description",                   # Addons' field. :/
     "dx",
@@ -312,11 +296,6 @@ WARN_MSGID_NOT_CAPITALIZED_ALLOWED = {
     "fps: %i",
     "gimbal",
     "global",
-    "glTF 2.0 (.glb/.gltf)",
-    "glTF Binary (.glb)",
-    "glTF Embedded (.gltf)",
-    "glTF Separate (.gltf + .bin + textures)",
-    "invoke() needs to be called before execute()",
     "iScale",
     "iso-8859-15",
     "iTaSC",
@@ -338,51 +317,34 @@ WARN_MSGID_NOT_CAPITALIZED_ALLOWED = {
     "re",
     "res",
     "rv",
-    "sin(A)",
     "sin(x) / x",
-    "sinh(A)",
     "sqrt(x*x+y*y+z*z)",
     "sRGB",
-    "tan(A)",
-    "tanh(A)",
     "utf-8",
-    "uv_on_emitter() requires a modifier from an evaluated object",
     "var",
     "vBVH",
     "view",
     "wav",
-    "wmOwnerID '%s' not in workspace '%s'",
     "y",
     # Sub-strings.
     "available with",
     "brown fox",
     "can't save image while rendering",
     "constructive modifier",
-    "cursor",
-    "custom",
-    "custom matrix",
-    "custom orientation",
     "edge data",
-    "exp(A)",
     "expected a timeline/animation area to be active",
     "expected a view3d region",
     "expected a view3d region & editcurve",
     "expected a view3d region & editmesh",
     "face data",
-    "gimbal",
-    "global",
     "image file not found",
     "image format is read-only",
     "image path can't be written to",
     "in memory to enable editing!",
-    "insufficient content",
     "jumps over",
     "left",
-    "local",
     "multi-res modifier",
     "non-triangle face",
-    "normal",
-    "performance impact!",
     "right",
     "the lazy dog",
     "unable to load movie clip",
@@ -397,7 +359,6 @@ WARN_MSGID_NOT_CAPITALIZED_ALLOWED = {
     "unsupported movie clip format",
     "vertex data",
     "verts only",
-    "view",
     "virtual parents",
 }
 WARN_MSGID_NOT_CAPITALIZED_ALLOWED |= set(lng[2] for lng in LANGUAGES)
@@ -406,15 +367,10 @@ WARN_MSGID_END_POINT_ALLOWED = {
     "Circle|Alt .",
     "Float Neg. Exp.",
     "Max Ext.",
-    "Newer graphics drivers may be available to improve Blender support.",
     "Numpad .",
     "Pad.",
     "    RNA Path: bpy.types.",
     "Temp. Diff.",
-    "Temperature Diff.",
-    "The program will now close.",
-    "Your graphics card or driver has limited support. It may work, but with issues.",
-    "Your graphics card or driver is not supported.",
 }
 
 PARSER_CACHE_HASH = 'sha1'
@@ -564,10 +520,6 @@ def _gen_get_set_path(ref, name):
     return _get, _set
 
 
-def _check_valid_data(uid, val):
-    return not uid.startswith("_") and type(val) not in tuple(types.__dict__.values()) + (type,)
-
-
 class I18nSettings:
     """
     Class allowing persistence of our settings!
@@ -579,46 +531,29 @@ class I18nSettings:
         # Addon preferences are singleton by definition, so is this class!
         if not I18nSettings._settings:
             cls._settings = super(I18nSettings, cls).__new__(cls)
-            cls._settings.__dict__ = {uid: val for uid, val in globals().items() if _check_valid_data(uid, val)}
+            cls._settings.__dict__ = {uid: data for uid, data in globals().items() if not uid.startswith("_")}
         return I18nSettings._settings
 
-    def __getstate__(self):
-        return self.to_dict()
-
-    def __setstate__(self, mapping):
-        return self.from_dict(mapping)
-
-    def from_dict(self, mapping):
-        # Special case... :/
-        if "INTERN_PY_SYS_PATHS" in mapping:
-            self.PY_SYS_PATHS = mapping["INTERN_PY_SYS_PATHS"]
-        self.__dict__.update(mapping)
-
-    def to_dict(self):
-        glob = globals()
-        return {uid: val for uid, val in self.__dict__.items() if _check_valid_data(uid, val) and uid in glob}
-
     def from_json(self, string):
-        self.from_dict(dict(json.loads(string)))
+        data = dict(json.loads(string))
+        # Special case... :/
+        if "INTERN_PY_SYS_PATHS" in data:
+            self.PY_SYS_PATHS = data["INTERN_PY_SYS_PATHS"]
+        self.__dict__.update(data)
 
     def to_json(self):
         # Only save the diff from default i18n_settings!
         glob = globals()
-        export_dict = {uid: val for uid, val in self.__dict__.items() if _check_valid_data(uid, val) and glob.get(uid) != val}
+        export_dict = {uid: val for uid, val in self.__dict__.items() if glob.get(uid) != val}
         return json.dumps(export_dict)
 
     def load(self, fname, reset=False):
-        reset = reset or fname is None
         if reset:
             self.__dict__ = {uid: data for uid, data in globals().items() if not uid.startswith("_")}
-        if fname is None:
-            return
         if isinstance(fname, str):
             if not os.path.isfile(fname):
-                # Assume it is already real JSon string...
-                self.from_json(fname)
                 return
-            with open(fname, encoding="utf8") as f:
+            with open(fname) as f:
                 self.from_json(f.read())
         # Else assume fname is already a file(like) object!
         else:
@@ -626,7 +561,7 @@ class I18nSettings:
 
     def save(self, fname):
         if isinstance(fname, str):
-            with open(fname, 'w', encoding="utf8") as f:
+            with open(fname, 'w') as f:
                 f.write(self.to_json())
         # Else assume fname is already a file(like) object!
         else:

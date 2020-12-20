@@ -19,16 +19,45 @@
 
 #include "util/util_list.h"
 #include "util/util_string.h"
-#include "util/util_tbb.h"
 #include "util/util_thread.h"
 #include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
+class Task;
 class TaskPool;
 class TaskScheduler;
 
-typedef function<void(void)> TaskRunFunction;
+/* Notes on Thread ID
+ *
+ * Thread ID argument reports the 0-based ID of a working thread from which
+ * the run() callback is being invoked. Thread ID of 0 denotes the thread from
+ * which wait_work() was called.
+ *
+ * DO NOT use this ID to control execution flaw, use it only for things like
+ * emulating TLS which does not affect on scheduling. Don't use this ID to make
+ * any decisions.
+ *
+ * It is to be noted here that dedicated task pool will always report thread ID
+ * of 0.
+ */
+
+typedef function<void(int thread_id)> TaskRunFunction;
+
+/* Task
+ *
+ * Base class for tasks to be executed in threads. */
+
+class Task
+{
+public:
+	Task() {};
+	explicit Task(const TaskRunFunction& run_) : run(run_) {}
+
+	virtual ~Task() {}
+
+	TaskRunFunction run;
+};
 
 /* Task Pool
  *
@@ -36,43 +65,56 @@ typedef function<void(void)> TaskRunFunction;
  * pool, we can wait for all tasks to be done, or cancel them before they are
  * done.
  *
- * TaskRunFunction may be created with std::bind or lambda expressions. */
+ * The run callback that actually executes the task may be created like this:
+ * function_bind(&MyClass::task_execute, this, _1, _2) */
 
-class TaskPool {
- public:
-  struct Summary {
-    /* Time spent to handle all tasks. */
-    double time_total;
+class TaskPool
+{
+public:
+	struct Summary {
+		/* Time spent to handle all tasks. */
+		double time_total;
 
-    /* Number of all tasks handled by this pool. */
-    int num_tasks_handled;
+		/* Number of all tasks handled by this pool. */
+		int num_tasks_handled;
 
-    /* A full multi-line description of the state of the pool after
-     * all work is done.
-     */
-    string full_report() const;
-  };
+		/* A full multiline description of the state of the pool after
+		 * all work is done.
+		 */
+		string full_report() const;
+	};
 
-  TaskPool();
-  ~TaskPool();
+	TaskPool();
+	~TaskPool();
 
-  void push(TaskRunFunction &&task);
+	void push(Task *task, bool front = false);
+	void push(const TaskRunFunction& run, bool front = false);
 
-  void wait_work(Summary *stats = NULL); /* work and wait until all tasks are done */
-  void cancel(); /* cancel all tasks and wait until they are no longer executing */
+	void wait_work(Summary *stats = NULL);	/* work and wait until all tasks are done */
+	void cancel();		/* cancel all tasks, keep worker threads running */
+	void stop();		/* stop all worker threads */
 
-  bool canceled(); /* for worker threads, test if canceled */
+	bool canceled();	/* for worker threads, test if canceled */
 
- protected:
-  tbb::task_group tbb_group;
+protected:
+	friend class TaskScheduler;
 
-  /* ** Statistics ** */
+	void num_decrease(int done);
+	void num_increase();
 
-  /* Time time stamp of first task pushed. */
-  double start_time;
+	thread_mutex num_mutex;
+	thread_condition_variable num_cond;
 
-  /* Number of all tasks pushed to the pool. Cleared after wait_work() and cancel(). */
-  int num_tasks_pushed;
+	int num;
+	bool do_cancel;
+
+	/* ** Statistics ** */
+
+	/* Time time stamp of first task pushed. */
+	double start_time;
+
+	/* Number of all tasks handled by this pool. */
+	int num_tasks_handled;
 };
 
 /* Task Scheduler
@@ -80,25 +122,41 @@ class TaskPool {
  * Central scheduler that holds running threads ready to execute tasks. A singe
  * queue holds the task from all pools. */
 
-class TaskScheduler {
- public:
-  static void init(int num_threads = 0);
-  static void exit();
-  static void free_memory();
+class TaskScheduler
+{
+public:
+	static void init(int num_threads = 0);
+	static void exit();
+	static void free_memory();
 
-  /* Approximate number of threads that will work on task, which may be lower
-   * or higher than the actual number of threads. Use as little as possible and
-   * leave splitting up tasks to the scheduler.. */
-  static int num_threads();
+	/* number of threads that can work on task */
+	static int num_threads() { return threads.size(); }
 
- protected:
-  static thread_mutex mutex;
-  static int users;
-  static int active_num_threads;
+	/* test if any session is using the scheduler */
+	static bool active() { return users != 0; }
 
-#ifdef WITH_TBB_GLOBAL_CONTROL
-  static tbb::global_control *global_control;
-#endif
+protected:
+	friend class TaskPool;
+
+	struct Entry {
+		Task *task;
+		TaskPool *pool;
+	};
+
+	static thread_mutex mutex;
+	static int users;
+	static vector<thread*> threads;
+	static bool do_exit;
+
+	static list<Entry> queue;
+	static thread_mutex queue_mutex;
+	static thread_condition_variable queue_cond;
+
+	static void thread_run(int thread_id);
+	static bool thread_wait_pop(Entry& entry);
+
+	static void push(Entry& entry, bool front);
+	static void clear(TaskPool *pool);
 };
 
 /* Dedicated Task Pool
@@ -108,39 +166,42 @@ class TaskScheduler {
  * The run callback that actually executes the task may be created like this:
  * function_bind(&MyClass::task_execute, this, _1, _2) */
 
-class DedicatedTaskPool {
- public:
-  DedicatedTaskPool();
-  ~DedicatedTaskPool();
+class DedicatedTaskPool
+{
+public:
+	DedicatedTaskPool();
+	~DedicatedTaskPool();
 
-  void push(TaskRunFunction &&run, bool front = false);
+	void push(Task *task, bool front = false);
+	void push(const TaskRunFunction& run, bool front = false);
 
-  void wait();   /* wait until all tasks are done */
-  void cancel(); /* cancel all tasks, keep worker thread running */
+	void wait();        /* wait until all tasks are done */
+	void cancel();		/* cancel all tasks, keep worker thread running */
+	void stop();		/* stop worker thread */
 
-  bool canceled(); /* for worker thread, test if canceled */
+	bool canceled();	/* for worker thread, test if canceled */
 
- protected:
-  void num_decrease(int done);
-  void num_increase();
+protected:
+	void num_decrease(int done);
+	void num_increase();
 
-  void thread_run();
-  bool thread_wait_pop(TaskRunFunction &task);
+	void thread_run();
+	bool thread_wait_pop(Task*& entry);
 
-  void clear();
+	void clear();
 
-  thread_mutex num_mutex;
-  thread_condition_variable num_cond;
+	thread_mutex num_mutex;
+	thread_condition_variable num_cond;
 
-  list<TaskRunFunction> queue;
-  thread_mutex queue_mutex;
-  thread_condition_variable queue_cond;
+	list<Task*> queue;
+	thread_mutex queue_mutex;
+	thread_condition_variable queue_cond;
 
-  int num;
-  bool do_cancel;
-  bool do_exit;
+	int num;
+	bool do_cancel;
+	bool do_exit;
 
-  thread *worker_thread;
+	thread *worker_thread;
 };
 
 CCL_NAMESPACE_END

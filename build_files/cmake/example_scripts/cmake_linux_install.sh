@@ -4,7 +4,7 @@
 # assumes you have dependencies installed already
 
 # See this page for more info:
-#   https://wiki.blender.org/wiki/Building_Blender/Linux/Generic_Distro/CMake
+#   http://wiki.blender.org/index.php/Dev:Doc/Building_Blender/Linux/Generic_Distro/CMake
 
 # grab blender
 mkdir ~/blender-git 
@@ -38,3 +38,4 @@ echo "   Update Blender: git pull --rebase; git submodule foreach git pull --reb
 echo "   Reconfigure Blender: cd ~/blender-git/build-cmake ; cmake ."
 echo "   Build Blender: cd ~/blender-git/build-cmake ; make"
 echo ""
+

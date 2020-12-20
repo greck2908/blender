@@ -60,7 +60,6 @@ op_blacklist = (
     "*.*_import",
     "ed.undo",
     "ed.undo_push",
-    "preferences.studiolight_new",
     "script.autoexec_warn_clear",
     "screen.delete",           # already used for random screens
     "wm.blenderplayer_start",
@@ -82,6 +81,7 @@ op_blacklist = (
     "wm.operator_cheat_sheet",
     "wm.interface_theme_*",
     "wm.previews_ensure",       # slow - but harmless
+    "wm.appconfig_*",           # just annoying - but harmless
     "wm.keyitem_add",           # just annoying - but harmless
     "wm.keyconfig_activate",    # just annoying - but harmless
     "wm.keyconfig_preset_add",  # just annoying - but harmless
@@ -91,21 +91,6 @@ op_blacklist = (
     "wm.keymap_restore",        # another annoying one
     "wm.addon_*",               # harmless, but dont change state
     "console.*",                # just annoying - but harmless
-    "wm.url_open_preset",       # Annoying but harmless (opens web pages).
-
-    # FIXME:
-    # Crashes with non-trivial fixes.
-    #
-
-    # Expects undo stack.
-    "object.voxel_remesh",
-    "mesh.paint_mask_slice",
-    "paint.mask_flood_fill",
-    "sculpt.dirty_mask",
-    # TODO: use empty temp dir to avoid behavior depending on local setup.
-    "view3d.pastebuffer",
-    # Needs active window.
-    "scene.new",
 )
 
 
@@ -157,7 +142,7 @@ def reset_blend():
 
     if USE_RANDOM_SCREEN:
         import random
-        for _ in range(random.randint(0, len(bpy.data.screens))):
+        for i in range(random.randint(0, len(bpy.data.screens))):
             bpy.ops.screen.delete()
         print("Scree IS", bpy.context.screen)
 
@@ -253,7 +238,7 @@ if USE_ATTRSET:
             seq = getattr(bpy.data, attr)
             if seq.__class__.__name__ == 'bpy_prop_collection':
                 for id_data in seq:
-                    for val, prop, _tp in id_walk(id_data, bpy.data):
+                    for val, prop, tp in id_walk(id_data, bpy.data):
                         # print(id_data)
                         for val_rnd in _random_values:
                             try:
@@ -402,10 +387,6 @@ def ctx_object_pose():
     bpy.ops.pose.select_all(action='SELECT')
 
 
-def ctx_object_volume():
-    bpy.ops.object.add(type='VOLUME')
-
-
 def ctx_object_paint_weight():
     bpy.ops.object.mode_set(mode='WEIGHT_PAINT')
 
@@ -494,7 +475,6 @@ def main():
         run_ops(operators_test, setup_func=ctx_editmode_mball)
         run_ops(operators_test, setup_func=ctx_editmode_text)
         run_ops(operators_test, setup_func=ctx_editmode_lattice)
-        run_ops(operators_test, setup_func=ctx_object_volume)
 
         if not operators_test:
             print("All setup functions run fine!")
@@ -503,7 +483,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # for i in range(200):
-    #     RANDOM_SEED[0] += 1
-    #     main()
+    # ~ for i in range(200):
+        # ~ RANDOM_SEED[0] += 1
+        #~ main()
     main()

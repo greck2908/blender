@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,13 +17,19 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation, Joshua Leung.
  * All rights reserved.
+ *
+ *
+ * Contributor(s): Blender Foundation, Joshua Leung
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup spnla
+/** \file blender/editors/space_nla/nla_intern.h
+ *  \ingroup spnla
  */
 
-#pragma once
+#ifndef __NLA_INTERN_H__
+#define __NLA_INTERN_H__
 
 /* internal exports only */
 
@@ -31,34 +39,34 @@
 /* **************************************** */
 /* space_nla.c / nla_buttons.c */
 
-bool nla_panel_context(const bContext *C,
-                       PointerRNA *adt_ptr,
-                       PointerRNA *nlt_ptr,
-                       PointerRNA *strip_ptr);
+ARegion *nla_has_buttons_region(ScrArea *sa);
+
+bool nla_panel_context(const bContext *C, PointerRNA *adt_ptr, PointerRNA *nlt_ptr, PointerRNA *strip_ptr);
 
 void nla_buttons_register(ARegionType *art);
+void NLA_OT_properties(wmOperatorType *ot);
 
 /* **************************************** */
 /* nla_draw.c */
 
-void draw_nla_main_data(bAnimContext *ac, SpaceNla *snla, ARegion *region);
-void draw_nla_channel_list(const bContext *C, bAnimContext *ac, ARegion *region);
+void draw_nla_main_data(bAnimContext *ac, SpaceNla *snla, ARegion *ar);
+void draw_nla_channel_list(const bContext *C, bAnimContext *ac, ARegion *ar);
 
 /* **************************************** */
 /* nla_select.c */
 
 /* defines for left-right select tool */
 enum eNlaEdit_LeftRightSelect_Mode {
-  NLAEDIT_LRSEL_TEST = -1,
-  NLAEDIT_LRSEL_NONE,
-  NLAEDIT_LRSEL_LEFT,
-  NLAEDIT_LRSEL_RIGHT,
+	NLAEDIT_LRSEL_TEST  = -1,
+	NLAEDIT_LRSEL_NONE,
+	NLAEDIT_LRSEL_LEFT,
+	NLAEDIT_LRSEL_RIGHT
 };
 
 /* --- */
 
-void NLA_OT_select_all(wmOperatorType *ot);
-void NLA_OT_select_box(wmOperatorType *ot);
+void NLA_OT_select_all_toggle(wmOperatorType *ot);
+void NLA_OT_select_border(wmOperatorType *ot);
 void NLA_OT_select_leftright(wmOperatorType *ot);
 void NLA_OT_click_select(wmOperatorType *ot);
 
@@ -67,10 +75,10 @@ void NLA_OT_click_select(wmOperatorType *ot);
 
 /* defines for snap strips */
 enum eNlaEdit_Snap_Mode {
-  NLAEDIT_SNAP_CFRA = 1,
-  NLAEDIT_SNAP_NEAREST_FRAME,
-  NLAEDIT_SNAP_NEAREST_SECOND,
-  NLAEDIT_SNAP_NEAREST_MARKER,
+	NLAEDIT_SNAP_CFRA = 1,
+	NLAEDIT_SNAP_NEAREST_FRAME,
+	NLAEDIT_SNAP_NEAREST_SECOND,
+	NLAEDIT_SNAP_NEAREST_MARKER
 };
 
 /* --- */
@@ -118,6 +126,7 @@ void NLA_OT_fmodifier_add(wmOperatorType *ot);
 void NLA_OT_fmodifier_copy(wmOperatorType *ot);
 void NLA_OT_fmodifier_paste(wmOperatorType *ot);
 
+
 /* **************************************** */
 /* nla_channels.c */
 
@@ -148,3 +157,5 @@ bool nlaedit_is_tweakmode_on(bAnimContext *ac);
 
 void nla_operatortypes(void);
 void nla_keymap(wmKeyConfig *keyconf);
+
+#endif /* __NLA_INTERN_H__ */

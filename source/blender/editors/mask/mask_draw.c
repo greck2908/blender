@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,814 +17,800 @@
  *
  * The Original Code is Copyright (C) 2012 Blender Foundation.
  * All rights reserved.
+ *
+ *
+ * Contributor(s): Blender Foundation,
+ *                 Campbell Barton,
+ *                 Sergey Sharybin
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup edmask
+/** \file blender/editors/mask/mask_draw.c
+ *  \ingroup edmask
  */
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_listbase.h"
+#include "BLI_utildefines.h"
 #include "BLI_math.h"
 #include "BLI_rect.h"
-#include "BLI_utildefines.h"
+#include "BLI_task.h"
 
 #include "BKE_context.h"
 #include "BKE_mask.h"
 
 #include "DNA_mask_types.h"
-#include "DNA_object_types.h" /* SELECT */
 #include "DNA_screen_types.h"
+#include "DNA_object_types.h"   /* SELECT */
 #include "DNA_space_types.h"
 
 #include "ED_clip.h"
-#include "ED_mask.h" /* own include */
-#include "ED_screen.h"
+#include "ED_mask.h"  /* own include */
 #include "ED_space_api.h"
-
+#include "BIF_gl.h"
 #include "BIF_glutil.h"
 
-#include "GPU_immediate.h"
-#include "GPU_matrix.h"
-#include "GPU_shader.h"
-#include "GPU_state.h"
+#include "GPU_basic_shader.h"
 
-#include "UI_interface.h"
 #include "UI_resources.h"
 #include "UI_view2d.h"
 
-#include "DEG_depsgraph_query.h"
+#include "mask_intern.h"  /* own include */
 
-static void mask_spline_color_get(MaskLayer *mask_layer,
-                                  MaskSpline *spline,
-                                  const bool is_sel,
-                                  uchar r_rgb[4])
+static void mask_spline_color_get(MaskLayer *masklay, MaskSpline *spline, const bool is_sel,
+                                  unsigned char r_rgb[4])
 {
-  if (is_sel) {
-    if (mask_layer->act_spline == spline) {
-      r_rgb[0] = r_rgb[1] = r_rgb[2] = 255;
-    }
-    else {
-      r_rgb[0] = 255;
-      r_rgb[1] = r_rgb[2] = 0;
-    }
-  }
-  else {
-    r_rgb[0] = 128;
-    r_rgb[1] = r_rgb[2] = 0;
-  }
+	if (is_sel) {
+		if (masklay->act_spline == spline) {
+			r_rgb[0] = r_rgb[1] = r_rgb[2] = 255;
+		}
+		else {
+			r_rgb[0] = 255;
+			r_rgb[1] = r_rgb[2] = 0;
+		}
+	}
+	else {
+		r_rgb[0] = 128;
+		r_rgb[1] = r_rgb[2] = 0;
+	}
 
-  r_rgb[3] = 255;
+	r_rgb[3] = 255;
 }
 
-static void mask_spline_feather_color_get(MaskLayer *UNUSED(mask_layer),
-                                          MaskSpline *UNUSED(spline),
-                                          const bool is_sel,
-                                          uchar r_rgb[4])
+static void mask_spline_feather_color_get(MaskLayer *UNUSED(masklay), MaskSpline *UNUSED(spline), const bool is_sel,
+                                          unsigned char r_rgb[4])
 {
-  if (is_sel) {
-    r_rgb[1] = 255;
-    r_rgb[0] = r_rgb[2] = 0;
-  }
-  else {
-    r_rgb[1] = 128;
-    r_rgb[0] = r_rgb[2] = 0;
-  }
+	if (is_sel) {
+		r_rgb[1] = 255;
+		r_rgb[0] = r_rgb[2] = 0;
+	}
+	else {
+		r_rgb[1] = 128;
+		r_rgb[0] = r_rgb[2] = 0;
+	}
 
-  r_rgb[3] = 255;
+	r_rgb[3] = 255;
 }
+
+#if 0
+static void draw_spline_parents(MaskLayer *UNUSED(masklay), MaskSpline *spline)
+{
+	int i;
+	MaskSplinePoint *points_array = BKE_mask_spline_point_array(spline);
+
+	if (!spline->tot_point)
+		return;
+
+	GPU_basic_shader_bind_enable(GPU_SHADER_LINE | GPU_SHADER_STIPPLE);
+	GPU_basic_shader_line_stipple(1, 0xAAAA);
+
+	glColor3ub(0, 0, 0);
+	glBegin(GL_LINES);
+
+	for (i = 0; i < spline->tot_point; i++) {
+		MaskSplinePoint *point = &points_array[i];
+		BezTriple *bezt = &point->bezt;
+
+		if (point->parent.id) {
+			glVertex2f(bezt->vec[1][0],
+			           bezt->vec[1][1]);
+
+			glVertex2f(bezt->vec[1][0] - point->parent.offset[0],
+			           bezt->vec[1][1] - point->parent.offset[1]);
+		}
+	}
+
+	glEnd();
+
+	GPU_basic_shader_bind_disable(GPU_SHADER_LINE | GPU_SHADER_STIPPLE);
+}
+#endif
 
 static void mask_point_undistort_pos(SpaceClip *sc, float r_co[2], const float co[2])
 {
-  BKE_mask_coord_to_movieclip(sc->clip, &sc->user, r_co, co);
-  ED_clip_point_undistorted_pos(sc, r_co, r_co);
-  BKE_mask_coord_from_movieclip(sc->clip, &sc->user, r_co, r_co);
+	BKE_mask_coord_to_movieclip(sc->clip, &sc->user, r_co, co);
+	ED_clip_point_undistorted_pos(sc, r_co, r_co);
+	BKE_mask_coord_from_movieclip(sc->clip, &sc->user, r_co, r_co);
 }
 
-static void draw_single_handle(const MaskLayer *mask_layer,
-                               const MaskSplinePoint *point,
-                               const eMaskWhichHandle which_handle,
-                               const int draw_type,
-                               const float handle_size,
-                               const float point_pos[2],
-                               const float handle_pos[2])
+static void draw_circle(const float x, const float y,
+                        const float size, const bool fill,
+                        const float xscale, const float yscale)
 {
-  const BezTriple *bezt = &point->bezt;
-  char handle_type;
+	static GLuint wire_displist = 0;
+	static GLuint fill_displist = 0;
+	GLuint displist = fill ? fill_displist : wire_displist;
 
-  if (ELEM(which_handle, MASK_WHICH_HANDLE_STICK, MASK_WHICH_HANDLE_LEFT)) {
-    handle_type = bezt->h1;
-  }
-  else {
-    handle_type = bezt->h2;
-  }
+	/* Initialize round circle shape. */
+	if (displist == 0) {
+		GLUquadricObj *qobj;
 
-  if (handle_type == HD_VECT) {
-    return;
-  }
+		displist = glGenLists(1);
+		glNewList(displist, GL_COMPILE);
 
-  GPUVertFormat *format = immVertexFormat();
-  uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-  const uchar rgb_gray[4] = {0x60, 0x60, 0x60, 0xff};
+		qobj = gluNewQuadric();
+		gluQuadricDrawStyle(qobj, fill ? GLU_FILL : GLU_SILHOUETTE);
+		gluDisk(qobj, 0,  0.7, 8, 1);
+		gluDeleteQuadric(qobj);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-  immUniformColor3ubv(rgb_gray);
+		glEndList();
 
-  /* this could be split into its own loop */
-  if (draw_type == MASK_DT_OUTLINE) {
-    GPU_line_width(3.0f);
-    immBegin(GPU_PRIM_LINES, 2);
-    immVertex2fv(pos, point_pos);
-    immVertex2fv(pos, handle_pos);
-    immEnd();
-  }
+		if (fill) {
+			fill_displist = displist;
+		}
+		else {
+			wire_displist = displist;
+		}
+	}
 
-  switch (handle_type) {
-    case HD_FREE:
-      immUniformThemeColor(TH_HANDLE_FREE);
-      break;
-    case HD_AUTO:
-      immUniformThemeColor(TH_HANDLE_AUTO);
-      break;
-    case HD_ALIGN:
-    case HD_ALIGN_DOUBLESIDE:
-      immUniformThemeColor(TH_HANDLE_ALIGN);
-      break;
-  }
+	glPushMatrix();
+	glTranslatef(x, y, 0.0f);
+	glScalef(1.0f / xscale * size, 1.0f / yscale * size, 1.0f);
+	glCallList(displist);
+	glPopMatrix();
+}
 
-  GPU_line_width(1.0f);
-  immBegin(GPU_PRIM_LINES, 2);
-  immVertex2fv(pos, point_pos);
-  immVertex2fv(pos, handle_pos);
-  immEnd();
-  immUnbindProgram();
+static void draw_single_handle(const MaskLayer *mask_layer, const MaskSplinePoint *point,
+                               const eMaskWhichHandle which_handle, const int draw_type,
+                               const float handle_size, const float xscale, const float yscale,
+                               const float point_pos[2], const float handle_pos[2])
+{
+	const BezTriple *bezt = &point->bezt;
+	char handle_type;
 
-  /* draw handle points */
-  immBindBuiltinProgram(GPU_SHADER_2D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_OUTLINE_AA);
-  immUniform1f("size", handle_size);
-  immUniform1f("outlineWidth", 1.5f);
+	if (which_handle == MASK_WHICH_HANDLE_STICK || which_handle == MASK_WHICH_HANDLE_LEFT) {
+		handle_type = bezt->h1;
+	}
+	else {
+		handle_type = bezt->h2;
+	}
 
-  float point_color[4] = {1.0f, 1.0f, 1.0f, 1.0f}; /* active color by default */
-  if (MASKPOINT_ISSEL_HANDLE(point, which_handle)) {
-    if (point != mask_layer->act_point) {
-      UI_GetThemeColor3fv(TH_HANDLE_VERTEX_SELECT, point_color);
-    }
-  }
-  else {
-    UI_GetThemeColor3fv(TH_HANDLE_VERTEX, point_color);
-  }
+	if (handle_type == HD_VECT) {
+		return;
+	}
 
-  immUniform4fv("outlineColor", point_color);
-  immUniformColor3fvAlpha(point_color, 0.25f);
+	/* this could be split into its own loop */
+	if (draw_type == MASK_DT_OUTLINE) {
+		const unsigned char rgb_gray[4] = {0x60, 0x60, 0x60, 0xff};
+		glLineWidth(3);
+		glColor4ubv(rgb_gray);
+		glBegin(GL_LINES);
+		glVertex2fv(point_pos);
+		glVertex2fv(handle_pos);
+		glEnd();
+	}
 
-  immBegin(GPU_PRIM_POINTS, 1);
-  immVertex2fv(pos, handle_pos);
-  immEnd();
+	switch (handle_type) {
+		case HD_FREE:
+			UI_ThemeColor(TH_HANDLE_FREE);
+			break;
+		case HD_AUTO:
+			UI_ThemeColor(TH_HANDLE_AUTO);
+			break;
+		case HD_ALIGN:
+		case HD_ALIGN_DOUBLESIDE:
+			UI_ThemeColor(TH_HANDLE_ALIGN);
+			break;
+	}
 
-  immUnbindProgram();
+	glLineWidth(1);
+	glBegin(GL_LINES);
+	glVertex2fv(point_pos);
+	glVertex2fv(handle_pos);
+	glEnd();
+
+	/* draw handle points */
+	if (MASKPOINT_ISSEL_HANDLE(point, which_handle)) {
+		if (point == mask_layer->act_point)
+			glColor3f(1.0f, 1.0f, 1.0f);
+		else
+			UI_ThemeColor(TH_HANDLE_VERTEX_SELECT);
+	}
+	else {
+		UI_ThemeColor(TH_HANDLE_VERTEX);
+	}
+
+	draw_circle(handle_pos[0], handle_pos[1], handle_size, false, xscale, yscale);
 }
 
 /* return non-zero if spline is selected */
-static void draw_spline_points(const bContext *C,
-                               MaskLayer *mask_layer,
-                               MaskSpline *spline,
-                               const char draw_flag,
-                               const char draw_type)
+static void draw_spline_points(const bContext *C, MaskLayer *masklay, MaskSpline *spline,
+                               const char draw_flag, const char draw_type,
+                               const float xscale, const float yscale)
 {
-  const bool is_spline_sel = (spline->flag & SELECT) &&
-                             (mask_layer->restrictflag & MASK_RESTRICT_SELECT) == 0;
-  const bool is_smooth = (draw_flag & MASK_DRAWFLAG_SMOOTH) != 0;
+	const bool is_spline_sel = (spline->flag & SELECT) && (masklay->restrictflag & MASK_RESTRICT_SELECT) == 0;
+	const bool is_smooth = (draw_flag & MASK_DRAWFLAG_SMOOTH) != 0;
 
-  uchar rgb_spline[4];
-  MaskSplinePoint *points_array = BKE_mask_spline_point_array(spline);
-  SpaceClip *sc = CTX_wm_space_clip(C);
-  bool undistort = false;
+	unsigned char rgb_spline[4];
+	MaskSplinePoint *points_array = BKE_mask_spline_point_array(spline);
+	SpaceClip *sc = CTX_wm_space_clip(C);
+	bool undistort = false;
 
-  int tot_feather_point;
-  float(*feather_points)[2], (*fp)[2];
-  float min[2], max[2];
+	int i, handle_size, tot_feather_point;
+	float (*feather_points)[2], (*fp)[2];
+	float min[2], max[2];
 
-  if (!spline->tot_point) {
-    return;
-  }
+	if (!spline->tot_point)
+		return;
 
-  if (sc) {
-    undistort = sc->clip && (sc->user.render_flag & MCLIP_PROXY_RENDER_UNDISTORT);
-  }
+	if (sc)
+		undistort = sc->clip && (sc->user.render_flag & MCLIP_PROXY_RENDER_UNDISTORT);
 
-  /* TODO, add this to sequence editor */
-  float handle_size = 2.0f * UI_GetThemeValuef(TH_HANDLE_VERTEX_SIZE) * U.pixelsize;
+	/* TODO, add this to sequence editor */
+	handle_size = UI_GetThemeValuef(TH_HANDLE_VERTEX_SIZE) * U.pixelsize;
 
-  mask_spline_color_get(mask_layer, spline, is_spline_sel, rgb_spline);
+	glPointSize(handle_size);
 
-  GPUVertFormat *format = immVertexFormat();
-  uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
+	mask_spline_color_get(masklay, spline, is_spline_sel, rgb_spline);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
-  immUniform1f("size", 0.7f * handle_size);
+	/* feather points */
+	feather_points = fp = BKE_mask_spline_feather_points(spline, &tot_feather_point);
+	for (i = 0; i < spline->tot_point; i++) {
 
-  /* feather points */
-  feather_points = fp = BKE_mask_spline_feather_points(spline, &tot_feather_point);
-  for (int i = 0; i < spline->tot_point; i++) {
+		/* watch it! this is intentionally not the deform array, only check for sel */
+		MaskSplinePoint *point = &spline->points[i];
 
-    /* watch it! this is intentionally not the deform array, only check for sel */
-    MaskSplinePoint *point = &spline->points[i];
+		int j;
 
-    for (int j = 0; j <= point->tot_uw; j++) {
-      float feather_point[2];
-      bool sel = false;
+		for (j = 0; j <= point->tot_uw; j++) {
+			float feather_point[2];
+			bool sel = false;
 
-      copy_v2_v2(feather_point, *fp);
+			copy_v2_v2(feather_point, *fp);
 
-      if (undistort) {
-        mask_point_undistort_pos(sc, feather_point, feather_point);
-      }
+			if (undistort)
+				mask_point_undistort_pos(sc, feather_point, feather_point);
 
-      if (j == 0) {
-        sel = MASKPOINT_ISSEL_ANY(point);
-      }
-      else {
-        sel = (point->uw[j - 1].flag & SELECT) != 0;
-      }
+			if (j == 0) {
+				sel = MASKPOINT_ISSEL_ANY(point);
+			}
+			else {
+				sel = (point->uw[j - 1].flag & SELECT) != 0;
+			}
 
-      if (sel) {
-        if (point == mask_layer->act_point) {
-          immUniformColor3f(1.0f, 1.0f, 1.0f);
-        }
-        else {
-          immUniformThemeColorShadeAlpha(TH_HANDLE_VERTEX_SELECT, 0, 255);
-        }
-      }
-      else {
-        immUniformThemeColorShadeAlpha(TH_HANDLE_VERTEX, 0, 255);
-      }
+			if (sel) {
+				if (point == masklay->act_point)
+					glColor3f(1.0f, 1.0f, 1.0f);
+				else
+					UI_ThemeColor(TH_HANDLE_VERTEX_SELECT);
+			}
+			else {
+				UI_ThemeColor(TH_HANDLE_VERTEX);
+			}
 
-      immBegin(GPU_PRIM_POINTS, 1);
-      immVertex2fv(pos, feather_point);
-      immEnd();
+			glBegin(GL_POINTS);
+			glVertex2fv(feather_point);
+			glEnd();
 
-      fp++;
-    }
-  }
-  MEM_freeN(feather_points);
+			fp++;
+		}
+	}
+	MEM_freeN(feather_points);
 
-  immUnbindProgram();
+	if (is_smooth) {
+		glEnable(GL_LINE_SMOOTH);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
 
-  if (is_smooth) {
-    GPU_line_smooth(true);
-  }
+	/* control points */
+	INIT_MINMAX2(min, max);
+	for (i = 0; i < spline->tot_point; i++) {
 
-  /* control points */
-  INIT_MINMAX2(min, max);
-  for (int i = 0; i < spline->tot_point; i++) {
+		/* watch it! this is intentionally not the deform array, only check for sel */
+		MaskSplinePoint *point = &spline->points[i];
+		MaskSplinePoint *point_deform = &points_array[i];
+		BezTriple *bezt = &point_deform->bezt;
 
-    /* watch it! this is intentionally not the deform array, only check for sel */
-    MaskSplinePoint *point = &spline->points[i];
-    MaskSplinePoint *point_deform = &points_array[i];
-    BezTriple *bezt = &point_deform->bezt;
+		float vert[2];
 
-    float vert[2];
+		copy_v2_v2(vert, bezt->vec[1]);
 
-    copy_v2_v2(vert, bezt->vec[1]);
+		if (undistort) {
+			mask_point_undistort_pos(sc, vert, vert);
+		}
 
-    if (undistort) {
-      mask_point_undistort_pos(sc, vert, vert);
-    }
+		/* draw handle segment */
+		if (BKE_mask_point_handles_mode_get(point) == MASK_HANDLE_MODE_STICK) {
+			float handle[2];
+			BKE_mask_point_handle(point_deform, MASK_WHICH_HANDLE_STICK, handle);
+			if (undistort) {
+				mask_point_undistort_pos(sc, handle, handle);
+			}
+			draw_single_handle(masklay, point, MASK_WHICH_HANDLE_STICK,
+			                   draw_type, handle_size, xscale, yscale, vert, handle);
+		}
+		else {
+			float handle_left[2], handle_right[2];
+			BKE_mask_point_handle(point_deform, MASK_WHICH_HANDLE_LEFT, handle_left);
+			BKE_mask_point_handle(point_deform, MASK_WHICH_HANDLE_RIGHT, handle_right);
+			if (undistort) {
+				mask_point_undistort_pos(sc, handle_left, handle_left);
+				mask_point_undistort_pos(sc, handle_left, handle_left);
+			}
+			draw_single_handle(masklay, point, MASK_WHICH_HANDLE_LEFT,
+			                   draw_type, handle_size, xscale, yscale, vert, handle_left);
+			draw_single_handle(masklay, point, MASK_WHICH_HANDLE_RIGHT,
+			                   draw_type, handle_size, xscale, yscale, vert, handle_right);
+		}
 
-    /* draw handle segment */
-    if (BKE_mask_point_handles_mode_get(point) == MASK_HANDLE_MODE_STICK) {
-      float handle[2];
-      BKE_mask_point_handle(point_deform, MASK_WHICH_HANDLE_STICK, handle);
-      if (undistort) {
-        mask_point_undistort_pos(sc, handle, handle);
-      }
-      draw_single_handle(
-          mask_layer, point, MASK_WHICH_HANDLE_STICK, draw_type, handle_size, vert, handle);
-    }
-    else {
-      float handle_left[2], handle_right[2];
-      BKE_mask_point_handle(point_deform, MASK_WHICH_HANDLE_LEFT, handle_left);
-      BKE_mask_point_handle(point_deform, MASK_WHICH_HANDLE_RIGHT, handle_right);
-      if (undistort) {
-        mask_point_undistort_pos(sc, handle_left, handle_left);
-        mask_point_undistort_pos(sc, handle_left, handle_left);
-      }
-      draw_single_handle(
-          mask_layer, point, MASK_WHICH_HANDLE_LEFT, draw_type, handle_size, vert, handle_left);
-      draw_single_handle(
-          mask_layer, point, MASK_WHICH_HANDLE_RIGHT, draw_type, handle_size, vert, handle_right);
-    }
+		/* draw CV point */
+		if (MASKPOINT_ISSEL_KNOT(point)) {
+			if (point == masklay->act_point)
+				glColor3f(1.0f, 1.0f, 1.0f);
+			else
+				UI_ThemeColor(TH_HANDLE_VERTEX_SELECT);
+		}
+		else
+			UI_ThemeColor(TH_HANDLE_VERTEX);
 
-    /* bind program in loop so it does not interfere with draw_single_handle */
-    immBindBuiltinProgram(GPU_SHADER_2D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
+		glBegin(GL_POINTS);
+		glVertex2fv(vert);
+		glEnd();
 
-    /* draw CV point */
-    if (MASKPOINT_ISSEL_KNOT(point)) {
-      if (point == mask_layer->act_point) {
-        immUniformColor3f(1.0f, 1.0f, 1.0f);
-      }
-      else {
-        immUniformThemeColorShadeAlpha(TH_HANDLE_VERTEX_SELECT, 0, 255);
-      }
-    }
-    else {
-      immUniformThemeColorShadeAlpha(TH_HANDLE_VERTEX, 0, 255);
-    }
+		minmax_v2v2_v2(min, max, vert);
+	}
 
-    immBegin(GPU_PRIM_POINTS, 1);
-    immVertex2fv(pos, vert);
-    immEnd();
+	if (is_spline_sel) {
+		float x = (min[0] + max[0]) / 2.0f;
+		float y = (min[1] + max[1]) / 2.0f;
+		/* TODO(sergey): Remove hardcoded colors. */
+		if (masklay->act_spline == spline) {
+			glColor3ub(255, 255, 255);
+		}
+		else {
+			glColor3ub(255, 255, 0);
+		}
 
-    immUnbindProgram();
+		draw_circle(x, y, 6.0f, true, xscale, yscale);
 
-    minmax_v2v2_v2(min, max, vert);
-  }
+		glColor3ub(0, 0, 0);
+		draw_circle(x, y, 6.0f, false, xscale, yscale);
+	}
 
-  if (is_smooth) {
-    GPU_line_smooth(false);
-  }
-
-  if (is_spline_sel) {
-    float x = (min[0] + max[0]) * 0.5f;
-    float y = (min[1] + max[1]) * 0.5f;
-
-    immBindBuiltinProgram(GPU_SHADER_2D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_OUTLINE_AA);
-    immUniform1f("outlineWidth", 1.5f);
-
-    if (mask_layer->act_spline == spline) {
-      immUniformColor3f(1.0f, 1.0f, 1.0f);
-    }
-    else {
-      immUniformColor3f(1.0f, 1.0f, 0.0f);
-    }
-
-    immUniform4f("outlineColor", 0.0f, 0.0f, 0.0f, 1.0f);
-    immUniform1f("size", 12.0f);
-
-    immBegin(GPU_PRIM_POINTS, 1);
-    immVertex2f(pos, x, y);
-    immEnd();
-
-    immUnbindProgram();
-  }
+	if (is_smooth) {
+		glDisable(GL_LINE_SMOOTH);
+		glDisable(GL_BLEND);
+	}
 }
 
-static void mask_color_active_tint(uchar r_rgb[4], const uchar rgb[4], const bool is_active)
+/* #define USE_XOR */
+
+static void mask_color_active_tint(unsigned char r_rgb[4], const unsigned char rgb[4], const bool is_active)
 {
-  if (!is_active) {
-    r_rgb[0] = (uchar)((((int)(rgb[0])) + 128) / 2);
-    r_rgb[1] = (uchar)((((int)(rgb[1])) + 128) / 2);
-    r_rgb[2] = (uchar)((((int)(rgb[2])) + 128) / 2);
-    r_rgb[3] = rgb[3];
-  }
-  else {
-    *(uint *)r_rgb = *(const uint *)rgb;
-  }
+	if (!is_active) {
+		r_rgb[0] = (unsigned char)((((int)(rgb[0])) + 128) / 2);
+		r_rgb[1] = (unsigned char)((((int)(rgb[1])) + 128) / 2);
+		r_rgb[2] = (unsigned char)((((int)(rgb[2])) + 128) / 2);
+		r_rgb[3] = rgb[3];
+	}
+	else {
+		*(unsigned int *)r_rgb = *(const unsigned int *)rgb;
+	}
 }
 
-static void mask_draw_array(uint pos,
-                            GPUPrimType prim_type,
-                            const float (*points)[2],
-                            uint vertex_len)
+static void mask_draw_curve_type(const bContext *C, MaskSpline *spline, float (*orig_points)[2], int tot_point,
+                                 const bool is_feather, const bool is_smooth, const bool is_active,
+                                 const unsigned char rgb_spline[4], const char draw_type)
 {
-  immBegin(prim_type, vertex_len);
-  for (uint i = 0; i < vertex_len; i++) {
-    immVertex2fv(pos, points[i]);
-  }
-  immEnd();
+	const int draw_method = (spline->flag & MASK_SPLINE_CYCLIC) ? GL_LINE_LOOP : GL_LINE_STRIP;
+	const unsigned char rgb_black[4] = {0x00, 0x00, 0x00, 0xff};
+//	const unsigned char rgb_white[4] = {0xff, 0xff, 0xff, 0xff};
+	unsigned char rgb_tmp[4];
+	SpaceClip *sc = CTX_wm_space_clip(C);
+	float (*points)[2] = orig_points;
+
+	if (sc) {
+		const bool undistort = sc->clip && (sc->user.render_flag & MCLIP_PROXY_RENDER_UNDISTORT);
+
+		if (undistort) {
+			int i;
+
+			points = MEM_callocN(2 * tot_point * sizeof(float), "undistorthed mask curve");
+
+			for (i = 0; i < tot_point; i++) {
+				mask_point_undistort_pos(sc, points[i], orig_points[i]);
+			}
+		}
+	}
+
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glVertexPointer(2, GL_FLOAT, 0, points);
+
+	switch (draw_type) {
+
+		case MASK_DT_OUTLINE:
+			glLineWidth(3);
+
+			mask_color_active_tint(rgb_tmp, rgb_black, is_active);
+			glColor4ubv(rgb_tmp);
+
+			glDrawArrays(draw_method, 0, tot_point);
+
+			glLineWidth(1);
+			mask_color_active_tint(rgb_tmp, rgb_spline, is_active);
+			glColor4ubv(rgb_tmp);
+			glDrawArrays(draw_method, 0, tot_point);
+
+			break;
+
+		case MASK_DT_DASH:
+		default:
+			GPU_basic_shader_bind_enable(GPU_SHADER_LINE | GPU_SHADER_STIPPLE);
+			GPU_basic_shader_line_stipple(3, 0xAAAA);
+
+#ifdef USE_XOR
+			glEnable(GL_COLOR_LOGIC_OP);
+			glLogicOp(GL_OR);
+#endif
+			mask_color_active_tint(rgb_tmp, rgb_spline, is_active);
+			glColor4ubv(rgb_tmp);
+			glEnableClientState(GL_VERTEX_ARRAY);
+			glVertexPointer(2, GL_FLOAT, 0, points);
+			glDrawArrays(draw_method, 0, tot_point);
+
+#ifdef USE_XOR
+			glDisable(GL_COLOR_LOGIC_OP);
+#endif
+			mask_color_active_tint(rgb_tmp, rgb_black, is_active);
+			glColor4ubv(rgb_tmp);
+			GPU_basic_shader_line_stipple(3, 0x5555);
+			glDrawArrays(draw_method, 0, tot_point);
+
+			GPU_basic_shader_bind_disable(GPU_SHADER_LINE | GPU_SHADER_STIPPLE);
+			break;
+
+
+		case MASK_DT_BLACK:
+		case MASK_DT_WHITE:
+			if (draw_type == MASK_DT_BLACK) { rgb_tmp[0] = rgb_tmp[1] = rgb_tmp[2] = 0;   }
+			else                            { rgb_tmp[0] = rgb_tmp[1] = rgb_tmp[2] = 255; }
+			/* alpha values seem too low but gl draws many points that compensate for it */
+			if (is_feather) { rgb_tmp[3] = 64; }
+			else            { rgb_tmp[3] = 128; }
+
+			if (is_feather) {
+				rgb_tmp[0] = (unsigned char)(((short)rgb_tmp[0] + (short)rgb_spline[0]) / 2);
+				rgb_tmp[1] = (unsigned char)(((short)rgb_tmp[1] + (short)rgb_spline[1]) / 2);
+				rgb_tmp[2] = (unsigned char)(((short)rgb_tmp[2] + (short)rgb_spline[2]) / 2);
+			}
+
+			if (is_smooth == false && is_feather) {
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			}
+
+			mask_color_active_tint(rgb_tmp, rgb_tmp, is_active);
+			glColor4ubv(rgb_tmp);
+
+			glEnableClientState(GL_VERTEX_ARRAY);
+			glVertexPointer(2, GL_FLOAT, 0, points);
+			glDrawArrays(draw_method, 0, tot_point);
+
+			if (is_smooth == false && is_feather) {
+				glDisable(GL_BLEND);
+			}
+
+			break;
+	}
+
+	glDisableClientState(GL_VERTEX_ARRAY);
+
+	if (points != orig_points)
+		MEM_freeN(points);
 }
 
-static void mask_draw_curve_type(const bContext *C,
-                                 MaskSpline *spline,
-                                 float (*orig_points)[2],
-                                 int tot_point,
-                                 const bool is_feather,
-                                 const bool is_active,
-                                 const uchar rgb_spline[4],
-                                 const char draw_type)
-{
-  const GPUPrimType draw_method = (spline->flag & MASK_SPLINE_CYCLIC) ? GPU_PRIM_LINE_LOOP :
-                                                                        GPU_PRIM_LINE_STRIP;
-  const uchar rgb_black[4] = {0x00, 0x00, 0x00, 0xff};
-  uchar rgb_tmp[4];
-  SpaceClip *sc = CTX_wm_space_clip(C);
-  float(*points)[2] = orig_points;
-
-  if (sc) {
-    const bool undistort = sc->clip && (sc->user.render_flag & MCLIP_PROXY_RENDER_UNDISTORT);
-
-    if (undistort) {
-      points = MEM_callocN(2 * tot_point * sizeof(float), "undistorthed mask curve");
-
-      for (int i = 0; i < tot_point; i++) {
-        mask_point_undistort_pos(sc, points[i], orig_points[i]);
-      }
-    }
-  }
-
-  GPUVertFormat *format = immVertexFormat();
-  uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-
-  switch (draw_type) {
-
-    case MASK_DT_OUTLINE:
-      /* TODO(merwin): use fancy line shader here
-       * probably better with geometry shader (after core profile switch)
-       */
-      immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-
-      GPU_line_width(3.0f);
-
-      mask_color_active_tint(rgb_tmp, rgb_black, is_active);
-      immUniformColor4ubv(rgb_tmp);
-      mask_draw_array(pos, draw_method, points, tot_point);
-
-      GPU_line_width(1.0f);
-
-      mask_color_active_tint(rgb_tmp, rgb_spline, is_active);
-      immUniformColor4ubv(rgb_tmp);
-      mask_draw_array(pos, draw_method, points, tot_point);
-
-      immUnbindProgram();
-      break;
-
-    case MASK_DT_BLACK:
-    case MASK_DT_WHITE:
-      immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-      GPU_line_width(1.0f);
-
-      if (draw_type == MASK_DT_BLACK) {
-        rgb_tmp[0] = rgb_tmp[1] = rgb_tmp[2] = 0;
-      }
-      else {
-        rgb_tmp[0] = rgb_tmp[1] = rgb_tmp[2] = 255;
-      }
-      /* alpha values seem too low but gl draws many points that compensate for it */
-      if (is_feather) {
-        rgb_tmp[3] = 64;
-      }
-      else {
-        rgb_tmp[3] = 128;
-      }
-
-      if (is_feather) {
-        rgb_tmp[0] = (uchar)(((short)rgb_tmp[0] + (short)rgb_spline[0]) / 2);
-        rgb_tmp[1] = (uchar)(((short)rgb_tmp[1] + (short)rgb_spline[1]) / 2);
-        rgb_tmp[2] = (uchar)(((short)rgb_tmp[2] + (short)rgb_spline[2]) / 2);
-      }
-
-      mask_color_active_tint(rgb_tmp, rgb_tmp, is_active);
-      immUniformColor4ubv(rgb_tmp);
-      mask_draw_array(pos, draw_method, points, tot_point);
-
-      immUnbindProgram();
-      break;
-
-    case MASK_DT_DASH: {
-      float colors[8];
-
-      mask_color_active_tint(rgb_tmp, rgb_spline, is_active);
-      rgba_uchar_to_float(colors, rgb_tmp);
-      mask_color_active_tint(rgb_tmp, rgb_black, is_active);
-      rgba_uchar_to_float(colors + 4, rgb_tmp);
-
-      immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
-
-      float viewport_size[4];
-      GPU_viewport_size_get_f(viewport_size);
-      immUniform2f("viewport_size", viewport_size[2] / UI_DPI_FAC, viewport_size[3] / UI_DPI_FAC);
-
-      immUniform1i("colors_len", 2); /* "advanced" mode */
-      immUniformArray4fv("colors", colors, 2);
-      immUniform1f("dash_width", 4.0f);
-      immUniform1f("dash_factor", 0.5f);
-      GPU_line_width(1.0f);
-
-      mask_draw_array(pos, draw_method, points, tot_point);
-
-      immUnbindProgram();
-      break;
-    }
-
-    default:
-      BLI_assert(false);
-  }
-
-  if (points != orig_points) {
-    MEM_freeN(points);
-  }
-}
-
-static void draw_spline_curve(const bContext *C,
-                              MaskLayer *mask_layer,
-                              MaskSpline *spline,
-                              const char draw_flag,
-                              const char draw_type,
+static void draw_spline_curve(const bContext *C, MaskLayer *masklay, MaskSpline *spline,
+                              const char draw_flag, const char draw_type,
                               const bool is_active,
-                              const int width,
-                              const int height)
+                              const int width, const int height)
 {
-  const uint resol = max_ii(BKE_mask_spline_feather_resolution(spline, width, height),
-                            BKE_mask_spline_resolution(spline, width, height));
+	const unsigned int resol = max_ii(BKE_mask_spline_feather_resolution(spline, width, height),
+	                                  BKE_mask_spline_resolution(spline, width, height));
 
-  uchar rgb_tmp[4];
+	unsigned char rgb_tmp[4];
 
-  const bool is_spline_sel = (spline->flag & SELECT) &&
-                             (mask_layer->restrictflag & MASK_RESTRICT_SELECT) == 0;
-  const bool is_smooth = (draw_flag & MASK_DRAWFLAG_SMOOTH) != 0;
-  const bool is_fill = (spline->flag & MASK_SPLINE_NOFILL) == 0;
+	const bool is_spline_sel = (spline->flag & SELECT) && (masklay->restrictflag & MASK_RESTRICT_SELECT) == 0;
+	const bool is_smooth = (draw_flag & MASK_DRAWFLAG_SMOOTH) != 0;
+	const bool is_fill = (spline->flag & MASK_SPLINE_NOFILL) == 0;
 
-  uint tot_diff_point;
-  float(*diff_points)[2];
+	unsigned int tot_diff_point;
+	float (*diff_points)[2];
 
-  uint tot_feather_point;
-  float(*feather_points)[2];
+	unsigned int tot_feather_point;
+	float (*feather_points)[2];
 
-  diff_points = BKE_mask_spline_differentiate_with_resolution(spline, &tot_diff_point, resol);
+	diff_points = BKE_mask_spline_differentiate_with_resolution(spline, &tot_diff_point, resol);
 
-  if (!diff_points) {
-    return;
-  }
+	if (!diff_points)
+		return;
 
-  if (is_smooth) {
-    GPU_line_smooth(true);
-  }
+	if (is_smooth) {
+		glEnable(GL_LINE_SMOOTH);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
 
-  feather_points = BKE_mask_spline_feather_differentiated_points_with_resolution(
-      spline, &tot_feather_point, resol, (is_fill != false));
+	feather_points = BKE_mask_spline_feather_differentiated_points_with_resolution(spline, &tot_feather_point, resol, (is_fill != false));
 
-  /* draw feather */
-  mask_spline_feather_color_get(mask_layer, spline, is_spline_sel, rgb_tmp);
-  mask_draw_curve_type(
-      C, spline, feather_points, tot_feather_point, true, is_active, rgb_tmp, draw_type);
+	/* draw feather */
+	mask_spline_feather_color_get(masklay, spline, is_spline_sel, rgb_tmp);
+	mask_draw_curve_type(C, spline, feather_points, tot_feather_point,
+	                     true, is_smooth, is_active,
+	                     rgb_tmp, draw_type);
 
-  if (!is_fill) {
-    const float *fp = &diff_points[0][0];
-    float *fp_feather = &feather_points[0][0];
+	if (!is_fill) {
 
-    BLI_assert(tot_diff_point == tot_feather_point);
+		const float *fp   = &diff_points[0][0];
+		float *fp_feather = &feather_points[0][0];
+		float tvec[2];
+		int i;
 
-    for (int i = 0; i < tot_diff_point; i++, fp += 2, fp_feather += 2) {
-      float tvec[2];
-      sub_v2_v2v2(tvec, fp, fp_feather);
-      add_v2_v2v2(fp_feather, fp, tvec);
-    }
+		BLI_assert(tot_diff_point == tot_feather_point);
 
-    /* same as above */
-    mask_draw_curve_type(
-        C, spline, feather_points, tot_feather_point, true, is_active, rgb_tmp, draw_type);
-  }
+		for (i = 0; i < tot_diff_point; i++, fp += 2, fp_feather += 2) {
+			sub_v2_v2v2(tvec, fp, fp_feather);
+			add_v2_v2v2(fp_feather, fp, tvec);
+		}
 
-  MEM_freeN(feather_points);
+		/* same as above */
+		mask_draw_curve_type(C, spline, feather_points, tot_feather_point,
+		                     true, is_smooth, is_active,
+		                     rgb_tmp, draw_type);
+	}
 
-  /* draw main curve */
-  mask_spline_color_get(mask_layer, spline, is_spline_sel, rgb_tmp);
-  mask_draw_curve_type(
-      C, spline, diff_points, tot_diff_point, false, is_active, rgb_tmp, draw_type);
-  MEM_freeN(diff_points);
+	MEM_freeN(feather_points);
 
-  if (is_smooth) {
-    GPU_line_smooth(false);
-  }
+	/* draw main curve */
+	mask_spline_color_get(masklay, spline, is_spline_sel, rgb_tmp);
+	mask_draw_curve_type(C, spline, diff_points, tot_diff_point,
+	                     false, is_smooth, is_active,
+	                     rgb_tmp, draw_type);
+	MEM_freeN(diff_points);
+
+	if (draw_flag & MASK_DRAWFLAG_SMOOTH) {
+		glDisable(GL_LINE_SMOOTH);
+		glDisable(GL_BLEND);
+	}
+
+	(void)draw_type;
 }
 
-static void draw_mask_layers(const bContext *C,
-                             Mask *mask,
-                             const char draw_flag,
-                             const char draw_type,
-                             const int width,
-                             const int height)
+static void draw_masklays(const bContext *C, Mask *mask, const char draw_flag, const char draw_type,
+                          const int width, const int height, const float xscale, const float yscale)
 {
-  GPU_blend(GPU_BLEND_ALPHA);
-  GPU_program_point_size(true);
+	MaskLayer *masklay;
+	int i;
 
-  MaskLayer *mask_layer;
-  int i;
+	for (masklay = mask->masklayers.first, i = 0; masklay; masklay = masklay->next, i++) {
+		MaskSpline *spline;
+		const bool is_active = (i == mask->masklay_act);
 
-  for (mask_layer = mask->masklayers.first, i = 0; mask_layer != NULL;
-       mask_layer = mask_layer->next, i++) {
-    const bool is_active = (i == mask->masklay_act);
+		if (masklay->restrictflag & MASK_RESTRICT_VIEW) {
+			continue;
+		}
 
-    if (mask_layer->restrictflag & MASK_RESTRICT_VIEW) {
-      continue;
-    }
+		for (spline = masklay->splines.first; spline; spline = spline->next) {
 
-    LISTBASE_FOREACH (MaskSpline *, spline, &mask_layer->splines) {
+			/* draw curve itself first... */
+			draw_spline_curve(C, masklay, spline, draw_flag, draw_type, is_active, width, height);
 
-      /* draw curve itself first... */
-      draw_spline_curve(C, mask_layer, spline, draw_flag, draw_type, is_active, width, height);
+//			draw_spline_parents(masklay, spline);
 
-      if (!(mask_layer->restrictflag & MASK_RESTRICT_SELECT)) {
-        /* ...and then handles over the curve so they're nicely visible */
-        draw_spline_points(C, mask_layer, spline, draw_flag, draw_type);
-      }
+			if (!(masklay->restrictflag & MASK_RESTRICT_SELECT)) {
+				/* ...and then handles over the curve so they're nicely visible */
+				draw_spline_points(C, masklay, spline, draw_flag, draw_type, xscale, yscale);
+			}
 
-      /* show undeform for testing */
-      if (0) {
-        void *back = spline->points_deform;
+			/* show undeform for testing */
+			if (0) {
+				void *back = spline->points_deform;
 
-        spline->points_deform = NULL;
-        draw_spline_curve(C, mask_layer, spline, draw_flag, draw_type, is_active, width, height);
-        draw_spline_points(C, mask_layer, spline, draw_flag, draw_type);
-        spline->points_deform = back;
-      }
-    }
-  }
-
-  GPU_program_point_size(false);
-  GPU_blend(GPU_BLEND_NONE);
+				spline->points_deform = NULL;
+				draw_spline_curve(C, masklay, spline, draw_flag, draw_type, is_active, width, height);
+//				draw_spline_parents(masklay, spline);
+				draw_spline_points(C, masklay, spline, draw_flag, draw_type, xscale, yscale);
+				spline->points_deform = back;
+			}
+		}
+	}
 }
 
-void ED_mask_draw(const bContext *C, const char draw_flag, const char draw_type)
+void ED_mask_draw(const bContext *C,
+                  const char draw_flag, const char draw_type)
 {
-  ScrArea *area = CTX_wm_area(C);
-  Mask *mask = CTX_data_edit_mask(C);
-  int width, height;
+	ScrArea *sa = CTX_wm_area(C);
+	ARegion *ar = CTX_wm_region(C);
 
-  if (!mask) {
-    return;
-  }
+	Mask *mask = CTX_data_edit_mask(C);
+	int width, height;
+	float aspx, aspy;
+	float xscale, yscale;
 
-  ED_mask_get_size(area, &width, &height);
+	if (!mask)
+		return;
 
-  draw_mask_layers(C, mask, draw_flag, draw_type, width, height);
+	ED_mask_get_size(sa, &width, &height);
+	ED_mask_get_aspect(sa, ar, &aspx, &aspy);
+	UI_view2d_scale_get(&ar->v2d, &xscale, &yscale);
+
+	draw_masklays(C, mask, draw_flag, draw_type, width, height, xscale * aspx, yscale * aspy);
 }
 
 static float *mask_rasterize(Mask *mask, const int width, const int height)
 {
-  MaskRasterHandle *handle;
-  float *buffer = MEM_mallocN(sizeof(float) * height * width, "rasterized mask buffer");
+	MaskRasterHandle *handle;
+	float *buffer = MEM_mallocN(sizeof(float) * height * width, "rasterized mask buffer");
 
-  /* Initialize rasterization handle. */
-  handle = BKE_maskrasterize_handle_new();
-  BKE_maskrasterize_handle_init(handle, mask, width, height, true, true, true);
+	/* Initialize rasterization handle. */
+	handle = BKE_maskrasterize_handle_new();
+	BKE_maskrasterize_handle_init(handle, mask, width, height, true, true, true);
 
-  BKE_maskrasterize_buffer(handle, width, height, buffer);
+	BKE_maskrasterize_buffer(handle, width, height, buffer);
 
-  /* Free memory. */
-  BKE_maskrasterize_handle_free(handle);
+	/* Free memory. */
+	BKE_maskrasterize_handle_free(handle);
 
-  return buffer;
+	return buffer;
 }
 
 /* sets up the opengl context.
  * width, height are to match the values from ED_mask_get_size() */
-void ED_mask_draw_region(
-    Depsgraph *depsgraph,
-    Mask *mask_,
-    ARegion *region,
-    const char draw_flag,
-    const char draw_type,
-    const char overlay_mode,
-    /* convert directly into aspect corrected vars */
-    const int width_i,
-    const int height_i,
-    const float aspx,
-    const float aspy,
-    const bool do_scale_applied,
-    const bool do_draw_cb,
-    /* optional - only used by clip */
-    float stabmat[4][4],
-    /* optional - only used when do_post_draw is set or called from clip editor */
-    const bContext *C)
+void ED_mask_draw_region(Mask *mask, ARegion *ar,
+                         const char draw_flag, const char draw_type, const char overlay_mode,
+                         const int width_i, const int height_i,  /* convert directly into aspect corrected vars */
+                         const float aspx, const float aspy,
+                         const bool do_scale_applied, const bool do_draw_cb,
+                         float stabmat[4][4], /* optional - only used by clip */
+                         const bContext *C    /* optional - only used when do_post_draw is set or called from clip editor */
+                         )
 {
-  struct View2D *v2d = &region->v2d;
-  Mask *mask_eval = (Mask *)DEG_get_evaluated_id(depsgraph, &mask_->id);
+	struct View2D *v2d = &ar->v2d;
 
-  /* aspect always scales vertically in movie and image spaces */
-  const float width = width_i, height = (float)height_i * (aspy / aspx);
+	/* aspect always scales vertically in movie and image spaces */
+	const float width = width_i, height = (float)height_i * (aspy / aspx);
 
-  int x, y;
-  /* int w, h; */
-  float zoomx, zoomy;
+	int x, y;
+	/* int w, h; */
+	float zoomx, zoomy;
 
-  /* frame image */
-  float maxdim;
-  float xofs, yofs;
+	/* frame image */
+	float maxdim;
+	float xofs, yofs;
 
-  /* find window pixel coordinates of origin */
-  UI_view2d_view_to_region(&region->v2d, 0.0f, 0.0f, &x, &y);
+	/* find window pixel coordinates of origin */
+	UI_view2d_view_to_region(&ar->v2d, 0.0f, 0.0f, &x, &y);
 
-  /* w = BLI_rctf_size_x(&v2d->tot); */
-  /* h = BLI_rctf_size_y(&v2d->tot); */
 
-  zoomx = (float)(BLI_rcti_size_x(&region->winrct) + 1) / BLI_rctf_size_x(&region->v2d.cur);
-  zoomy = (float)(BLI_rcti_size_y(&region->winrct) + 1) / BLI_rctf_size_y(&region->v2d.cur);
+	/* w = BLI_rctf_size_x(&v2d->tot); */
+	/* h = BLI_rctf_size_y(&v2d->tot); */
 
-  if (do_scale_applied) {
-    zoomx /= width;
-    zoomy /= height;
-  }
 
-  x += v2d->tot.xmin * zoomx;
-  y += v2d->tot.ymin * zoomy;
+	zoomx = (float)(BLI_rcti_size_x(&ar->winrct) + 1) / BLI_rctf_size_x(&ar->v2d.cur);
+	zoomy = (float)(BLI_rcti_size_y(&ar->winrct) + 1) / BLI_rctf_size_y(&ar->v2d.cur);
 
-  /* frame the image */
-  maxdim = max_ff(width, height);
-  if (width == height) {
-    xofs = yofs = 0;
-  }
-  else if (width < height) {
-    xofs = ((height - width) / -2.0f) * zoomx;
-    yofs = 0.0f;
-  }
-  else { /* (width > height) */
-    xofs = 0.0f;
-    yofs = ((width - height) / -2.0f) * zoomy;
-  }
+	if (do_scale_applied) {
+		zoomx /= width;
+		zoomy /= height;
+	}
 
-  if (draw_flag & MASK_DRAWFLAG_OVERLAY) {
-    const float red[4] = {1.0f, 0.0f, 0.0f, 0.0f};
-    float *buffer = mask_rasterize(mask_eval, width, height);
+	x += v2d->tot.xmin * zoomx;
+	y += v2d->tot.ymin * zoomy;
 
-    if (overlay_mode != MASK_OVERLAY_ALPHACHANNEL) {
-      /* More blending types could be supported in the future. */
-      GPU_blend(GPU_BLEND_MULTIPLY);
-    }
+	/* frame the image */
+	maxdim = max_ff(width, height);
+	if (width == height) {
+		xofs = yofs = 0;
+	}
+	else if (width < height) {
+		xofs = ((height - width) / -2.0f) * zoomx;
+		yofs = 0.0f;
+	}
+	else { /* (width > height) */
+		xofs = 0.0f;
+		yofs = ((width - height) / -2.0f) * zoomy;
+	}
 
-    GPU_matrix_push();
-    GPU_matrix_translate_2f(x, y);
-    GPU_matrix_scale_2f(zoomx, zoomy);
-    if (stabmat) {
-      GPU_matrix_mul(stabmat);
-    }
-    IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_SHUFFLE_COLOR);
-    GPU_shader_uniform_vector(
-        state.shader, GPU_shader_get_uniform(state.shader, "shuffle"), 4, 1, red);
-    immDrawPixelsTex(&state, 0.0f, 0.0f, width, height, GPU_R16F, false, buffer, 1.0f, 1.0f, NULL);
+	if (draw_flag & MASK_DRAWFLAG_OVERLAY) {
+		float *buffer = mask_rasterize(mask, width, height);
+		int format;
 
-    GPU_matrix_pop();
+		if (overlay_mode == MASK_OVERLAY_ALPHACHANNEL) {
+			glColor3f(1.0f, 1.0f, 1.0f);
+			format = GL_LUMINANCE;
+		}
+		else {
+			/* More blending types could be supported in the future. */
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_DST_COLOR, GL_SRC_ALPHA);
+			format = GL_ALPHA;
+		}
 
-    if (overlay_mode != MASK_OVERLAY_ALPHACHANNEL) {
-      GPU_blend(GPU_BLEND_NONE);
-    }
+		glPushMatrix();
+		glTranslatef(x, y, 0);
+		glScalef(zoomx, zoomy, 0);
+		if (stabmat) {
+			glMultMatrixf(stabmat);
+		}
+		glaDrawPixelsTex(0.0f, 0.0f, width, height, format, GL_FLOAT, GL_NEAREST, buffer);
+		glPopMatrix();
 
-    MEM_freeN(buffer);
-  }
+		if (overlay_mode != MASK_OVERLAY_ALPHACHANNEL) {
+			glDisable(GL_BLEND);
+		}
 
-  /* apply transformation so mask editing tools will assume drawing from the
-   * origin in normalized space */
-  GPU_matrix_push();
-  GPU_matrix_translate_2f(x + xofs, y + yofs);
-  GPU_matrix_scale_2f(zoomx, zoomy);
-  if (stabmat) {
-    GPU_matrix_mul(stabmat);
-  }
-  GPU_matrix_scale_2f(maxdim, maxdim);
+		MEM_freeN(buffer);
+	}
 
-  if (do_draw_cb) {
-    ED_region_draw_cb_draw(C, region, REGION_DRAW_PRE_VIEW);
-  }
+	/* apply transformation so mask editing tools will assume drawing from the origin in normalized space */
+	glPushMatrix();
+	glTranslatef(x + xofs, y + yofs, 0);
+	glScalef(zoomx, zoomy, 0);
+	if (stabmat) {
+		glMultMatrixf(stabmat);
+	}
+	glScalef(maxdim, maxdim, 0);
 
-  /* draw! */
-  draw_mask_layers(C, mask_eval, draw_flag, draw_type, width, height);
+	if (do_draw_cb) {
+		ED_region_draw_cb_draw(C, ar, REGION_DRAW_PRE_VIEW);
+	}
 
-  if (do_draw_cb) {
-    ED_region_draw_cb_draw(C, region, REGION_DRAW_POST_VIEW);
-  }
+	/* draw! */
+	draw_masklays(C, mask, draw_flag, draw_type, width, height, maxdim * zoomx, maxdim * zoomy);
 
-  GPU_matrix_pop();
+	if (do_draw_cb) {
+		ED_region_draw_cb_draw(C, ar, REGION_DRAW_POST_VIEW);
+	}
+
+	glPopMatrix();
 }
 
-void ED_mask_draw_frames(
-    Mask *mask, ARegion *region, const int cfra, const int sfra, const int efra)
+void ED_mask_draw_frames(Mask *mask, ARegion *ar, const int cfra, const int sfra, const int efra)
 {
-  const float framelen = region->winx / (float)(efra - sfra + 1);
+	const float framelen = ar->winx / (float)(efra - sfra + 1);
 
-  MaskLayer *mask_layer = BKE_mask_layer_active(mask);
-  if (mask_layer == NULL) {
-    return;
-  }
+	MaskLayer *masklay = BKE_mask_layer_active(mask);
 
-  uint num_lines = BLI_listbase_count(&mask_layer->splines_shapes);
-  if (num_lines == 0) {
-    return;
-  }
+	glBegin(GL_LINES);
+	glColor4ub(255, 175, 0, 255);
 
-  /* Local coordinate visible rect inside region, to accommodate overlapping ui. */
-  const rcti *rect_visible = ED_region_visible_rect(region);
-  const int region_bottom = rect_visible->ymin;
+	if (masklay) {
+		MaskLayerShape *masklay_shape;
 
-  uint pos = GPU_vertformat_attr_add(
-      immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
+		for (masklay_shape = masklay->splines_shapes.first;
+		     masklay_shape;
+		     masklay_shape = masklay_shape->next)
+		{
+			int frame = masklay_shape->frame;
 
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-  immUniformColor4ub(255, 175, 0, 255);
+			/* draw_keyframe(i, CFRA, sfra, framelen, 1); */
+			int height = (frame == cfra) ? 22 : 10;
+			int x = (frame - sfra) * framelen;
+			glVertex2i(x, 0);
+			glVertex2i(x, height);
+		}
+	}
 
-  immBegin(GPU_PRIM_LINES, 2 * num_lines);
-
-  for (MaskLayerShape *mask_layer_shape = mask_layer->splines_shapes.first;
-       mask_layer_shape != NULL;
-       mask_layer_shape = mask_layer_shape->next) {
-    int frame = mask_layer_shape->frame;
-
-    /* draw_keyframe(i, CFRA, sfra, framelen, 1); */
-    int height = (frame == cfra) ? 22 : 10;
-    int x = (frame - sfra) * framelen;
-    immVertex2i(pos, x, region_bottom);
-    immVertex2i(pos, x, region_bottom + height * UI_DPI_FAC);
-  }
-  immEnd();
-  immUnbindProgram();
+	glEnd();
 }

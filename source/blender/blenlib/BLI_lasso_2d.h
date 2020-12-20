@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,34 +17,25 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __BLI_LASSO_2D_H__
+#define __BLI_LASSO_2D_H__
 
-/** \file
- * \ingroup bli
+/** \file BLI_lasso_2d.h
+ *  \ingroup bli
  */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 struct rcti;
 
-void BLI_lasso_boundbox(struct rcti *rect, const int mcoords[][2], const unsigned int mcoords_len);
-bool BLI_lasso_is_point_inside(const int mcoords[][2],
-                               const unsigned int mcoords_len,
-                               const int sx,
-                               const int sy,
-                               const int error_value);
-bool BLI_lasso_is_edge_inside(const int mcoords[][2],
-                              const unsigned int mcoords_len,
-                              int x0,
-                              int y0,
-                              int x1,
-                              int y1,
-                              const int error_value);
+void BLI_lasso_boundbox(struct rcti *rect, const int mcords[][2], const unsigned int moves);
+bool BLI_lasso_is_point_inside(const int mcords[][2], const unsigned int moves, const int sx, const int sy, const int error_value);
+bool BLI_lasso_is_edge_inside(const int mcords[][2], const unsigned int moves, int x0, int y0, int x1, int y1, const int error_value);
 
-#ifdef __cplusplus
-}
-#endif
+#endif  /* __BLI_LASSO_2D_H__ */

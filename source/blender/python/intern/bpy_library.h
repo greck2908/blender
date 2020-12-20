@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,23 +14,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Contributor(s): Campbell Barton
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup pythonintern
+/** \file blender/python/intern/bpy_library.h
+ *  \ingroup pythonintern
  */
 
-#pragma once
+#ifndef __BPY_LIBRARY_H__
+#define __BPY_LIBRARY_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+int BPY_library_load_module(PyObject *mod_par);
+int BPY_library_write_module(PyObject *mod_par);
 
-int BPY_library_load_type_ready(void);
-extern PyMethodDef BPY_library_load_method_def;
-
-extern PyMethodDef BPY_library_write_method_def;
-
-#ifdef __cplusplus
-}
-#endif
+#endif  /* __BPY_LIBRARY_H__ */

@@ -39,17 +39,18 @@ from _bpy import (
     app,
     context,
     data,
-    msgbus,
     props,
     types,
 )
 
 # python modules
 from . import (
-    ops,
     path,
     utils,
 )
+
+# fake operator module
+from .ops import ops_fake_module as ops
 
 
 def main():

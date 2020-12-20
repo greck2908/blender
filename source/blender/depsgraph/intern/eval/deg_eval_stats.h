@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,21 +17,24 @@
  *
  * The Original Code is Copyright (C) 2017 Blender Foundation.
  * All rights reserved.
+ *
+ * Original Author: Sergey Sharybin
+ * Contributor(s): None Yet
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup depsgraph
+/** \file blender/depsgraph/intern/eval/deg_eval_stats.h
+ *  \ingroup depsgraph
  */
 
 #pragma once
 
-namespace blender {
-namespace deg {
+namespace DEG {
 
 struct Depsgraph;
 
 /* Aggregate operation timings to overall component and ID nodes timing. */
 void deg_eval_stats_aggregate(Depsgraph *graph);
 
-}  // namespace deg
-}  // namespace blender
+}  // namespace DEG

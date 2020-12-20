@@ -16,11 +16,16 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
+#
+# The Original Code is: all of this file.
+#
+# Contributor(s): Jacques Beaurain.
+#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
-  .
-  include
+	.
+	include
 )
 
 set(INC_SYS
@@ -28,13 +33,10 @@ set(INC_SYS
 )
 
 set(SRC
-  include/clew.h
-  src/clew.c
-)
-
-set(LIB
+	include/clew.h
+	src/clew.c
 )
 
 add_definitions(-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
 
-blender_add_lib(extern_clew "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+blender_add_lib(extern_clew "${SRC}" "${INC}" "${INC_SYS}")

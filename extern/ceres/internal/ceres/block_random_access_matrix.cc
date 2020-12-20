@@ -33,7 +33,8 @@
 namespace ceres {
 namespace internal {
 
-BlockRandomAccessMatrix::~BlockRandomAccessMatrix() {}
+BlockRandomAccessMatrix::~BlockRandomAccessMatrix() {
+}
 
 }  // namespace internal
 }  // namespace ceres

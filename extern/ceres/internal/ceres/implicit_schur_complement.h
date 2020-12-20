@@ -34,13 +34,11 @@
 #ifndef CERES_INTERNAL_IMPLICIT_SCHUR_COMPLEMENT_H_
 #define CERES_INTERNAL_IMPLICIT_SCHUR_COMPLEMENT_H_
 
-#include <memory>
-
-#include "ceres/internal/eigen.h"
-#include "ceres/internal/port.h"
 #include "ceres/linear_operator.h"
 #include "ceres/linear_solver.h"
 #include "ceres/partitioned_matrix_view.h"
+#include "ceres/internal/eigen.h"
+#include "ceres/internal/scoped_ptr.h"
 #include "ceres/types.h"
 
 namespace ceres {
@@ -88,7 +86,7 @@ class BlockSparseMatrix;
 // RightMultiply (and the LeftMultiply) methods are not thread safe as
 // they depend on mutable arrays used for the temporaries needed to
 // compute the product y += Sx;
-class CERES_EXPORT_INTERNAL ImplicitSchurComplement : public LinearOperator {
+class ImplicitSchurComplement : public LinearOperator {
  public:
   // num_eliminate_blocks is the number of E blocks in the matrix
   // A.
@@ -115,11 +113,11 @@ class CERES_EXPORT_INTERNAL ImplicitSchurComplement : public LinearOperator {
   void Init(const BlockSparseMatrix& A, const double* D, const double* b);
 
   // y += Sx, where S is the Schur complement.
-  void RightMultiply(const double* x, double* y) const final;
+  virtual void RightMultiply(const double* x, double* y) const;
 
   // The Schur complement is a symmetric positive definite matrix,
   // thus the left and right multiply operators are the same.
-  void LeftMultiply(const double* x, double* y) const final {
+  virtual void LeftMultiply(const double* x, double* y) const {
     RightMultiply(x, y);
   }
 
@@ -129,9 +127,9 @@ class CERES_EXPORT_INTERNAL ImplicitSchurComplement : public LinearOperator {
   // complement.
   void BackSubstitute(const double* x, double* y);
 
-  int num_rows() const final { return A_->num_cols_f(); }
-  int num_cols() const final { return A_->num_cols_f(); }
-  const Vector& rhs() const { return rhs_; }
+  virtual int num_rows() const { return A_->num_cols_f(); }
+  virtual int num_cols() const { return A_->num_cols_f(); }
+  const Vector& rhs()    const { return rhs_;             }
 
   const BlockSparseMatrix* block_diagonal_EtE_inverse() const {
     return block_diagonal_EtE_inverse_.get();
@@ -147,12 +145,12 @@ class CERES_EXPORT_INTERNAL ImplicitSchurComplement : public LinearOperator {
 
   const LinearSolver::Options& options_;
 
-  std::unique_ptr<PartitionedMatrixViewBase> A_;
+  scoped_ptr<PartitionedMatrixViewBase> A_;
   const double* D_;
   const double* b_;
 
-  std::unique_ptr<BlockSparseMatrix> block_diagonal_EtE_inverse_;
-  std::unique_ptr<BlockSparseMatrix> block_diagonal_FtF_inverse_;
+  scoped_ptr<BlockSparseMatrix> block_diagonal_EtE_inverse_;
+  scoped_ptr<BlockSparseMatrix> block_diagonal_FtF_inverse_;
 
   Vector rhs_;
 

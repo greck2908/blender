@@ -29,6 +29,9 @@ ENDIF()
 
 SET(_blosc_SEARCH_DIRS
   ${BLOSC_ROOT_DIR}
+  /usr/local
+  /sw # Fink
+  /opt/local # DarwinPorts
   /opt/lib/blosc
 )
 

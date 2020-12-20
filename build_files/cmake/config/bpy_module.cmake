@@ -12,9 +12,13 @@ set(WITH_INSTALL_PORTABLE    OFF CACHE BOOL "" FORCE)
 # no point int copying python into python
 set(WITH_PYTHON_INSTALL      OFF CACHE BOOL "" FORCE)
 
+# dont build the game engine
+set(WITH_GAMEENGINE          OFF CACHE BOOL "" FORCE)
+
 # disable audio, its possible some devs may want this but for now disable
 # so the python module doesn't hold the audio device and loads quickly.
 set(WITH_AUDASPACE           OFF CACHE BOOL "" FORCE)
+set(WITH_FFTW3               OFF CACHE BOOL "" FORCE)
 set(WITH_JACK                OFF CACHE BOOL "" FORCE)
 set(WITH_SDL                 OFF CACHE BOOL "" FORCE)
 set(WITH_OPENAL              OFF CACHE BOOL "" FORCE)
@@ -28,16 +32,4 @@ set(WITH_OPENCOLLADA         OFF CACHE BOOL "" FORCE)
 set(WITH_INTERNATIONAL       OFF CACHE BOOL "" FORCE)
 set(WITH_BULLET              OFF CACHE BOOL "" FORCE)
 set(WITH_OPENVDB             OFF CACHE BOOL "" FORCE)
-set(WITH_NANOVDB             OFF CACHE BOOL "" FORCE)
 set(WITH_ALEMBIC             OFF CACHE BOOL "" FORCE)
-
-# Depends on Python install, do this to quiet warning.
-set(WITH_DRACO               OFF CACHE BOOL "" FORCE)
-
-# Jemalloc does not work with dlopen() of Python modules:
-# https://github.com/jemalloc/jemalloc/issues/1237
-set(WITH_MEM_JEMALLOC        OFF CACHE BOOL "" FORCE)
-
-if(WIN32)
-  set(WITH_WINDOWS_BUNDLE_CRT  OFF CACHE BOOL "" FORCE)
-endif()

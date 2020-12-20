@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,53 +17,66 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup GHOST
+/** \file ghost/intern/GHOST_CallbackEventConsumer.h
+ *  \ingroup GHOST
  * Declaration of GHOST_CallbackEventConsumer class.
  */
 
-#pragma once
+#ifndef __GHOST_CALLBACKEVENTCONSUMER_H__
+#define __GHOST_CALLBACKEVENTCONSUMER_H__
 
-#include "GHOST_C-api.h"
 #include "GHOST_IEventConsumer.h"
+#include "GHOST_C-api.h"
 
 /**
  * Event consumer that will forward events to a call-back routine.
  * Especially useful for the C-API.
+ * \author	Maarten Gribnau
+ * \date	October 25, 2001
  */
-class GHOST_CallbackEventConsumer : public GHOST_IEventConsumer {
- public:
-  /**
-   * Constructor.
-   * \param eventCallback: The call-back routine invoked.
-   * \param userData: The data passed back through the call-back routine.
-   */
-  GHOST_CallbackEventConsumer(GHOST_EventCallbackProcPtr eventCallback,
-                              GHOST_TUserDataPtr userData);
+class GHOST_CallbackEventConsumer : public GHOST_IEventConsumer
+{
+public:
+	/**
+	 * Constructor.
+	 * \param	eventCallback	The call-back routine invoked.
+	 * \param	userData		The data passed back though the call-back routine.
+	 */
+	GHOST_CallbackEventConsumer(
+	    GHOST_EventCallbackProcPtr eventCallback,
+	    GHOST_TUserDataPtr userData);
 
-  /**
-   * Destructor.
-   */
-  ~GHOST_CallbackEventConsumer(void)
-  {
-  }
+	/**
+	 * Destructor.
+	 */
+	~GHOST_CallbackEventConsumer(void)
+	{
+	}
 
-  /**
-   * This method is called by an event producer when an event is available.
-   * \param event: The event that can be handled or ignored.
-   * \return Indication as to whether the event was handled.
-   */
-  bool processEvent(GHOST_IEvent *event);
+	/**
+	 * This method is called by an event producer when an event is available.
+	 * \param event	The event that can be handled or ignored.
+	 * \return Indication as to whether the event was handled.
+	 */
+	bool processEvent(GHOST_IEvent *event);
 
- protected:
-  /** The call-back routine invoked. */
-  GHOST_EventCallbackProcPtr m_eventCallback;
-  /** The data passed back through the call-back routine. */
-  GHOST_TUserDataPtr m_userData;
+protected:
+	/** The call-back routine invoked. */
+	GHOST_EventCallbackProcPtr m_eventCallback;
+	/** The data passed back though the call-back routine. */
+	GHOST_TUserDataPtr m_userData;
 
 #ifdef WITH_CXX_GUARDEDALLOC
-  MEM_CXX_CLASS_ALLOC_FUNCS("GHOST:GHOST_CallbackEventConsumer")
+	MEM_CXX_CLASS_ALLOC_FUNCS("GHOST:GHOST_CallbackEventConsumer")
 #endif
 };
+
+#endif // __GHOST_CALLBACKEVENTCONSUMER_H__

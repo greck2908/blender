@@ -34,21 +34,15 @@ _modules = [
     "properties_data_camera",
     "properties_data_curve",
     "properties_data_empty",
-    "properties_data_gpencil",
-    "properties_data_hair",
-    "properties_data_light",
+    "properties_data_lamp",
     "properties_data_lattice",
     "properties_data_mesh",
     "properties_data_metaball",
     "properties_data_modifier",
-    "properties_data_pointcloud",
-    "properties_data_shaderfx",
-    "properties_data_lightprobe",
     "properties_data_speaker",
-    "properties_data_volume",
+    "properties_game",
     "properties_mask_common",
     "properties_material",
-    "properties_material_gpencil",
     "properties_object",
     "properties_paint_common",
     "properties_grease_pencil_common",
@@ -57,23 +51,16 @@ _modules = [
     "properties_physics_common",
     "properties_physics_dynamicpaint",
     "properties_physics_field",
+    "properties_physics_fluid",
     "properties_physics_rigidbody",
     "properties_physics_rigidbody_constraint",
-    "properties_physics_fluid",
+    "properties_physics_smoke",
     "properties_physics_softbody",
     "properties_render",
-    "properties_output",
-    "properties_view_layer",
+    "properties_render_layer",
     "properties_scene",
     "properties_texture",
     "properties_world",
-
-    # Generic Space Modules
-    #
-    # Depends on DNA_WORKSPACE_TOOL (C define).
-    "space_toolsystem_common",
-    "space_toolsystem_toolbar",
-
     "space_clip",
     "space_console",
     "space_dopesheet",
@@ -81,21 +68,17 @@ _modules = [
     "space_graph",
     "space_image",
     "space_info",
+    "space_logic",
     "space_nla",
     "space_node",
     "space_outliner",
     "space_properties",
     "space_sequencer",
-    "space_statusbar",
     "space_text",
     "space_time",
-    "space_topbar",
     "space_userpref",
     "space_view3d",
     "space_view3d_toolbar",
-
-    # XXX, keep last so panels show after all other tool options.
-    "properties_workspace",
 ]
 
 import bpy
@@ -122,12 +105,14 @@ def register():
     )
     from bpy.types import WindowManager
 
-    def addon_filter_items(_self, _context):
+    def addon_filter_items(self, context):
         import addon_utils
 
         items = [
             ('All', "All", "All Add-ons"),
             ('User', "User", "All Add-ons Installed by User"),
+            ('Enabled', "Enabled", "All Enabled Add-ons"),
+            ('Disabled', "Disabled", "All Disabled Add-ons"),
         ]
 
         items_unique = set()
@@ -201,7 +186,7 @@ class UI_UL_list(bpy.types.UIList):
         for i, item in enumerate(items):
             name = getattr(item, propname, None)
             # This is similar to a logical xor
-            if bool(name and fnmatch.fnmatch(name, pattern)) is not bool(reverse):
+            if bool(name and fnmatch.fnmatchcase(name, pattern)) is not bool(reverse):
                 flags[i] |= bitflag
         return flags
 

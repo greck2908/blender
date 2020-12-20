@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,11 +15,13 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
-#pragma once
-
+#ifndef __COM_MAPVALUEOPERATION_H__
+#define __COM_MAPVALUEOPERATION_H__
 #include "COM_NodeOperation.h"
 #include "DNA_texture_types.h"
 
@@ -26,39 +30,37 @@
  * it assumes we are in sRGB color space.
  */
 class MapValueOperation : public NodeOperation {
- private:
-  /**
-   * Cached reference to the inputProgram
-   */
-  SocketReader *m_inputOperation;
-  TexMapping *m_settings;
+private:
+	/**
+	 * Cached reference to the inputProgram
+	 */
+	SocketReader *m_inputOperation;
+	TexMapping *m_settings;
+public:
+	/**
+	 * Default constructor
+	 */
+	MapValueOperation();
 
- public:
-  /**
-   * Default constructor
-   */
-  MapValueOperation();
+	/**
+	 * the inner loop of this program
+	 */
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 
-  /**
-   * the inner loop of this program
-   */
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+	/**
+	 * Initialize the execution
+	 */
+	void initExecution();
 
-  /**
-   * Initialize the execution
-   */
-  void initExecution();
+	/**
+	 * Deinitialize the execution
+	 */
+	void deinitExecution();
 
-  /**
-   * Deinitialize the execution
-   */
-  void deinitExecution();
+	/**
+	 * \brief set the TexMapping settings
+	 */
+	void setSettings(TexMapping *settings) { this->m_settings = settings; }
 
-  /**
-   * \brief set the TexMapping settings
-   */
-  void setSettings(TexMapping *settings)
-  {
-    this->m_settings = settings;
-  }
 };
+#endif

@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,11 +15,13 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
-#pragma once
-
+#ifndef __COM_TONEMAPOPERATION_H__
+#define __COM_TONEMAPOPERATION_H__
 #include "COM_NodeOperation.h"
 #include "DNA_node_types.h"
 
@@ -26,11 +30,11 @@
  * \ingroup operation
  */
 typedef struct AvgLogLum {
-  float al;
-  float auto_key;
-  float lav;
-  float cav[4];
-  float igm;
+	float al;
+	float auto_key;
+	float lav;
+	float cav[4];
+	float igm;
 } AvgLogLum;
 
 /**
@@ -38,51 +42,46 @@ typedef struct AvgLogLum {
  * \ingroup operation
  */
 class TonemapOperation : public NodeOperation {
- protected:
-  /**
-   * \brief Cached reference to the reader
-   */
-  SocketReader *m_imageReader;
+protected:
+	/**
+	 * \brief Cached reference to the reader
+	 */
+	SocketReader *m_imageReader;
 
-  /**
-   * \brief settings of the Tonemap
-   */
-  NodeTonemap *m_data;
+	/**
+	 * \brief settings of the Tonemap
+	 */
+	NodeTonemap *m_data;
 
-  /**
-   * \brief temporarily cache of the execution storage
-   */
-  AvgLogLum *m_cachedInstance;
+	/**
+	 * \brief temporarily cache of the execution storage
+	 */
+	AvgLogLum *m_cachedInstance;
 
- public:
-  TonemapOperation();
+public:
+	TonemapOperation();
 
-  /**
-   * the inner loop of this program
-   */
-  void executePixel(float output[4], int x, int y, void *data);
+	/**
+	 * the inner loop of this program
+	 */
+	void executePixel(float output[4], int x, int y, void *data);
 
-  /**
-   * Initialize the execution
-   */
-  void initExecution();
+	/**
+	 * Initialize the execution
+	 */
+	void initExecution();
 
-  void *initializeTileData(rcti *rect);
-  void deinitializeTileData(rcti *rect, void *data);
+	void *initializeTileData(rcti *rect);
+	void deinitializeTileData(rcti *rect, void *data);
 
-  /**
-   * Deinitialize the execution
-   */
-  void deinitExecution();
+	/**
+	 * Deinitialize the execution
+	 */
+	void deinitExecution();
 
-  void setData(NodeTonemap *data)
-  {
-    this->m_data = data;
-  }
+	void setData(NodeTonemap *data) { this->m_data = data; }
 
-  bool determineDependingAreaOfInterest(rcti *input,
-                                        ReadBufferOperation *readOperation,
-                                        rcti *output);
+	bool determineDependingAreaOfInterest(rcti *input, ReadBufferOperation *readOperation, rcti *output);
 };
 
 /**
@@ -92,9 +91,11 @@ class TonemapOperation : public NodeOperation {
  */
 
 class PhotoreceptorTonemapOperation : public TonemapOperation {
- public:
-  /**
-   * the inner loop of this program
-   */
-  void executePixel(float output[4], int x, int y, void *data);
+public:
+	/**
+	 * the inner loop of this program
+	 */
+	void executePixel(float output[4], int x, int y, void *data);
 };
+
+#endif

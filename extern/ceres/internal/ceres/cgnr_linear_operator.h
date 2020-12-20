@@ -32,10 +32,9 @@
 #define CERES_INTERNAL_CGNR_LINEAR_OPERATOR_H_
 
 #include <algorithm>
-#include <memory>
-
-#include "ceres/internal/eigen.h"
 #include "ceres/linear_operator.h"
+#include "ceres/internal/scoped_ptr.h"
+#include "ceres/internal/eigen.h"
 
 namespace ceres {
 namespace internal {
@@ -80,11 +79,12 @@ class SparseMatrix;
 // Note: This class is not thread safe, since it uses some temporary storage.
 class CgnrLinearOperator : public LinearOperator {
  public:
-  CgnrLinearOperator(const LinearOperator& A, const double* D)
-      : A_(A), D_(D), z_(new double[A.num_rows()]) {}
+  CgnrLinearOperator(const LinearOperator& A, const double *D)
+      : A_(A), D_(D), z_(new double[A.num_rows()]) {
+  }
   virtual ~CgnrLinearOperator() {}
 
-  void RightMultiply(const double* x, double* y) const final {
+  virtual void RightMultiply(const double* x, double* y) const {
     std::fill(z_.get(), z_.get() + A_.num_rows(), 0.0);
 
     // z = Ax
@@ -96,22 +96,22 @@ class CgnrLinearOperator : public LinearOperator {
     // y = y + DtDx
     if (D_ != NULL) {
       int n = A_.num_cols();
-      VectorRef(y, n).array() +=
-          ConstVectorRef(D_, n).array().square() * ConstVectorRef(x, n).array();
+      VectorRef(y, n).array() += ConstVectorRef(D_, n).array().square() *
+                                 ConstVectorRef(x, n).array();
     }
   }
 
-  void LeftMultiply(const double* x, double* y) const final {
+  virtual void LeftMultiply(const double* x, double* y) const {
     RightMultiply(x, y);
   }
 
-  int num_rows() const final { return A_.num_cols(); }
-  int num_cols() const final { return A_.num_cols(); }
+  virtual int num_rows() const { return A_.num_cols(); }
+  virtual int num_cols() const { return A_.num_cols(); }
 
  private:
   const LinearOperator& A_;
   const double* D_;
-  std::unique_ptr<double[]> z_;
+  scoped_array<double> z_;
 };
 
 }  // namespace internal

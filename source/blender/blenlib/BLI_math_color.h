@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -18,52 +20,67 @@
  *
  * The Original Code is: some of this file.
  *
+ * ***** END GPL LICENSE BLOCK *****
  * */
 
-#pragma once
+#ifndef __BLI_MATH_COLOR_H__
+#define __BLI_MATH_COLOR_H__
 
-/** \file
- * \ingroup bli
+/** \file BLI_math_color.h
+ *  \ingroup bli
  */
-
-#include "BLI_math_inline.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include "BLI_math_inline.h"
+
+/* primaries */
+#define BLI_XYZ_SMPTE        0
+#define BLI_XYZ_REC709_SRGB  1
+#define BLI_XYZ_CIE          2
+
+/* built-in profiles */
+#define BLI_PR_NONE     0
+#define BLI_PR_SRGB     1
+#define BLI_PR_REC709   2
+
 /* YCbCr */
-#define BLI_YCC_ITU_BT601 0
-#define BLI_YCC_ITU_BT709 1
-#define BLI_YCC_JFIF_0_255 2
+#define BLI_YCC_ITU_BT601   0
+#define BLI_YCC_ITU_BT709   1
+#define BLI_YCC_JFIF_0_255  2
 
 /* YUV */
-#define BLI_YUV_ITU_BT601 0
-#define BLI_YUV_ITU_BT709 1
+#define BLI_YUV_ITU_BT601   0
+#define BLI_YUV_ITU_BT709   1
 
 /******************* Conversion to RGB ********************/
 
-void hsv_to_rgb(float h, float s, float v, float *r_r, float *r_g, float *r_b);
+void hsv_to_rgb(float h, float s, float v, float *r, float *g, float *b);
 void hsv_to_rgb_v(const float hsv[3], float r_rgb[3]);
-void hsl_to_rgb(float h, float s, float l, float *r_r, float *r_g, float *r_b);
-void hsl_to_rgb_v(const float hsl[3], float r_rgb[3]);
-void hex_to_rgb(const char *hexcol, float *r_r, float *r_g, float *r_b);
-void yuv_to_rgb(float y, float u, float v, float *r_r, float *r_g, float *r_b, int colorspace);
-void ycc_to_rgb(float y, float cb, float cr, float *r_r, float *r_g, float *r_b, int colorspace);
-void cpack_to_rgb(unsigned int col, float *r_r, float *r_g, float *r_b);
+void hsl_to_rgb(float h, float c, float l, float *r, float *g, float *b);
+void hsl_to_rgb_v(const float hcl[3], float r_rgb[3]);
+void hex_to_rgb(char *hexcol, float *r, float *g, float *b);
+void yuv_to_rgb(float y, float u, float v, float *lr, float *lg, float *lb, int colorspace);
+void ycc_to_rgb(float y, float cb, float cr, float *lr, float *lg, float *lb, int colorspace);
+void xyz_to_rgb(float x, float y, float z, float *r, float *g, float *b, int colorspace);
+void cpack_to_rgb(unsigned int col, float *r, float *g, float *b);
 
 /***************** Conversion from RGB ********************/
 
-void rgb_to_yuv(float r, float g, float b, float *r_y, float *r_u, float *r_v, int colorspace);
-void rgb_to_ycc(float r, float g, float b, float *r_y, float *r_cb, float *r_cr, int colorspace);
-void rgb_to_hsv(float r, float g, float b, float *r_h, float *r_s, float *r_v);
+void rgb_to_yuv(float r, float g, float b, float *ly, float *lu, float *lv, int colorspace);
+void rgb_to_ycc(float r, float g, float b, float *ly, float *lcb, float *lcr, int colorspace);
+void rgb_to_hsv(float r, float g, float b, float *lh, float *ls, float *lv);
 void rgb_to_hsv_v(const float rgb[3], float r_hsv[3]);
-void rgb_to_hsl(float r, float g, float b, float *r_h, float *r_s, float *r_l);
+void rgb_to_hsl(float r, float g, float b, float *lh, float *ls, float *ll);
 void rgb_to_hsl_v(const float rgb[3], float r_hsl[3]);
-void rgb_to_hsl_compat(float r, float g, float b, float *r_h, float *r_s, float *r_l);
+void rgb_to_hsl_compat(float r, float g, float b, float *lh, float *ls, float *ll);
 void rgb_to_hsl_compat_v(const float rgb[3], float r_hsl[3]);
-void rgb_to_hsv_compat(float r, float g, float b, float *r_h, float *r_s, float *r_v);
+void rgb_to_hsv_compat(float r, float g, float b, float *lh, float *ls, float *lv);
 void rgb_to_hsv_compat_v(const float rgb[3], float r_hsv[3]);
+void rgb_to_lab(float r, float g, float b, float *ll, float *la, float *lb);
+void rgb_to_xyz(float r, float g, float b, float *x, float *y, float *z);
 unsigned int rgb_to_cpack(float r, float g, float b);
 unsigned int hsv_to_cpack(float h, float s, float v);
 
@@ -95,7 +112,7 @@ void BLI_init_srgb_conversion(void);
 
 MINLINE void premul_to_straight_v4_v4(float straight[4], const float premul[4]);
 MINLINE void premul_to_straight_v4(float color[4]);
-MINLINE void straight_to_premul_v4_v4(float premul[4], const float straight[4]);
+MINLINE void straight_to_premul_v4_v4(float straight[4], const float premul[4]);
 MINLINE void straight_to_premul_v4(float color[4]);
 MINLINE void straight_uchar_to_premul_float(float result[4], const unsigned char color[4]);
 MINLINE void premul_float_to_straight_uchar(unsigned char *result, const float color[4]);
@@ -114,50 +131,40 @@ void rgba_uchar_to_float(float r_col[4], const unsigned char col_ub[4]);
 void rgb_float_to_uchar(unsigned char r_col[3], const float col_f[3]);
 void rgba_float_to_uchar(unsigned char r_col[4], const float col_f[4]);
 
+void xyz_to_lab(float x, float y, float z, float *l, float *a, float *b);
+
 MINLINE float rgb_to_grayscale(const float rgb[3]);
 MINLINE unsigned char rgb_to_grayscale_byte(const unsigned char rgb[3]);
 
 MINLINE int compare_rgb_uchar(const unsigned char a[3], const unsigned char b[3], const int limit);
 
 MINLINE float dither_random_value(float s, float t);
-MINLINE void float_to_byte_dither_v3(
-    unsigned char b[3], const float f[3], float dither, float s, float t);
+MINLINE void float_to_byte_dither_v3(unsigned char b[3], const float f[3], float dither, float s, float t);
+
 
 #define rgba_char_args_set_fl(col, r, g, b, a) \
-  rgba_char_args_set(col, (r)*255, (g)*255, (b)*255, (a)*255)
+	rgba_char_args_set(col, (r) * 255, (g) * 255, (b) * 255, (a) * 255)
 
 #define rgba_float_args_set_ch(col, r, g, b, a) \
-  rgba_float_args_set(col, (r) / 255.0f, (g) / 255.0f, (b) / 255.0f, (a) / 255.0f)
+	rgba_float_args_set(col, (r) / 255.0f, (g) / 255.0f, (b) / 255.0f, (a) / 255.0f)
 
-MINLINE void rgba_uchar_args_set(unsigned char col[4],
-                                 const unsigned char r,
-                                 const unsigned char g,
-                                 const unsigned char b,
-                                 const unsigned char a);
-MINLINE void rgba_float_args_set(
-    float col[4], const float r, const float g, const float b, const float a);
-MINLINE void rgba_uchar_args_test_set(unsigned char col[4],
-                                      const unsigned char r,
-                                      const unsigned char g,
-                                      const unsigned char b,
-                                      const unsigned char a);
+MINLINE void rgba_char_args_set(char col[4], const char r, const char g, const char b, const char a);
+MINLINE void rgba_float_args_set(float col[4], const float r, const float g, const float b, const float a);
+MINLINE void rgba_char_args_test_set(char col[4], const char r, const char g, const char b, const char a);
 MINLINE void cpack_cpy_3ub(unsigned char r_col[3], const unsigned int pack);
 
 void blackbody_temperature_to_rgb_table(float *r_table, int width, float min, float max);
 
 /********* lift/gamma/gain / ASC-CDL conversion ***********/
 
-void lift_gamma_gain_to_asc_cdl(const float *lift,
-                                const float *gamma,
-                                const float *gain,
-                                float *offset,
-                                float *slope,
-                                float *power);
+void lift_gamma_gain_to_asc_cdl(float *lift, float *gamma, float *gain, float *offset, float *slope, float *power);
 
 #if BLI_MATH_DO_INLINE
-#  include "intern/math_color_inline.c"
+#include "intern/math_color_inline.c"
 #endif
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* __BLI_MATH_COLOR_H__ */

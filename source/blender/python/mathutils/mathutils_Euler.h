@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,12 +14,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Contributor(s): Joseph Gilbert
+ *
+ * ***** END GPL LICENSE BLOCK *****
+ *
  */
 
-#pragma once
+#ifndef __MATHUTILS_EULER_H__
+#define __MATHUTILS_EULER_H__
 
-/** \file
- * \ingroup pymathutils
+/** \file blender/python/mathutils/mathutils_Euler.h
+ *  \ingroup pymathutils
  */
 
 extern PyTypeObject euler_Type;
@@ -25,8 +33,8 @@ extern PyTypeObject euler_Type;
 #define EulerObject_CheckExact(v) (Py_TYPE(v) == &euler_Type)
 
 typedef struct {
-  BASE_MATH_MEMBERS(eul);
-  unsigned char order; /* rotation order */
+	BASE_MATH_MEMBERS(eul);
+	unsigned char order;		/* rotation order */
 
 } EulerObject;
 
@@ -36,16 +44,20 @@ typedef struct {
  * blender (stored in blend_data). This is an either/or struct not both */
 
 /* prototypes */
-PyObject *Euler_CreatePyObject(const float eul[3],
-                               const short order,
-                               PyTypeObject *base_type) ATTR_WARN_UNUSED_RESULT;
-PyObject *Euler_CreatePyObject_wrap(float eul[3],
-                                    const short order,
-                                    PyTypeObject *base_type) ATTR_WARN_UNUSED_RESULT
-    ATTR_NONNULL(1);
-PyObject *Euler_CreatePyObject_cb(PyObject *cb_user,
-                                  const short order,
-                                  unsigned char cb_type,
-                                  unsigned char cb_subtype) ATTR_WARN_UNUSED_RESULT;
+PyObject *Euler_CreatePyObject(
+        const float eul[3], const short order,
+        PyTypeObject *base_type
+        ) ATTR_WARN_UNUSED_RESULT;
+PyObject *Euler_CreatePyObject_wrap(
+        float eul[3], const short order,
+        PyTypeObject *base_type
+        ) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
+PyObject *Euler_CreatePyObject_cb(
+        PyObject *cb_user, const short order,
+        unsigned char cb_type, unsigned char cb_subtype
+        ) ATTR_WARN_UNUSED_RESULT;
 
 short euler_order_from_string(const char *str, const char *error_prefix);
+
+
+#endif /* __MATHUTILS_EULER_H__ */

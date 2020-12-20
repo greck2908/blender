@@ -28,9 +28,8 @@
 //
 // Author: sameeragarwal@google.com (Sameer Agarwal)
 
-#include "ceres/minimizer.h"
-
 #include "ceres/line_search_minimizer.h"
+#include "ceres/minimizer.h"
 #include "ceres/trust_region_minimizer.h"
 #include "ceres/types.h"
 #include "glog/logging.h"
@@ -51,6 +50,7 @@ Minimizer* Minimizer::Create(MinimizerType minimizer_type) {
   return NULL;
 }
 
+
 Minimizer::~Minimizer() {}
 
 bool Minimizer::RunCallbacks(const Minimizer::Options& options,
@@ -70,16 +70,12 @@ bool Minimizer::RunCallbacks(const Minimizer::Options& options,
       summary->termination_type = USER_SUCCESS;
       summary->message =
           "User callback returned SOLVER_TERMINATE_SUCCESSFULLY.";
-      if (is_not_silent) {
-        VLOG(1) << "Terminating: " << summary->message;
-      }
+      VLOG_IF(1, is_not_silent) << "Terminating: " << summary->message;
       return false;
     case SOLVER_ABORT:
       summary->termination_type = USER_FAILURE;
       summary->message = "User callback returned SOLVER_ABORT.";
-      if (is_not_silent) {
-        VLOG(1) << "Terminating: " << summary->message;
-      }
+      VLOG_IF(1, is_not_silent) << "Terminating: " << summary->message;
       return false;
     default:
       LOG(FATAL) << "Unknown type of user callback status";

@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,13 +14,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup freestyle
+/** \file source/blender/freestyle/intern/python/StrokeShader/BPy_BlenderTextureShader.h
+ *  \ingroup freestyle
  */
 
-#pragma once
+#ifndef __FREESTYLE_PYTHON_BLENDERTEXTURESHADER_H__
+#define __FREESTYLE_PYTHON_BLENDERTEXTURESHADER_H__
 
 #include "../BPy_StrokeShader.h"
 
@@ -26,22 +31,26 @@
 extern "C" {
 #endif
 
+
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 #include <Python.h>
 
 extern PyTypeObject BlenderTextureShader_Type;
 
-#define BPy_BlenderTextureShader_Check(v) \
-  (PyObject_IsInstance((PyObject *)v, (PyObject *)&BlenderTextureShader_Type))
+#define BPy_BlenderTextureShader_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&BlenderTextureShader_Type))
 
 /*---------------------------Python BPy_BlenderTextureShader structure definition-----------*/
 typedef struct {
-  BPy_StrokeShader py_ss;
+	BPy_StrokeShader py_ss;
 } BPy_BlenderTextureShader;
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef __cplusplus
 }
 #endif
+
+
+#endif /* __FREESTYLE_PYTHON_BLENDERTEXTURESHADER_H__ */

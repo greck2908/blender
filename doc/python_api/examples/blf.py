@@ -6,6 +6,7 @@ Example of using the blf module. For this module to work we
 need to use the OpenGL wrapper :class:`~bgl` as well.
 """
 # import stand alone modules
+import bgl
 import blf
 import bpy
 

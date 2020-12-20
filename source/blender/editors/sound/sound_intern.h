@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,10 +17,20 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
+ *
+ *
+ * Contributor(s): Blender Foundation
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup edsnd
+/** \file blender/editors/sound/sound_intern.h
+ *  \ingroup edsnd
  */
 
-#pragma once
+
+#ifndef __SOUND_INTERN_H__
+#define __SOUND_INTERN_H__
+
+
+#endif /* __SOUND_INTERN_H__ */

@@ -1,4 +1,6 @@
 /*
+ * Copyright 2012, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,10 +15,13 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2012, Blender Foundation.
+ * Contributor:
+ *		Dalai Felinto
+ *		Daniel Salazar
  */
 
-#pragma once
+#ifndef __COM_MAPRANGENODE_H__
+#define __COM_MAPRANGENODE_H__
 
 #include "COM_Node.h"
 #include "DNA_node_types.h"
@@ -25,7 +30,9 @@
  * \ingroup Node
  */
 class MapRangeNode : public Node {
- public:
-  MapRangeNode(bNode *editorNode);
-  void convertToOperations(NodeConverter &converter, const CompositorContext &context) const;
+public:
+	MapRangeNode(bNode *editorNode);
+	void convertToOperations(NodeConverter &converter, const CompositorContext &context) const;
 };
+
+#endif  /* __COM_MAPRANGENODE_H__ */

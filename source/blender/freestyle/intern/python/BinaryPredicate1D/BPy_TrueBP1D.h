@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,13 +14,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup freestyle
+/** \file source/blender/freestyle/intern/python/BinaryPredicate1D/BPy_TrueBP1D.h
+ *  \ingroup freestyle
  */
 
-#pragma once
+#ifndef __FREESTYLE_PYTHON_TRUEBP1D_H__
+#define __FREESTYLE_PYTHON_TRUEBP1D_H__
 
 #include "../BPy_BinaryPredicate1D.h"
 
@@ -34,7 +39,7 @@ extern PyTypeObject TrueBP1D_Type;
 
 /*---------------------------Python BPy_TrueBP1D structure definition----------*/
 typedef struct {
-  BPy_BinaryPredicate1D py_bp1D;
+	BPy_BinaryPredicate1D py_bp1D;
 } BPy_TrueBP1D;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -42,3 +47,5 @@ typedef struct {
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* __FREESTYLE_PYTHON_TRUEBP1D_H__ */

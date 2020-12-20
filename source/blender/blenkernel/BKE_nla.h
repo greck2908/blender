@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,63 +17,48 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation, Joshua Leung
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): Joshua Leung (full recode)
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __BKE_NLA_H__
+#define __BKE_NLA_H__
 
-/** \file
- * \ingroup bke
+/** \file BKE_nla.h
+ *  \ingroup bke
+ *  \author Joshua Leung (full recode)
  */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 struct AnimData;
-struct LibraryForeachIDData;
 struct Main;
 struct NlaStrip;
 struct NlaTrack;
+struct bAction;
 struct Scene;
 struct Speaker;
-struct bAction;
 
-struct BlendDataReader;
-struct BlendExpander;
-struct BlendLibReader;
-struct BlendWriter;
 struct PointerRNA;
 struct PropertyRNA;
 
 /* ----------------------------- */
 /* Data Management */
 
-void BKE_nlastrip_free(ListBase *strips, struct NlaStrip *strip, bool do_id_user);
-void BKE_nlatrack_free(ListBase *tracks, struct NlaTrack *nlt, bool do_id_user);
-void BKE_nla_tracks_free(ListBase *tracks, bool do_id_user);
+void BKE_nlastrip_free(ListBase *strips, struct NlaStrip *strip);
+void BKE_nlatrack_free(ListBase *tracks, struct NlaTrack *nlt);
+void BKE_nla_tracks_free(ListBase *tracks);
 
-struct NlaStrip *BKE_nlastrip_copy(struct Main *bmain,
-                                   struct NlaStrip *strip,
-                                   const bool use_same_action,
-                                   const int flag);
-struct NlaTrack *BKE_nlatrack_copy(struct Main *bmain,
-                                   struct NlaTrack *nlt,
-                                   const bool use_same_actions,
-                                   const int flag);
-void BKE_nla_tracks_copy(struct Main *bmain, ListBase *dst, ListBase *src, const int flag);
+struct NlaStrip *BKE_nlastrip_copy(struct Main *bmain, struct NlaStrip *strip, const bool use_same_action);
+struct NlaTrack *BKE_nlatrack_copy(struct Main *bmain, struct NlaTrack *nlt, const bool use_same_actions);
+void BKE_nla_tracks_copy(struct Main *bmain, ListBase *dst, ListBase *src);
 
-struct NlaTrack *BKE_nlatrack_add(struct AnimData *adt,
-                                  struct NlaTrack *prev,
-                                  bool is_liboverride);
+struct NlaTrack *BKE_nlatrack_add(struct AnimData *adt, struct NlaTrack *prev);
 struct NlaStrip *BKE_nlastrip_new(struct bAction *act);
-struct NlaStrip *BKE_nlastack_add_strip(struct AnimData *adt,
-                                        struct bAction *act,
-                                        const bool is_liboverride);
-struct NlaStrip *BKE_nla_add_soundstrip(struct Main *bmain,
-                                        struct Scene *scene,
-                                        struct Speaker *speaker);
-
-void BKE_nla_strip_foreach_id(struct NlaStrip *strip, struct LibraryForeachIDData *data);
+struct NlaStrip *BKE_nlastack_add_strip(struct AnimData *adt, struct bAction *act);
+struct NlaStrip *BKE_nla_add_soundstrip(struct Scene *scene, struct Speaker *spk);
 
 /* ----------------------------- */
 /* API */
@@ -80,6 +67,7 @@ bool BKE_nlastrips_has_space(ListBase *strips, float start, float end);
 void BKE_nlastrips_sort_strips(ListBase *strips);
 
 bool BKE_nlastrips_add_strip(ListBase *strips, struct NlaStrip *strip);
+
 
 void BKE_nlastrips_make_metas(ListBase *strips, bool is_temp);
 void BKE_nlastrips_clear_metas(ListBase *strips, bool only_sel, bool only_temp);
@@ -99,13 +87,9 @@ void BKE_nlatrack_solo_toggle(struct AnimData *adt, struct NlaTrack *nlt);
 bool BKE_nlatrack_has_space(struct NlaTrack *nlt, float start, float end);
 void BKE_nlatrack_sort_strips(struct NlaTrack *nlt);
 
-bool BKE_nlatrack_add_strip(struct NlaTrack *nlt,
-                            struct NlaStrip *strip,
-                            const bool is_liboverride);
+bool BKE_nlatrack_add_strip(struct NlaTrack *nlt, struct NlaStrip *strip);
 
 bool BKE_nlatrack_get_bounds(struct NlaTrack *nlt, float bounds[2]);
-
-bool BKE_nlatrack_is_nonlocal_in_liboverride(const struct ID *id, const struct NlaTrack *nlt);
 
 /* ............ */
 
@@ -114,7 +98,6 @@ void BKE_nlastrip_set_active(struct AnimData *adt, struct NlaStrip *strip);
 
 bool BKE_nlastrip_within_bounds(struct NlaStrip *strip, float min, float max);
 void BKE_nlastrip_recalculate_bounds(struct NlaStrip *strip);
-void BKE_nlastrip_recalculate_bounds_sync_action(struct NlaStrip *strip);
 
 void BKE_nlastrip_validate_name(struct AnimData *adt, struct NlaStrip *strip);
 
@@ -124,19 +107,18 @@ bool BKE_nlatrack_has_animated_strips(struct NlaTrack *nlt);
 bool BKE_nlatracks_have_animated_strips(ListBase *tracks);
 void BKE_nlastrip_validate_fcurves(struct NlaStrip *strip);
 
-bool BKE_nlastrip_has_curves_for_property(const struct PointerRNA *ptr,
-                                          const struct PropertyRNA *prop);
+bool BKE_nlastrip_has_curves_for_property(const struct PointerRNA *ptr, const struct PropertyRNA *prop);
 
 void BKE_nla_validate_state(struct AnimData *adt);
 
 /* ............ */
 
 bool BKE_nla_action_is_stashed(struct AnimData *adt, struct bAction *act);
-bool BKE_nla_action_stash(struct AnimData *adt, const bool is_liboverride);
+bool BKE_nla_action_stash(struct AnimData *adt);
 
 /* ............ */
 
-void BKE_nla_action_pushdown(struct AnimData *adt, const bool is_liboverride);
+void BKE_nla_action_pushdown(struct AnimData *adt);
 
 bool BKE_nla_tweakmode_enter(struct AnimData *adt);
 void BKE_nla_tweakmode_exit(struct AnimData *adt);
@@ -146,26 +128,16 @@ void BKE_nla_tweakmode_exit(struct AnimData *adt);
 
 /* time mapping conversion modes */
 enum eNlaTime_ConvertModes {
-  /* convert from global time to strip time - for evaluation */
-  NLATIME_CONVERT_EVAL = 0,
-  /* convert from global time to strip time - for editing corrections */
-  // XXX old 0 invert
-  NLATIME_CONVERT_UNMAP,
-  /* convert from strip time to global time */
-  // xxx old 1 invert
-  NLATIME_CONVERT_MAP,
+	/* convert from global time to strip time - for evaluation */
+	NLATIME_CONVERT_EVAL = 0,
+	/* convert from global time to strip time - for editing corrections */
+	// XXX old 0 invert
+	NLATIME_CONVERT_UNMAP,
+	/* convert from strip time to global time */
+	// xxx old 1 invert
+	NLATIME_CONVERT_MAP,
 };
 
 float BKE_nla_tweakedit_remap(struct AnimData *adt, float cframe, short mode);
 
-/* ----------------------------- */
-/* .blend file API */
-
-void BKE_nla_blend_write(struct BlendWriter *writer, struct ListBase *tracks);
-void BKE_nla_blend_read_data(struct BlendDataReader *reader, struct ListBase *tracks);
-void BKE_nla_blend_read_lib(struct BlendLibReader *reader, struct ID *id, struct ListBase *tracks);
-void BKE_nla_blend_read_expand(struct BlendExpander *expander, struct ListBase *tracks);
-
-#ifdef __cplusplus
-}
 #endif

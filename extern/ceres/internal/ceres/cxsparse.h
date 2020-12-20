@@ -36,12 +36,7 @@
 
 #ifndef CERES_NO_CXSPARSE
 
-#include <memory>
-#include <string>
 #include <vector>
-
-#include "ceres/linear_solver.h"
-#include "ceres/sparse_cholesky.h"
 #include "cs.h"
 
 namespace ceres {
@@ -52,27 +47,21 @@ class TripletSparseMatrix;
 
 // This object provides access to solving linear systems using Cholesky
 // factorization with a known symbolic factorization. This features does not
-// explicitly exist in CXSparse. The methods in the class are nonstatic because
+// explicity exist in CXSparse. The methods in the class are nonstatic because
 // the class manages internal scratch space.
 class CXSparse {
  public:
   CXSparse();
   ~CXSparse();
 
-  // Solve the system lhs * solution = rhs in place by using an
-  // approximate minimum degree fill reducing ordering.
-  bool SolveCholesky(cs_di* lhs, double* rhs_and_solution);
-
-  // Solves a linear system given its symbolic and numeric factorization.
-  void Solve(cs_dis* symbolic_factor,
-             csn* numeric_factor,
-             double* rhs_and_solution);
-
-  // Compute the numeric Cholesky factorization of A, given its
-  // symbolic factorization.
-  //
-  // Caller owns the result.
-  csn* Cholesky(cs_di* A, cs_dis* symbolic_factor);
+  // Solves a symmetric linear system A * x = b using Cholesky factorization.
+  //  A                      - The system matrix.
+  //  symbolic_factorization - The symbolic factorization of A. This is obtained
+  //                           from AnalyzeCholesky.
+  //  b                      - The right hand size of the linear equation. This
+  //                           array will also recieve the solution.
+  // Returns false if Cholesky factorization of A fails.
+  bool SolveCholesky(cs_di* A, cs_dis* symbolic_factorization, double* b);
 
   // Creates a sparse matrix from a compressed-column form. No memory is
   // allocated or copied; the structure A is filled out with info from the
@@ -128,7 +117,6 @@ class CXSparse {
 
   void Free(cs_di* sparse_matrix);
   void Free(cs_dis* symbolic_factorization);
-  void Free(csn* numeric_factorization);
 
  private:
   // Cached scratch space
@@ -136,37 +124,10 @@ class CXSparse {
   int scratch_size_;
 };
 
-// An implementation of SparseCholesky interface using the CXSparse
-// library.
-class CXSparseCholesky : public SparseCholesky {
- public:
-  // Factory
-  static std::unique_ptr<SparseCholesky> Create(OrderingType ordering_type);
-
-  // SparseCholesky interface.
-  virtual ~CXSparseCholesky();
-  CompressedRowSparseMatrix::StorageType StorageType() const final;
-  LinearSolverTerminationType Factorize(CompressedRowSparseMatrix* lhs,
-                                        std::string* message) final;
-  LinearSolverTerminationType Solve(const double* rhs,
-                                    double* solution,
-                                    std::string* message) final;
-
- private:
-  CXSparseCholesky(const OrderingType ordering_type);
-  void FreeSymbolicFactorization();
-  void FreeNumericFactorization();
-
-  const OrderingType ordering_type_;
-  CXSparse cs_;
-  cs_dis* symbolic_factor_;
-  csn* numeric_factor_;
-};
-
 }  // namespace internal
 }  // namespace ceres
 
-#else
+#else  // CERES_NO_CXSPARSE
 
 typedef void cs_dis;
 

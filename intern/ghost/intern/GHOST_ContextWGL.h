@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,117 +17,175 @@
  *
  * The Original Code is Copyright (C) 2013 Blender Foundation.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): Jason Wilkins
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup GHOST
+/** \file ghost/intern/GHOST_ContextWGL.h
+ *  \ingroup GHOST
  */
 
-#pragma once
+#ifndef __GHOST_CONTEXTWGL_H__
+#define __GHOST_CONTEXTWGL_H__
 
 //#define WIN32_COMPOSITING
 
 #include "GHOST_Context.h"
 
+#ifdef WITH_GLEW_MX
+#define wglewGetContext() wglewContext
+#endif
+
 #include <GL/wglew.h>
 
-#ifndef GHOST_OPENGL_WGL_RESET_NOTIFICATION_STRATEGY
-#  define GHOST_OPENGL_WGL_RESET_NOTIFICATION_STRATEGY 0
+#ifdef WITH_GLEW_MX
+extern "C" WGLEWContext *wglewContext;
 #endif
 
-class GHOST_ContextWGL : public GHOST_Context {
-  /* XR code needs low level graphics data to send to OpenXR. */
-  friend class GHOST_XrGraphicsBindingOpenGL;
+#ifndef GHOST_OPENGL_WGL_CONTEXT_FLAGS
+#  ifdef WITH_GPU_DEBUG
+#    define GHOST_OPENGL_WGL_CONTEXT_FLAGS WGL_CONTEXT_DEBUG_BIT_ARB
+#  else
+#    define GHOST_OPENGL_WGL_CONTEXT_FLAGS 0
+#  endif
+#endif
 
- public:
-  /**
-   * Constructor.
-   */
-  GHOST_ContextWGL(bool stereoVisual,
-                   bool alphaBackground,
-                   HWND hWnd,
-                   HDC hDC,
-                   int contextProfileMask,
-                   int contextMajorVersion,
-                   int contextMinorVersion,
-                   int contextFlags,
-                   int contextResetNotificationStrategy);
+#ifndef GHOST_OPENGL_WGL_RESET_NOTIFICATION_STRATEGY
+#define GHOST_OPENGL_WGL_RESET_NOTIFICATION_STRATEGY 0
+#endif
 
-  /**
-   * Destructor.
-   */
-  ~GHOST_ContextWGL();
 
-  /**
-   * Swaps front and back buffers of a window.
-   * \return A boolean success indicator.
-   */
-  GHOST_TSuccess swapBuffers();
+class GHOST_ContextWGL : public GHOST_Context
+{
+public:
+	/**
+	 * Constructor.
+	 */
+	GHOST_ContextWGL(
+	        bool stereoVisual,
+			bool alphaBackground,
+	        GHOST_TUns16 numOfAASamples,
+	        HWND hWnd,
+	        HDC hDC,
+	        int contextProfileMask,
+	        int contextMajorVersion,
+	        int contextMinorVersion,
+	        int contextFlags,
+	        int contextResetNotificationStrategy);
 
-  /**
-   * Activates the drawing context of this window.
-   * \return A boolean success indicator.
-   */
-  GHOST_TSuccess activateDrawingContext();
+	/**
+	 * Destructor.
+	 */
+	~GHOST_ContextWGL();
 
-  /**
-   * Release the drawing context of the calling thread.
-   * \return A boolean success indicator.
-   */
-  GHOST_TSuccess releaseDrawingContext();
+	/**
+	 * Swaps front and back buffers of a window.
+	 * \return  A boolean success indicator.
+	 */
+	GHOST_TSuccess swapBuffers();
 
-  /**
-   * Call immediately after new to initialize.  If this fails then immediately delete the object.
-   * \return Indication as to whether initialization has succeeded.
-   */
-  GHOST_TSuccess initializeDrawingContext();
+	/**
+	 * Activates the drawing context of this window.
+	 * \return  A boolean success indicator.
+	 */
+	GHOST_TSuccess activateDrawingContext();
 
-  /**
-   * Removes references to native handles from this context and then returns
-   * \return GHOST_kSuccess if it is OK for the parent to release the handles and
-   * GHOST_kFailure if releasing the handles will interfere with sharing
-   */
-  GHOST_TSuccess releaseNativeHandles();
+	/**
+	 * Call immediately after new to initialize.  If this fails then immediately delete the object.
+	 * \return Indication as to whether initialization has succeeded.
+	 */
+	GHOST_TSuccess initializeDrawingContext();
 
-  /**
-   * Sets the swap interval for #swapBuffers.
-   * \param interval: The swap interval to use.
-   * \return A boolean success indicator.
-   */
-  GHOST_TSuccess setSwapInterval(int interval);
+	/**
+	 * Removes references to native handles from this context and then returns
+	 * \return GHOST_kSuccess if it is OK for the parent to release the handles and
+	 * GHOST_kFailure if releasing the handles will interfere with sharing
+	 */
+	GHOST_TSuccess releaseNativeHandles();
 
-  /**
-   * Gets the current swap interval for #swapBuffers.
-   * \param intervalOut: Variable to store the swap interval if it can be read.
-   * \return Whether the swap interval can be read.
-   */
-  GHOST_TSuccess getSwapInterval(int &intervalOut);
+	/**
+	 * Sets the swap interval for swapBuffers.
+	 * \param interval The swap interval to use.
+	 * \return A boolean success indicator.
+	 */
+	GHOST_TSuccess setSwapInterval(int interval);
 
- private:
-  int choose_pixel_format(bool stereoVisual, bool needAlpha);
-  int choose_pixel_format_arb(bool stereoVisual, bool needAlpha);
-  int _choose_pixel_format_arb_1(bool stereoVisual, bool needAlpha);
+	/**
+	 * Gets the current swap interval for swapBuffers.
+	 * \param intervalOut Variable to store the swap interval if it can be read.
+	 * \return Whether the swap interval can be read.
+	 */
+	GHOST_TSuccess getSwapInterval(int &intervalOut);
 
-  void initContextWGLEW(PIXELFORMATDESCRIPTOR &preferredPFD);
+protected:
+	inline void activateWGLEW() const {
+#ifdef WITH_GLEW_MX
+		wglewContext = m_wglewContext;
+#endif
+	}
 
-  HWND m_hWnd;
-  HDC m_hDC;
+private:
+	int choose_pixel_format(
+	        bool stereoVisual,
+	        int numOfAASamples,
+	        bool needAlpha,
+	        bool needStencil,
+	        bool sRGB);
 
-  const int m_contextProfileMask;
-  const int m_contextMajorVersion;
-  const int m_contextMinorVersion;
-  const int m_contextFlags;
-  const bool m_alphaBackground;
-  const int m_contextResetNotificationStrategy;
+	int choose_pixel_format_arb(
+	        bool stereoVisual,
+	        int numOfAASamples,
+	        bool needAlpha,
+	        bool needStencil,
+	        bool sRGB);
 
-  HGLRC m_hGLRC;
+	int _choose_pixel_format_arb_1(
+	        bool stereoVisual,
+	        int numOfAASamples,
+	        bool needAlpha,
+	        bool needStencil,
+	        bool sRGB,
+	        int *swapMethodOut);
+
+	int _choose_pixel_format_arb_2(bool stereoVisual,
+	        int *numOfAASamples,
+	        bool needAlpha,
+	        bool needStencil,
+	        bool sRGB,
+	        int  swapMethod);
+
+	void initContextWGLEW(PIXELFORMATDESCRIPTOR &preferredPFD);
+
+	HWND m_hWnd;
+	HDC  m_hDC;
+
+	const int m_contextProfileMask;
+	const int m_contextMajorVersion;
+	const int m_contextMinorVersion;
+	const int m_contextFlags;
+	const bool m_alphaBackground;
+	const int m_contextResetNotificationStrategy;
+
+	HGLRC m_hGLRC;
+
+#ifdef WITH_GLEW_MX
+	WGLEWContext *m_wglewContext;
+#endif
 
 #ifndef NDEBUG
-  const char *m_dummyVendor;
-  const char *m_dummyRenderer;
-  const char *m_dummyVersion;
+	const char *m_dummyVendor;
+	const char *m_dummyRenderer;
+	const char *m_dummyVersion;
 #endif
 
-  static HGLRC s_sharedHGLRC;
-  static int s_sharedCount;
+	static HGLRC s_sharedHGLRC;
+	static int   s_sharedCount;
+
+	static bool s_singleContextMode;
 };
+
+#endif  // __GHOST_CONTEXTWGL_H__

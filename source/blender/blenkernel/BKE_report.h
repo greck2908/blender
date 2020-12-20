@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,23 +14,28 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Contributor(s): Blender Foundation (2008).
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __BKE_REPORT_H__
+#define __BKE_REPORT_H__
 
-/** \file
- * \ingroup bke
+/** \file BKE_report.h
+ *  \ingroup bke
  */
-
-#include <stdio.h>
-
-#include "BLI_compiler_attrs.h"
-#include "BLI_utildefines.h"
-#include "DNA_windowmanager_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include <stdio.h>
+
+#include "DNA_windowmanager_types.h"
+#include "BLI_compiler_attrs.h"
+#include "BLI_utildefines.h"
 
 /* Reporting Information and Errors
  *
@@ -41,8 +48,7 @@ void BKE_reports_init(ReportList *reports, int flag);
 void BKE_reports_clear(ReportList *reports);
 
 void BKE_report(ReportList *reports, ReportType type, const char *message);
-void BKE_reportf(ReportList *reports, ReportType type, const char *format, ...)
-    ATTR_PRINTF_FORMAT(3, 4);
+void BKE_reportf(ReportList *reports, ReportType type, const char *format, ...) ATTR_PRINTF_FORMAT(3, 4);
 
 void BKE_reports_prepend(ReportList *reports, const char *prepend);
 void BKE_reports_prependf(ReportList *reports, const char *prepend, ...) ATTR_PRINTF_FORMAT(2, 3);
@@ -67,4 +73,6 @@ bool BKE_report_write_file(const char *filepath, ReportList *reports, const char
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

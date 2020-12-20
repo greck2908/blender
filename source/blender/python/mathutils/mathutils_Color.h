@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,20 +14,27 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Contributor(s): Joseph Gilbert
+ *
+ * ***** END GPL LICENSE BLOCK *****
+ *
  */
 
-/** \file
- * \ingroup pymathutils
+/** \file blender/python/mathutils/mathutils_Color.h
+ *  \ingroup pymathutils
  */
 
-#pragma once
+
+#ifndef __MATHUTILS_COLOR_H__
+#define __MATHUTILS_COLOR_H__
 
 extern PyTypeObject color_Type;
 #define ColorObject_Check(v) PyObject_TypeCheck((v), &color_Type)
 #define ColorObject_CheckExact(v) (Py_TYPE(v) == &color_Type)
 
 typedef struct {
-  BASE_MATH_MEMBERS(col);
+	BASE_MATH_MEMBERS(col);
 } ColorObject;
 
 /* struct data contains a pointer to the actual data that the
@@ -34,10 +43,17 @@ typedef struct {
  * blender (stored in blend_data). This is an either/or struct not both*/
 
 /* prototypes */
-PyObject *Color_CreatePyObject(const float col[3],
-                               PyTypeObject *base_type) ATTR_WARN_UNUSED_RESULT;
-PyObject *Color_CreatePyObject_wrap(float col[3], PyTypeObject *base_type) ATTR_WARN_UNUSED_RESULT
-    ATTR_NONNULL(1);
-PyObject *Color_CreatePyObject_cb(PyObject *cb_user,
-                                  unsigned char cb_type,
-                                  unsigned char cb_subtype) ATTR_WARN_UNUSED_RESULT;
+PyObject *Color_CreatePyObject(
+        const float col[3],
+        PyTypeObject *base_type
+        ) ATTR_WARN_UNUSED_RESULT;
+PyObject *Color_CreatePyObject_wrap(
+        float col[3],
+        PyTypeObject *base_type
+        ) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
+PyObject *Color_CreatePyObject_cb(
+        PyObject *cb_user,
+        unsigned char cb_type, unsigned char cb_subtype
+        ) ATTR_WARN_UNUSED_RESULT;
+
+#endif /* __MATHUTILS_COLOR_H__ */

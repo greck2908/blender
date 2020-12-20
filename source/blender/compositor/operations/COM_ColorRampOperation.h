@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,42 +15,43 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
-#pragma once
-
+#ifndef __COM_COLORRAMPOPERATION_H__
+#define __COM_COLORRAMPOPERATION_H__
 #include "COM_NodeOperation.h"
 #include "DNA_texture_types.h"
 
 class ColorRampOperation : public NodeOperation {
- private:
-  /**
-   * Cached reference to the inputProgram
-   */
-  SocketReader *m_inputProgram;
-  ColorBand *m_colorBand;
+private:
+	/**
+	 * Cached reference to the inputProgram
+	 */
+	SocketReader *m_inputProgram;
+	ColorBand *m_colorBand;
+public:
+	ColorRampOperation();
 
- public:
-  ColorRampOperation();
+	/**
+	 * the inner loop of this program
+	 */
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 
-  /**
-   * the inner loop of this program
-   */
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+	/**
+	 * Initialize the execution
+	 */
+	void initExecution();
 
-  /**
-   * Initialize the execution
-   */
-  void initExecution();
+	/**
+	 * Deinitialize the execution
+	 */
+	void deinitExecution();
 
-  /**
-   * Deinitialize the execution
-   */
-  void deinitExecution();
-
-  void setColorBand(ColorBand *colorBand)
-  {
-    this->m_colorBand = colorBand;
-  }
+	void setColorBand(ColorBand *colorBand) {
+		this->m_colorBand = colorBand;
+	}
 };
+#endif

@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,7 +15,9 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
 #include "COM_DoubleEdgeMaskNode.h"
@@ -22,21 +26,20 @@
 
 DoubleEdgeMaskNode::DoubleEdgeMaskNode(bNode *editorNode) : Node(editorNode)
 {
-  /* pass */
+	/* pass */
 }
 
-void DoubleEdgeMaskNode::convertToOperations(NodeConverter &converter,
-                                             const CompositorContext & /*context*/) const
+void DoubleEdgeMaskNode::convertToOperations(NodeConverter &converter, const CompositorContext &/*context*/) const
 {
-  DoubleEdgeMaskOperation *operation;
-  bNode *bnode = this->getbNode();
+	DoubleEdgeMaskOperation *operation;
+	bNode *bnode = this->getbNode();
 
-  operation = new DoubleEdgeMaskOperation();
-  operation->setAdjecentOnly(bnode->custom1);
-  operation->setKeepInside(bnode->custom2);
-  converter.addOperation(operation);
+	operation = new DoubleEdgeMaskOperation();
+	operation->setAdjecentOnly(bnode->custom1);
+	operation->setKeepInside(bnode->custom2);
+	converter.addOperation(operation);
 
-  converter.mapInputSocket(getInputSocket(0), operation->getInputSocket(0));
-  converter.mapInputSocket(getInputSocket(1), operation->getInputSocket(1));
-  converter.mapOutputSocket(getOutputSocket(0), operation->getOutputSocket(0));
+	converter.mapInputSocket(getInputSocket(0), operation->getInputSocket(0));
+	converter.mapInputSocket(getInputSocket(1), operation->getInputSocket(1));
+	converter.mapOutputSocket(getOutputSocket(0), operation->getOutputSocket(0));
 }

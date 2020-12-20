@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,48 +15,49 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
-#pragma once
-
+#ifndef __COM_GLARETHRESHOLDOPERATION_H__
+#define __COM_GLARETHRESHOLDOPERATION_H__
 #include "COM_NodeOperation.h"
-#include "DNA_light_types.h"
+#include "DNA_lamp_types.h"
 
 class GlareThresholdOperation : public NodeOperation {
- private:
-  /**
-   * \brief Cached reference to the inputProgram
-   */
-  SocketReader *m_inputProgram;
+private:
+	/**
+	 * \brief Cached reference to the inputProgram
+	 */
+	SocketReader *m_inputProgram;
 
-  /**
-   * \brief settings of the glare node.
-   */
-  NodeGlare *m_settings;
+	/**
+	 * \brief settings of the glare node.
+	 */
+	NodeGlare *m_settings;
+public:
+	GlareThresholdOperation();
 
- public:
-  GlareThresholdOperation();
+	/**
+	 * the inner loop of this program
+	 */
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 
-  /**
-   * the inner loop of this program
-   */
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+	/**
+	 * Initialize the execution
+	 */
+	void initExecution();
 
-  /**
-   * Initialize the execution
-   */
-  void initExecution();
+	/**
+	 * Deinitialize the execution
+	 */
+	void deinitExecution();
 
-  /**
-   * Deinitialize the execution
-   */
-  void deinitExecution();
+	void setGlareSettings(NodeGlare *settings) {
+		this->m_settings = settings;
+	}
 
-  void setGlareSettings(NodeGlare *settings)
-  {
-    this->m_settings = settings;
-  }
-
-  void determineResolution(unsigned int resolution[2], unsigned int preferredResolution[2]);
+	void determineResolution(unsigned int resolution[2], unsigned int preferredResolution[2]);
 };
+#endif

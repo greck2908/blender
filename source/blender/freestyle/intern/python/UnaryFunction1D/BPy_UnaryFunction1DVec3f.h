@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,13 +14,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup freestyle
+/** \file source/blender/freestyle/intern/python/UnaryFunction1D/BPy_UnaryFunction1DVec3f.h
+ *  \ingroup freestyle
  */
 
-#pragma once
+#ifndef __FREESTYLE_PYTHON_UNARYFUNCTION1DVEC3F_H__
+#define __FREESTYLE_PYTHON_UNARYFUNCTION1DVEC3F_H__
 
 #include "../BPy_UnaryFunction1D.h"
 
@@ -33,20 +38,22 @@ extern "C" {
 
 extern PyTypeObject UnaryFunction1DVec3f_Type;
 
-#define BPy_UnaryFunction1DVec3f_Check(v) \
-  (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction1DVec3f_Type))
+#define BPy_UnaryFunction1DVec3f_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction1DVec3f_Type))
 
 /*---------------------------Python BPy_UnaryFunction1DVec3f structure definition----------*/
 typedef struct {
-  BPy_UnaryFunction1D py_uf1D;
-  UnaryFunction1D<Vec3f> *uf1D_vec3f;
+	BPy_UnaryFunction1D py_uf1D;
+	UnaryFunction1D<Vec3f> *uf1D_vec3f;
 } BPy_UnaryFunction1DVec3f;
 
 /*---------------------------Python BPy_UnaryFunction1DVec3f visible prototypes-----------*/
 int UnaryFunction1DVec3f_Init(PyObject *module);
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* __FREESTYLE_PYTHON_UNARYFUNCTION1DVEC3F_H__ */

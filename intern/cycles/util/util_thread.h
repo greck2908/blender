@@ -17,11 +17,11 @@
 #ifndef __UTIL_THREAD_H__
 #define __UTIL_THREAD_H__
 
+#include <thread>
+#include <mutex>
 #include <condition_variable>
 #include <functional>
-#include <mutex>
 #include <queue>
-#include <thread>
 
 #ifdef _WIN32
 #  include "util_windows.h"
@@ -29,9 +29,9 @@
 #  include <pthread.h>
 #endif
 
-/* NOTE: Use tbb/spin_mutex.h instead of util_tbb.h because some of the TBB
- * functionality requires RTTI, which is disabled for OSL kernel. */
-#include <tbb/spin_mutex.h>
+#ifdef __APPLE__
+#  include <libkern/OSAtomic.h>
+#endif
 
 #include "util/util_function.h"
 
@@ -41,48 +41,99 @@ typedef std::mutex thread_mutex;
 typedef std::unique_lock<std::mutex> thread_scoped_lock;
 typedef std::condition_variable thread_condition_variable;
 
-/* Own thread implementation similar to std::thread, so we can set a
- * custom stack size on macOS. */
+/* own pthread based implementation, to avoid boost version conflicts with
+ * dynamically loaded blender plugins */
 
 class thread {
- public:
-  /* NOTE: Node index of -1 means that affinity will be inherited from the
-   * parent thread and no override on top of that will happen. */
-  thread(function<void()> run_cb, int node = -1);
-  ~thread();
+public:
+	thread(function<void(void)> run_cb, int group = -1);
+	~thread();
 
-  static void *run(void *arg);
-  bool join();
+	static void *run(void *arg);
+	bool join();
 
- protected:
-  function<void()> run_cb_;
-#ifdef __APPLE__
-  pthread_t pthread_id;
-#else
-  std::thread std_thread;
-#endif
-  bool joined_;
-  int node_;
+protected:
+	function<void(void)> run_cb_;
+	std::thread thread_;
+	bool joined_;
+	int group_;
 };
 
-using thread_spin_lock = tbb::spin_mutex;
+/* Own wrapper around pthread's spin lock to make it's use easier. */
+
+class thread_spin_lock {
+public:
+#ifdef __APPLE__
+	inline thread_spin_lock() {
+		spin_ = OS_SPINLOCK_INIT;
+	}
+
+	inline void lock() {
+		OSSpinLockLock(&spin_);
+	}
+
+	inline void unlock() {
+		OSSpinLockUnlock(&spin_);
+	}
+#elif defined(_WIN32)
+	inline thread_spin_lock() {
+		const DWORD SPIN_COUNT = 50000;
+		InitializeCriticalSectionAndSpinCount(&cs_, SPIN_COUNT);
+	}
+
+	inline ~thread_spin_lock() {
+		DeleteCriticalSection(&cs_);
+	}
+
+	inline void lock() {
+		EnterCriticalSection(&cs_);
+	}
+
+	inline void unlock() {
+		LeaveCriticalSection(&cs_);
+	}
+#else
+	inline thread_spin_lock() {
+		pthread_spin_init(&spin_, 0);
+	}
+
+	inline ~thread_spin_lock() {
+		pthread_spin_destroy(&spin_);
+	}
+
+	inline void lock() {
+		pthread_spin_lock(&spin_);
+	}
+
+	inline void unlock() {
+		pthread_spin_unlock(&spin_);
+	}
+#endif
+protected:
+#ifdef __APPLE__
+	OSSpinLock spin_;
+#elif defined(_WIN32)
+	CRITICAL_SECTION cs_;
+#else
+	pthread_spinlock_t spin_;
+#endif
+};
 
 class thread_scoped_spin_lock {
- public:
-  explicit thread_scoped_spin_lock(thread_spin_lock &lock) : lock_(lock)
-  {
-    lock_.lock();
-  }
+public:
+	explicit thread_scoped_spin_lock(thread_spin_lock& lock)
+	        : lock_(lock) {
+		lock_.lock();
+	}
 
-  ~thread_scoped_spin_lock()
-  {
-    lock_.unlock();
-  }
+	~thread_scoped_spin_lock() {
+		lock_.unlock();
+	}
 
-  /* TODO(sergey): Implement manual control over lock/unlock. */
+	/* TODO(sergey): Implement manual control over lock/unlock. */
 
- protected:
-  thread_spin_lock &lock_;
+protected:
+	thread_spin_lock& lock_;
 };
 
 CCL_NAMESPACE_END

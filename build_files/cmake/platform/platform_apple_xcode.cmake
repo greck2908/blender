@@ -16,141 +16,104 @@
 #
 # The Original Code is Copyright (C) 2016, Blender Foundation
 # All rights reserved.
+#
+# Contributor(s): Jacques Beaurain.
+#
 # ***** END GPL LICENSE BLOCK *****
 
 # Xcode and system configuration for Apple.
 
+# require newer cmake on osx because of version handling,
+# older cmake cannot handle 2 digit subversion!
+cmake_minimum_required(VERSION 3.0.0)
+
 if(NOT CMAKE_OSX_ARCHITECTURES)
-  execute_process(COMMAND uname -m OUTPUT_VARIABLE ARCHITECTURE OUTPUT_STRIP_TRAILING_WHITESPACE)
-  message(STATUS "Detected native architecture ${ARCHITECTURE}.")
-  set(CMAKE_OSX_ARCHITECTURES ${ARCHITECTURE} CACHE STRING
-    "Choose the architecture you want to build Blender for: arm64 or x86_64"
-    FORCE)
+	set(CMAKE_OSX_ARCHITECTURES x86_64 CACHE STRING
+		"Choose the architecture you want to build Blender for: i386, x86_64 or ppc"
+		FORCE)
 endif()
 
 if(NOT DEFINED OSX_SYSTEM)
-  execute_process(
-      COMMAND xcodebuild -version -sdk macosx SDKVersion
-      OUTPUT_VARIABLE OSX_SYSTEM
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
+	execute_process(
+			COMMAND xcodebuild -version -sdk macosx SDKVersion
+			OUTPUT_VARIABLE OSX_SYSTEM
+			OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 
 # workaround for incorrect cmake xcode lookup for developer previews - XCODE_VERSION does not
 # take xcode-select path into account but would always look  into /Applications/Xcode.app
 # while dev versions are named Xcode<version>-DP<preview_number>
 execute_process(
-    COMMAND xcode-select --print-path
-    OUTPUT_VARIABLE XCODE_CHECK OUTPUT_STRIP_TRAILING_WHITESPACE)
+		COMMAND xcode-select --print-path
+		OUTPUT_VARIABLE XCODE_CHECK OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REPLACE "/Contents/Developer" "" XCODE_BUNDLE ${XCODE_CHECK}) # truncate to bundlepath in any case
 
-if(NOT ${CMAKE_GENERATOR} MATCHES "Xcode")
-  # Unix makefile generator does not fill XCODE_VERSION var, so we get it with a command.
-  # Note that `xcodebuild -version` gives output in two lines: first line will include
-  # Xcode version, second one will include build number. We are only interested in the
-  # former one. Here is an example of the output:
-  #   Xcode 11.4
-  #   Build version 11E146
-  # The expected XCODE_VERSION in this case is 11.4.
+if(${CMAKE_GENERATOR} MATCHES "Xcode")
 
-  execute_process(COMMAND xcodebuild -version OUTPUT_VARIABLE XCODE_VERS_BUILD_NR)
+	# earlier xcode has no bundled developer dir, no sense in getting xcode path from
+	if(${XCODE_VERSION} VERSION_GREATER 4.2)
+		# reduce to XCode name without dp extension
+		string(SUBSTRING "${XCODE_CHECK}" 14 6 DP_NAME)
+		if(${DP_NAME} MATCHES Xcode5)
+			set(XCODE_VERSION 5)
+		endif()
+	endif()
 
-  # Convert output to a single line by replacling newlines with spaces.
-  # This is needed because regex replace can not operate through the newline character
-  # and applies substitutions for each individual lines.
-  string(REPLACE "\n" " " XCODE_VERS_BUILD_NR_SINGLE_LINE "${XCODE_VERS_BUILD_NR}")
+	##### cmake incompatibility with xcode  4.3 and higher #####
+	if(${XCODE_VERSION} MATCHES '') # cmake fails due looking for xcode in the wrong path, thus will be empty var
+		message(FATAL_ERROR "Xcode 4.3 and higher must be used with cmake 2.8-8 or higher")
+	endif()
+	### end cmake incompatibility with xcode 4.3 and higher ###
 
-  string(REGEX REPLACE "(.*)Xcode ([0-9\\.]+).*" "\\2" XCODE_VERSION "${XCODE_VERS_BUILD_NR_SINGLE_LINE}")
-
-  unset(XCODE_VERS_BUILD_NR)
-  unset(XCODE_VERS_BUILD_NR_SINGLE_LINE)
+	if(${XCODE_VERSION} VERSION_EQUAL 4 OR ${XCODE_VERSION} VERSION_GREATER 4 AND ${XCODE_VERSION} VERSION_LESS 4.3)
+		# Xcode 4 defaults to the Apple LLVM Compiler.
+		# Override the default compiler selection because Blender only compiles with gcc up to xcode 4.2
+		set(CMAKE_XCODE_ATTRIBUTE_GCC_VERSION "com.apple.compilers.llvmgcc42")
+		message(STATUS "Setting compiler to: " ${CMAKE_XCODE_ATTRIBUTE_GCC_VERSION})
+	endif()
+else() # unix makefile generator does not fill XCODE_VERSION var, so we get it with a command
+	execute_process(COMMAND xcodebuild -version OUTPUT_VARIABLE XCODE_VERS_BUILD_NR)
+	string(SUBSTRING "${XCODE_VERS_BUILD_NR}" 6 3 XCODE_VERSION) # truncate away build-nr
+	unset(XCODE_VERS_BUILD_NR)
 endif()
 
 message(STATUS "Detected OS X ${OSX_SYSTEM} and Xcode ${XCODE_VERSION} at ${XCODE_BUNDLE}")
 
-# Require a relatively recent Xcode version.
-if(${XCODE_VERSION} VERSION_LESS 10.0)
-  message(FATAL_ERROR "Only Xcode version 10.0 and newer is supported")
-endif()
-
-# note: xcode-select path could be ambiguous,
-# cause /Applications/Xcode.app/Contents/Developer or /Applications/Xcode.app would be allowed
-# so i use a selfcomposed bundlepath here
-set(OSX_SYSROOT_PREFIX ${XCODE_BUNDLE}/Contents/Developer/Platforms/MacOSX.platform)
-message(STATUS "OSX_SYSROOT_PREFIX: " ${OSX_SYSROOT_PREFIX})
-
-# Collect list of OSX system versions which will be used to detect path to corresponding SDK.
-# Start with macOS SDK version reported by xcodebuild and include possible extra ones.
-#
-# The reason for need of extra ones is because it's possible that xcodebuild will report
-# SDK version in the full manner (aka major.minor.patch), but the actual path will only
-# include major.minor.
-#
-# This happens, for example, on macOS Catalina 10.15.4 and Xcode 11.4: xcodebuild on this
-# system outputs "10.15.4", but the actual SDK path is MacOSX10.15.sdk.
-#
-# This should be safe from picking wrong SDK version because (a) xcodebuild reports full semantic
-# SDK version, so such SDK does exist on the system. And if it doesn't exist with full version
-# in the path, what SDK is in the major.minor folder then.
-set(OSX_SDK_TEST_VERSIONS ${OSX_SYSTEM})
-if(OSX_SYSTEM MATCHES "([0-9]+)\\.([0-9]+)\\.([0-9]+)")
-  string(REGEX REPLACE "([0-9]+)\\.([0-9]+)\\.([0-9]+)" "\\1.\\2" OSX_SYSTEM_NO_PATCH "${OSX_SYSTEM}")
-  list(APPEND OSX_SDK_TEST_VERSIONS ${OSX_SYSTEM_NO_PATCH})
-  unset(OSX_SYSTEM_NO_PATCH)
-endif()
-
-# Loop through all possible versions and pick the first one which resolves to a valid SDK path.
-set(OSX_SDK_PATH)
-set(OSX_SDK_FOUND FALSE)
-set(OSX_SDK_PREFIX ${OSX_SYSROOT_PREFIX}/Developer/SDKs)
-set(OSX_SDKROOT)
-foreach(OSX_SDK_VERSION ${OSX_SDK_TEST_VERSIONS})
-  set(CURRENT_OSX_SDK_PATH "${OSX_SDK_PREFIX}/MacOSX${OSX_SDK_VERSION}.sdk")
-  if(EXISTS ${CURRENT_OSX_SDK_PATH})
-    set(OSX_SDK_PATH "${CURRENT_OSX_SDK_PATH}")
-    set(OSX_SDKROOT macosx${OSX_SDK_VERSION})
-    set(OSX_SDK_FOUND TRUE)
-    break()
-  endif()
-endforeach()
-unset(OSX_SDK_PREFIX)
-unset(OSX_SDK_TEST_VERSIONS)
-
-if(NOT OSX_SDK_FOUND)
-  message(FATAL_ERROR "Unable to find SDK for macOS version ${OSX_SYSTEM}")
-endif()
-
-message(STATUS "Detected OSX_SYSROOT: ${OSX_SDK_PATH}")
-
-set(CMAKE_OSX_SYSROOT ${OSX_SDK_PATH} CACHE PATH "" FORCE)
-unset(OSX_SDK_PATH)
-unset(OSX_SDK_FOUND)
-
-if(${CMAKE_GENERATOR} MATCHES "Xcode")
-  # to silence sdk not found warning, just overrides CMAKE_OSX_SYSROOT
-  set(CMAKE_XCODE_ATTRIBUTE_SDKROOT ${OSX_SDKROOT})
-endif()
-unset(OSX_SDKROOT)
-
-
-# 10.13 is our min. target, if you use higher sdk, weak linking happens
-if("${CMAKE_OSX_ARCHITECTURES}" STREQUAL "arm64")
-  set(OSX_MIN_DEPLOYMENT_TARGET 11.00)
+if(${XCODE_VERSION} VERSION_LESS 4.3)
+	# use guaranteed existing sdk
+	set(CMAKE_OSX_SYSROOT /Developer/SDKs/MacOSX${OSX_SYSTEM}.sdk CACHE PATH "" FORCE)
 else()
-  set(OSX_MIN_DEPLOYMENT_TARGET 10.13)
+	# note: xcode-select path could be ambiguous,
+	# cause /Applications/Xcode.app/Contents/Developer or /Applications/Xcode.app would be allowed
+	# so i use a selfcomposed bundlepath here
+	set(OSX_SYSROOT_PREFIX ${XCODE_BUNDLE}/Contents/Developer/Platforms/MacOSX.platform)
+	message(STATUS "OSX_SYSROOT_PREFIX: " ${OSX_SYSROOT_PREFIX})
+	set(OSX_DEVELOPER_PREFIX /Developer/SDKs/MacOSX${OSX_SYSTEM}.sdk) # use guaranteed existing sdk
+	set(CMAKE_OSX_SYSROOT ${OSX_SYSROOT_PREFIX}/${OSX_DEVELOPER_PREFIX} CACHE PATH "" FORCE)
+	if(${CMAKE_GENERATOR} MATCHES "Xcode")
+		# to silence sdk not found warning, just overrides CMAKE_OSX_SYSROOT
+		set(CMAKE_XCODE_ATTRIBUTE_SDKROOT macosx${OSX_SYSTEM})
+	endif()
 endif()
 
+if(OSX_SYSTEM MATCHES 10.9)
+	# make sure syslibs and headers are looked up in sdk ( especially for 10.9 openGL atm. )
+	set(CMAKE_FIND_ROOT_PATH ${CMAKE_OSX_SYSROOT})
+endif()
+
+# 10.9 is our min. target, if you use higher sdk, weak linking happens
 if(CMAKE_OSX_DEPLOYMENT_TARGET)
-  if(${CMAKE_OSX_DEPLOYMENT_TARGET} VERSION_LESS ${OSX_MIN_DEPLOYMENT_TARGET})
-    message(STATUS "Setting deployment target to ${OSX_MIN_DEPLOYMENT_TARGET}, lower versions are not supported")
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "${OSX_MIN_DEPLOYMENT_TARGET}" CACHE STRING "" FORCE)
-  endif()
+	if(${CMAKE_OSX_DEPLOYMENT_TARGET} VERSION_LESS 10.9)
+		message(STATUS "Setting deployment target to 10.9, lower versions are not supported")
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.9" CACHE STRING "" FORCE)
+	endif()
 else()
-  set(CMAKE_OSX_DEPLOYMENT_TARGET "${OSX_MIN_DEPLOYMENT_TARGET}" CACHE STRING "" FORCE)
+	set(CMAKE_OSX_DEPLOYMENT_TARGET "10.9" CACHE STRING "" FORCE)
 endif()
 
 if(NOT ${CMAKE_GENERATOR} MATCHES "Xcode")
-  # Force CMAKE_OSX_DEPLOYMENT_TARGET for makefiles, will not work else (CMake bug?)
-  string(APPEND CMAKE_C_FLAGS " -mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-  string(APPEND CMAKE_CXX_FLAGS " -mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-  add_definitions("-DMACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+	# force CMAKE_OSX_DEPLOYMENT_TARGET for makefiles, will not work else ( cmake bug ? )
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+	add_definitions("-DMACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
 endif()

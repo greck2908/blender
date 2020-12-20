@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,6 +17,12 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
 #include "../node_shader_util.h"
@@ -22,129 +30,79 @@
 /* **************** OUTPUT ******************** */
 
 static bNodeSocketTemplate sh_node_tex_environment_in[] = {
-    {SOCK_VECTOR, N_("Vector"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
-    {-1, ""},
+	{	SOCK_VECTOR, 1, N_("Vector"),		0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
+	{	-1, 0, ""	}
 };
 
 static bNodeSocketTemplate sh_node_tex_environment_out[] = {
-    {SOCK_RGBA, N_("Color"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_NONE, SOCK_NO_INTERNAL_LINK},
-    {-1, ""},
+	{	SOCK_RGBA, 0, N_("Color"),		0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_NONE, SOCK_NO_INTERNAL_LINK},
+	{	-1, 0, ""	}
 };
 
 static void node_shader_init_tex_environment(bNodeTree *UNUSED(ntree), bNode *node)
 {
-  NodeTexEnvironment *tex = MEM_callocN(sizeof(NodeTexEnvironment), "NodeTexEnvironment");
-  BKE_texture_mapping_default(&tex->base.tex_mapping, TEXMAP_TYPE_POINT);
-  BKE_texture_colormapping_default(&tex->base.color_mapping);
-  tex->projection = SHD_PROJ_EQUIRECTANGULAR;
-  BKE_imageuser_default(&tex->iuser);
+	NodeTexEnvironment *tex = MEM_callocN(sizeof(NodeTexEnvironment), "NodeTexEnvironment");
+	BKE_texture_mapping_default(&tex->base.tex_mapping, TEXMAP_TYPE_POINT);
+	BKE_texture_colormapping_default(&tex->base.color_mapping);
+	tex->color_space = SHD_COLORSPACE_COLOR;
+	tex->projection = SHD_PROJ_EQUIRECTANGULAR;
+	tex->iuser.frames = 1;
+	tex->iuser.sfra = 1;
+	tex->iuser.fie_ima = 2;
+	tex->iuser.ok = 1;
 
-  node->storage = tex;
+	node->storage = tex;
 }
 
-static int node_shader_gpu_tex_environment(GPUMaterial *mat,
-                                           bNode *node,
-                                           bNodeExecData *UNUSED(execdata),
-                                           GPUNodeStack *in,
-                                           GPUNodeStack *out)
+static int node_shader_gpu_tex_environment(GPUMaterial *mat, bNode *node, bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
 {
-  Image *ima = (Image *)node->id;
-  NodeTexEnvironment *tex = node->storage;
+	Image *ima = (Image *)node->id;
+	ImageUser *iuser = NULL;
+	NodeTexImage *tex = node->storage;
+	int isdata = tex->color_space == SHD_COLORSPACE_NONE;
 
-  /* We get the image user from the original node, since GPU image keeps
-   * a pointer to it and the dependency refreshes the original. */
-  bNode *node_original = node->original ? node->original : node;
-  NodeTexImage *tex_original = node_original->storage;
-  ImageUser *iuser = &tex_original->iuser;
-  eGPUSamplerState sampler = GPU_SAMPLER_REPEAT | GPU_SAMPLER_ANISO | GPU_SAMPLER_FILTER;
-  /* TODO(fclem): For now assume mipmap is always enabled. */
-  if (true) {
-    sampler |= GPU_SAMPLER_MIPMAP;
-  }
+	if (!ima)
+		return GPU_stack_link(mat, "node_tex_environment_empty", in, out);
 
-  GPUNodeLink *outalpha;
+	if (!in[0].link) {
+		GPUMatType type = GPU_Material_get_type(mat);
 
-  if (!ima) {
-    return GPU_stack_link(mat, node, "node_tex_environment_empty", in, out);
-  }
+		if (type == GPU_MATERIAL_TYPE_MESH)
+			in[0].link = GPU_builtin(GPU_VIEW_POSITION);
+		else
+			GPU_link(mat, "background_transform_to_world", GPU_builtin(GPU_VIEW_POSITION), &in[0].link);
+	}
 
-  if (!in[0].link) {
-    GPU_link(mat, "node_tex_environment_texco", GPU_builtin(GPU_VIEW_POSITION), &in[0].link);
-    node_shader_gpu_bump_tex_coord(mat, node, &in[0].link);
-  }
+	node_shader_gpu_tex_mapping(mat, node, in, out);
 
-  node_shader_gpu_tex_mapping(mat, node, in, out);
+	if (tex->projection == SHD_PROJ_EQUIRECTANGULAR)
+		GPU_stack_link(mat, "node_tex_environment_equirectangular", in, out, GPU_image(ima, iuser, isdata));
+	else
+		GPU_stack_link(mat, "node_tex_environment_mirror_ball", in, out, GPU_image(ima, iuser, isdata));
 
-  /* Compute texture coordinate. */
-  if (tex->projection == SHD_PROJ_EQUIRECTANGULAR) {
-    GPU_link(mat, "node_tex_environment_equirectangular", in[0].link, &in[0].link);
-    /* To fix pole issue we clamp the v coordinate. */
-    sampler &= ~GPU_SAMPLER_REPEAT_T;
-    /* Force the highest mipmap and don't do anisotropic filtering.
-     * This is to fix the artifact caused by derivatives discontinuity. */
-    sampler &= ~(GPU_SAMPLER_MIPMAP | GPU_SAMPLER_ANISO);
-  }
-  else {
-    GPU_link(mat, "node_tex_environment_mirror_ball", in[0].link, &in[0].link);
-    /* Fix pole issue. */
-    sampler &= ~GPU_SAMPLER_REPEAT;
-  }
+	ImBuf *ibuf = BKE_image_acquire_ibuf(ima, iuser, NULL);
+	if (ibuf && (ibuf->colormanage_flag & IMB_COLORMANAGE_IS_DATA) == 0 &&
+	    GPU_material_do_color_management(mat))
+	{
+		GPU_link(mat, "srgb_to_linearrgb", out[0].link, &out[0].link);
+	}
+	BKE_image_release_ibuf(ima, ibuf, NULL);
 
-  const char *gpufunc;
-  static const char *names[] = {
-      "node_tex_image_linear",
-      "node_tex_image_cubic",
-  };
-
-  switch (tex->interpolation) {
-    case SHD_INTERP_LINEAR:
-      gpufunc = names[0];
-      break;
-    case SHD_INTERP_CLOSEST:
-      sampler &= ~(GPU_SAMPLER_FILTER | GPU_SAMPLER_MIPMAP);
-      gpufunc = names[0];
-      break;
-    default:
-      gpufunc = names[1];
-      break;
-  }
-
-  /* Sample texture with correct interpolation. */
-  GPU_link(mat, gpufunc, in[0].link, GPU_image(mat, ima, iuser, sampler), &out[0].link, &outalpha);
-
-  if (out[0].hasoutput) {
-    if (ELEM(ima->alpha_mode, IMA_ALPHA_IGNORE, IMA_ALPHA_CHANNEL_PACKED) ||
-        IMB_colormanagement_space_name_is_data(ima->colorspace_settings.name)) {
-      /* Don't let alpha affect color output in these cases. */
-      GPU_link(mat, "color_alpha_clear", out[0].link, &out[0].link);
-    }
-    else {
-      /* Always output with premultiplied alpha. */
-      if (ima->alpha_mode == IMA_ALPHA_PREMUL) {
-        GPU_link(mat, "color_alpha_clear", out[0].link, &out[0].link);
-      }
-      else {
-        GPU_link(mat, "color_alpha_premultiply", out[0].link, &out[0].link);
-      }
-    }
-  }
-
-  return true;
+	return true;
 }
 
 /* node type definition */
 void register_node_type_sh_tex_environment(void)
 {
-  static bNodeType ntype;
+	static bNodeType ntype;
 
-  sh_node_type_base(&ntype, SH_NODE_TEX_ENVIRONMENT, "Environment Texture", NODE_CLASS_TEXTURE, 0);
-  node_type_socket_templates(&ntype, sh_node_tex_environment_in, sh_node_tex_environment_out);
-  node_type_init(&ntype, node_shader_init_tex_environment);
-  node_type_storage(
-      &ntype, "NodeTexEnvironment", node_free_standard_storage, node_copy_standard_storage);
-  node_type_gpu(&ntype, node_shader_gpu_tex_environment);
-  node_type_label(&ntype, node_image_label);
-  node_type_size_preset(&ntype, NODE_SIZE_LARGE);
+	sh_node_type_base(&ntype, SH_NODE_TEX_ENVIRONMENT, "Environment Texture", NODE_CLASS_TEXTURE, 0);
+	node_type_compatibility(&ntype, NODE_NEW_SHADING);
+	node_type_socket_templates(&ntype, sh_node_tex_environment_in, sh_node_tex_environment_out);
+	node_type_init(&ntype, node_shader_init_tex_environment);
+	node_type_storage(&ntype, "NodeTexEnvironment", node_free_standard_storage, node_copy_standard_storage);
+	node_type_gpu(&ntype, node_shader_gpu_tex_environment);
+	node_type_label(&ntype, node_image_label);
 
-  nodeRegisterType(&ntype);
+	nodeRegisterType(&ntype);
 }

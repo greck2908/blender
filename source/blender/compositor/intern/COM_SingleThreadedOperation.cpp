@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,46 +15,46 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
 #include "COM_SingleThreadedOperation.h"
 
-SingleThreadedOperation::SingleThreadedOperation()
+SingleThreadedOperation::SingleThreadedOperation() : NodeOperation()
 {
-  this->m_cachedInstance = nullptr;
-  setComplex(true);
+	this->m_cachedInstance = NULL;
+	setComplex(true);
 }
 
 void SingleThreadedOperation::initExecution()
 {
-  initMutex();
+	initMutex();
 }
 
 void SingleThreadedOperation::executePixel(float output[4], int x, int y, void * /*data*/)
 {
-  this->m_cachedInstance->readNoCheck(output, x, y);
+	this->m_cachedInstance->readNoCheck(output, x, y);
 }
 
 void SingleThreadedOperation::deinitExecution()
 {
-  deinitMutex();
-  if (this->m_cachedInstance) {
-    delete this->m_cachedInstance;
-    this->m_cachedInstance = nullptr;
-  }
+	deinitMutex();
+	if (this->m_cachedInstance) {
+		delete this->m_cachedInstance;
+		this->m_cachedInstance = NULL;
+	}
 }
 void *SingleThreadedOperation::initializeTileData(rcti *rect)
 {
-  if (this->m_cachedInstance) {
-    return this->m_cachedInstance;
-  }
+	if (this->m_cachedInstance) return this->m_cachedInstance;
 
-  lockMutex();
-  if (this->m_cachedInstance == nullptr) {
-    //
-    this->m_cachedInstance = createMemoryBuffer(rect);
-  }
-  unlockMutex();
-  return this->m_cachedInstance;
+	lockMutex();
+	if (this->m_cachedInstance == NULL) {
+		//
+		this->m_cachedInstance = createMemoryBuffer(rect);
+	}
+	unlockMutex();
+	return this->m_cachedInstance;
 }

@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,28 +14,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
-#pragma once
+#ifndef __BKE_MBALL_TESSELLATE_H__
+#define __BKE_MBALL_TESSELLATE_H__
 
-/** \file
- * \ingroup bke
+/** \file BKE_mball_tessellate.h
+ *  \ingroup bke
  */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct Depsgraph;
+struct EvaluationContext;
+struct Main;
 struct Object;
 struct Scene;
 
-void BKE_mball_polygonize(struct Depsgraph *depsgraph,
-                          struct Scene *scene,
-                          struct Object *ob,
-                          struct ListBase *dispbase);
+void BKE_mball_polygonize(
+        struct Main *bmain, struct EvaluationContext *eval_ctx, struct Scene *scene,
+        struct Object *ob, struct ListBase *dispbase);
 
 void BKE_mball_cubeTable_free(void);
 
-#ifdef __cplusplus
-}
-#endif
+#endif  /* __BKE_MBALL_TESSELLATE_H__ */

@@ -77,9 +77,9 @@ class prettyface:
             # f, (len_min, len_mid, len_max)
             self.uv = data
 
-            _f1, lens1, lens1ord = data[0]
+            f1, lens1, lens1ord = data[0]
             if data[1]:
-                _f2, lens2, lens2ord = data[1]
+                f2, lens2, lens2ord = data[1]
                 self.width = (lens1[lens1ord[0]] + lens2[lens2ord[0]]) / 2.0
                 self.height = (lens1[lens1ord[1]] + lens2[lens2ord[1]]) / 2.0
             else:  # 1 tri :/
@@ -107,12 +107,12 @@ class prettyface:
 
                 no = data.normal
                 r = no.rotation_difference(mathutils.Vector((0.0, 0.0, 1.0)))
-                cos_2d = [(r @ co).xy for co in cos]
+                cos_2d = [(r * co).xy for co in cos]
                 # print(cos_2d)
                 angle = mathutils.geometry.box_fit_2d(cos_2d)
 
                 mat = mathutils.Matrix.Rotation(angle, 2)
-                cos_2d = [(mat @ co) for co in cos_2d]
+                cos_2d = [(mat * co) for co in cos_2d]
                 xs = [co.x for co in cos_2d]
                 ys = [co.y for co in cos_2d]
 
@@ -205,12 +205,12 @@ class prettyface:
                     fuv[I[0]][:] = p2
                     fuv[I[1]][:] = p3
 
-            f = uv[0][0]
+            f, lens, lensord = uv[0]
 
             set_uv(f, (x1, y1), (x1, y2 - margin_h), (x2 - margin_w, y1))
 
             if uv[1]:
-                f = uv[1][0]
+                f, lens, lensord = uv[1]
                 set_uv(f, (x2, y2), (x2, y1 + margin_h), (x1 + margin_w, y2))
 
         else:  # 1 QUAD
@@ -233,16 +233,15 @@ class prettyface:
         return self.width, self.height
 
 
-def lightmap_uvpack(
-        meshes,
-        PREF_SEL_ONLY=True,
-        PREF_NEW_UVLAYER=False,
-        PREF_PACK_IN_ONE=False,
-        PREF_APPLY_IMAGE=False,
-        PREF_IMG_PX_SIZE=512,
-        PREF_BOX_DIV=8,
-        PREF_MARGIN_DIV=512,
-):
+def lightmap_uvpack(meshes,
+                    PREF_SEL_ONLY=True,
+                    PREF_NEW_UVLAYER=False,
+                    PREF_PACK_IN_ONE=False,
+                    PREF_APPLY_IMAGE=False,
+                    PREF_IMG_PX_SIZE=512,
+                    PREF_BOX_DIV=8,
+                    PREF_MARGIN_DIV=512
+                    ):
     """
     BOX_DIV if the maximum division of the UV map that
     a box may be consolidated into.
@@ -276,12 +275,12 @@ def lightmap_uvpack(
             face_groups.append(faces)
 
         if PREF_NEW_UVLAYER:
-            me.uv_layers.new()
+            me.uv_textures.new()
 
         # Add face UV if it does not exist.
         # All new faces are selected.
-        if not me.uv_layers:
-            me.uv_layers.new()
+        if not me.uv_textures:
+            me.uv_textures.new()
 
     for face_sel in face_groups:
         print("\nStarting unwrap")
@@ -539,9 +538,6 @@ def lightmap_uvpack(
         print("done")
 
         if PREF_APPLY_IMAGE:
-            pass
-            # removed with texface
-            '''
             if not PREF_PACK_IN_ONE:
                 image = bpy.data.images.new(name="lightmap",
                                             width=PREF_IMG_PX_SIZE,
@@ -549,8 +545,8 @@ def lightmap_uvpack(
                                             )
 
             for f in face_sel:
-                f.image = image
-            '''
+                # f.image = image
+                f.id_data.uv_textures.active.data[f.index].image = image  # XXX25
 
     for me in meshes:
         me.update()
@@ -559,18 +555,32 @@ def lightmap_uvpack(
 
 
 def unwrap(operator, context, **kwargs):
-    # switch to object mode
+
+    # only unwrap active object if True
+    PREF_ACT_ONLY = kwargs.pop("PREF_ACT_ONLY")
+
+    # ensure object(s) are selected if necessary and active object is set
+    if context.object is None:
+        if PREF_ACT_ONLY:
+            operator.report({'WARNING'}, "Active object not set")
+            return {'CANCELLED'}
+        elif len(context.selected_objects) == 0:
+            operator.report({'WARNING'}, "No selected objects")
+            return {'CANCELLED'}
+
+     # switch to object mode
     is_editmode = context.object and context.object.mode == 'EDIT'
     if is_editmode:
         bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
     # define list of meshes
-    meshes = list({
-        me for obj in context.selected_objects
-        if obj.type == 'MESH'
-        for me in (obj.data,)
-        if me.polygons and me.library is None
-    })
+    meshes = []
+    if PREF_ACT_ONLY:
+        obj = context.scene.objects.active
+        if obj and obj.type == 'MESH':
+            meshes = [obj.data]
+    else:
+        meshes = list({me for obj in context.selected_objects if obj.type == 'MESH' for me in (obj.data,) if me.polygons and me.library is None})
 
     if not meshes:
         operator.report({'ERROR'}, "No mesh object")
@@ -600,32 +610,33 @@ class LightMapPack(Operator):
     # Proper solution would be to make undo stack aware of such things,
     # but for now just disable redo. Keep undo here so unwanted changes to uv
     # coords might be undone.
-    # This fixes infinite image creation reported there T30968 (sergey)
+    # This fixes infinite image creation reported there [#30968] (sergey)
     bl_options = {'UNDO'}
 
-    PREF_CONTEXT: bpy.props.EnumProperty(
+    PREF_CONTEXT = bpy.props.EnumProperty(
         name="Selection",
         items=(
             ('SEL_FACES', "Selected Faces", "Space all UVs evenly"),
             ('ALL_FACES', "All Faces", "Average space UVs edge length of each loop"),
+            ('ALL_OBJECTS', "Selected Mesh Object", "Average space UVs edge length of each loop")
         ),
     )
 
     # Image & UVs...
-    PREF_PACK_IN_ONE: BoolProperty(
-        name="Share Texture Space",
+    PREF_PACK_IN_ONE = BoolProperty(
+        name="Share Tex Space",
         description=(
             "Objects Share texture space, map all objects "
             "into 1 uvmap"
         ),
         default=True,
     )
-    PREF_NEW_UVLAYER: BoolProperty(
+    PREF_NEW_UVLAYER = BoolProperty(
         name="New UV Map",
         description="Create a new UV map for every mesh packed",
         default=False,
     )
-    PREF_APPLY_IMAGE: BoolProperty(
+    PREF_APPLY_IMAGE = BoolProperty(
         name="New Image",
         description=(
             "Assign new images for every mesh (only one if "
@@ -633,58 +644,38 @@ class LightMapPack(Operator):
         ),
         default=False,
     )
-    PREF_IMG_PX_SIZE: IntProperty(
+    PREF_IMG_PX_SIZE = IntProperty(
         name="Image Size",
         description="Width and Height for the new image",
         min=64, max=5000,
         default=512,
     )
     # UV Packing...
-    PREF_BOX_DIV: IntProperty(
+    PREF_BOX_DIV = IntProperty(
         name="Pack Quality",
         description="Pre Packing before the complex boxpack",
         min=1, max=48,
         default=12,
     )
-    PREF_MARGIN_DIV: FloatProperty(
+    PREF_MARGIN_DIV = FloatProperty(
         name="Margin",
         description="Size of the margin as a division of the UV",
         min=0.001, max=1.0,
         default=0.1,
     )
 
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        is_editmode = context.active_object.mode == 'EDIT'
-        if is_editmode:
-            layout.prop(self, "PREF_CONTEXT")
-
-        layout.prop(self, "PREF_PACK_IN_ONE")
-        layout.prop(self, "PREF_NEW_UVLAYER")
-        layout.prop(self, "PREF_APPLY_IMAGE")
-        layout.prop(self, "PREF_IMG_PX_SIZE")
-        layout.prop(self, "PREF_BOX_DIV")
-        layout.prop(self, "PREF_MARGIN_DIV")
-
-    @classmethod
-    def poll(cls, context):
-        ob = context.active_object
-        return ob and ob.type == 'MESH'
-
     def execute(self, context):
         kwargs = self.as_keywords()
         PREF_CONTEXT = kwargs.pop("PREF_CONTEXT")
 
-        is_editmode = context.active_object.mode == 'EDIT'
-
-        if not is_editmode:
-            kwargs["PREF_SEL_ONLY"] = False
-        elif PREF_CONTEXT == 'SEL_FACES':
+        if PREF_CONTEXT == 'SEL_FACES':
+            kwargs["PREF_ACT_ONLY"] = True
             kwargs["PREF_SEL_ONLY"] = True
         elif PREF_CONTEXT == 'ALL_FACES':
+            kwargs["PREF_ACT_ONLY"] = True
+            kwargs["PREF_SEL_ONLY"] = False
+        elif PREF_CONTEXT == 'ALL_OBJECTS':
+            kwargs["PREF_ACT_ONLY"] = False
             kwargs["PREF_SEL_ONLY"] = False
         else:
             raise Exception("invalid context")
@@ -693,7 +684,7 @@ class LightMapPack(Operator):
 
         return unwrap(self, context, **kwargs)
 
-    def invoke(self, context, _event):
+    def invoke(self, context, event):
         wm = context.window_manager
         return wm.invoke_props_dialog(self)
 

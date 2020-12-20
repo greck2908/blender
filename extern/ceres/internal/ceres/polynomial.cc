@@ -36,13 +36,14 @@
 #include <vector>
 
 #include "Eigen/Dense"
-#include "ceres/function_sample.h"
 #include "ceres/internal/port.h"
+#include "ceres/stringprintf.h"
 #include "glog/logging.h"
 
 namespace ceres {
 namespace internal {
 
+using std::string;
 using std::vector;
 
 namespace {
@@ -52,7 +53,7 @@ namespace {
 // In: Numerische Mathematik, Volume 13, Number 4 (1969), 293-304,
 // Springer Berlin / Heidelberg. DOI: 10.1007/BF02165404
 void BalanceCompanionMatrix(Matrix* companion_matrix_ptr) {
-  CHECK(companion_matrix_ptr != nullptr);
+  CHECK_NOTNULL(companion_matrix_ptr);
   Matrix& companion_matrix = *companion_matrix_ptr;
   Matrix companion_matrix_offdiagonal = companion_matrix;
   companion_matrix_offdiagonal.diagonal().setZero();
@@ -104,7 +105,7 @@ void BalanceCompanionMatrix(Matrix* companion_matrix_ptr) {
 
 void BuildCompanionMatrix(const Vector& polynomial,
                           Matrix* companion_matrix_ptr) {
-  CHECK(companion_matrix_ptr != nullptr);
+  CHECK_NOTNULL(companion_matrix_ptr);
   Matrix& companion_matrix = *companion_matrix_ptr;
 
   const int degree = polynomial.size() - 1;
@@ -326,6 +327,12 @@ void MinimizePolynomial(const Vector& polynomial,
   }
 }
 
+string FunctionSample::ToDebugString() const {
+  return StringPrintf("[x: %.8e, value: %.8e, gradient: %.8e, "
+                      "value_is_valid: %d, gradient_is_valid: %d]",
+                      x, value, gradient, value_is_valid, gradient_is_valid);
+}
+
 Vector FindInterpolatingPolynomial(const vector<FunctionSample>& samples) {
   const int num_samples = samples.size();
   int num_constraints = 0;
@@ -363,10 +370,7 @@ Vector FindInterpolatingPolynomial(const vector<FunctionSample>& samples) {
     }
   }
 
-  // TODO(sameeragarwal): This is a hack.
-  // https://github.com/ceres-solver/ceres-solver/issues/248
-  Eigen::FullPivLU<Matrix> lu(lhs);
-  return lu.setThreshold(0.0).solve(rhs);
+  return lhs.fullPivLu().solve(rhs);
 }
 
 void MinimizeInterpolatingPolynomial(const vector<FunctionSample>& samples,

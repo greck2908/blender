@@ -37,143 +37,131 @@
 #endif
 #define WIN32_LEAN_AND_MEAN
 
-#include <intrin.h>
 #include <windows.h>
+#include <intrin.h>
 
-#if defined(__clang__)
+#if defined (__clang__)
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
 #endif
 
 /* 64-bit operations. */
+#if (LG_SIZEOF_PTR == 8 || LG_SIZEOF_INT == 8)
 /* Unsigned */
 ATOMIC_INLINE uint64_t atomic_add_and_fetch_uint64(uint64_t *p, uint64_t x)
 {
-  return InterlockedExchangeAdd64((int64_t *)p, (int64_t)x) + x;
+	return InterlockedExchangeAdd64((int64_t *)p, (int64_t)x) + x;
 }
 
 ATOMIC_INLINE uint64_t atomic_sub_and_fetch_uint64(uint64_t *p, uint64_t x)
 {
-  return InterlockedExchangeAdd64((int64_t *)p, -((int64_t)x)) - x;
+	return InterlockedExchangeAdd64((int64_t *)p, -((int64_t)x)) - x;
 }
 
 ATOMIC_INLINE uint64_t atomic_cas_uint64(uint64_t *v, uint64_t old, uint64_t _new)
 {
-  return InterlockedCompareExchange64((int64_t *)v, _new, old);
+	return InterlockedCompareExchange64((int64_t *)v, _new, old);
 }
 
 ATOMIC_INLINE uint64_t atomic_fetch_and_add_uint64(uint64_t *p, uint64_t x)
 {
-  return InterlockedExchangeAdd64((int64_t *)p, (int64_t)x);
+	return InterlockedExchangeAdd64((int64_t *)p, (int64_t)x);
 }
 
 ATOMIC_INLINE uint64_t atomic_fetch_and_sub_uint64(uint64_t *p, uint64_t x)
 {
-  return InterlockedExchangeAdd64((int64_t *)p, -((int64_t)x));
+	return InterlockedExchangeAdd64((int64_t *)p, -((int64_t)x));
 }
 
 /* Signed */
 ATOMIC_INLINE int64_t atomic_add_and_fetch_int64(int64_t *p, int64_t x)
 {
-  return InterlockedExchangeAdd64(p, x) + x;
+	return InterlockedExchangeAdd64(p, x) + x;
 }
 
 ATOMIC_INLINE int64_t atomic_sub_and_fetch_int64(int64_t *p, int64_t x)
 {
-  return InterlockedExchangeAdd64(p, -x) - x;
+	return InterlockedExchangeAdd64(p, -x) - x;
 }
 
 ATOMIC_INLINE int64_t atomic_cas_int64(int64_t *v, int64_t old, int64_t _new)
 {
-  return InterlockedCompareExchange64(v, _new, old);
+	return InterlockedCompareExchange64(v, _new, old);
 }
 
 ATOMIC_INLINE int64_t atomic_fetch_and_add_int64(int64_t *p, int64_t x)
 {
-  return InterlockedExchangeAdd64(p, x);
+	return InterlockedExchangeAdd64(p, x);
 }
 
 ATOMIC_INLINE int64_t atomic_fetch_and_sub_int64(int64_t *p, int64_t x)
 {
-  return InterlockedExchangeAdd64(p, -x);
+	return InterlockedExchangeAdd64(p, -x);
 }
+#endif
 
 /******************************************************************************/
 /* 32-bit operations. */
 /* Unsigned */
 ATOMIC_INLINE uint32_t atomic_add_and_fetch_uint32(uint32_t *p, uint32_t x)
 {
-  return InterlockedExchangeAdd(p, x) + x;
+	return InterlockedExchangeAdd(p, x) + x;
 }
 
 ATOMIC_INLINE uint32_t atomic_sub_and_fetch_uint32(uint32_t *p, uint32_t x)
 {
-  return InterlockedExchangeAdd(p, -((int32_t)x)) - x;
+	return InterlockedExchangeAdd(p, -((int32_t)x)) - x;
 }
 
 ATOMIC_INLINE uint32_t atomic_cas_uint32(uint32_t *v, uint32_t old, uint32_t _new)
 {
-  return InterlockedCompareExchange((long *)v, _new, old);
+	return InterlockedCompareExchange((long *)v, _new, old);
 }
 
 ATOMIC_INLINE uint32_t atomic_fetch_and_add_uint32(uint32_t *p, uint32_t x)
 {
-  return InterlockedExchangeAdd(p, x);
+	return InterlockedExchangeAdd(p, x);
 }
 
 ATOMIC_INLINE uint32_t atomic_fetch_and_or_uint32(uint32_t *p, uint32_t x)
 {
-  return InterlockedOr((long *)p, x);
+	return InterlockedOr((long *)p, x);
 }
 
 ATOMIC_INLINE uint32_t atomic_fetch_and_and_uint32(uint32_t *p, uint32_t x)
 {
-  return InterlockedAnd((long *)p, x);
+	return InterlockedAnd((long *)p, x);
 }
 
 /* Signed */
 ATOMIC_INLINE int32_t atomic_add_and_fetch_int32(int32_t *p, int32_t x)
 {
-  return InterlockedExchangeAdd((long *)p, x) + x;
+	return InterlockedExchangeAdd((long *)p, x) + x;
 }
 
 ATOMIC_INLINE int32_t atomic_sub_and_fetch_int32(int32_t *p, int32_t x)
 {
-  return InterlockedExchangeAdd((long *)p, -x) - x;
+	return InterlockedExchangeAdd((long *)p, -x) - x;
 }
 
 ATOMIC_INLINE int32_t atomic_cas_int32(int32_t *v, int32_t old, int32_t _new)
 {
-  return InterlockedCompareExchange((long *)v, _new, old);
+	return InterlockedCompareExchange((long *)v, _new, old);
 }
 
 ATOMIC_INLINE int32_t atomic_fetch_and_add_int32(int32_t *p, int32_t x)
 {
-  return InterlockedExchangeAdd((long *)p, x);
+	return InterlockedExchangeAdd((long *)p, x);
 }
 
 ATOMIC_INLINE int32_t atomic_fetch_and_or_int32(int32_t *p, int32_t x)
 {
-  return InterlockedOr((long *)p, x);
+	return InterlockedOr((long *)p, x);
 }
 
 ATOMIC_INLINE int32_t atomic_fetch_and_and_int32(int32_t *p, int32_t x)
 {
-  return InterlockedAnd((long *)p, x);
-}
-
-/******************************************************************************/
-/* 16-bit operations. */
-
-/* Signed */
-ATOMIC_INLINE int16_t atomic_fetch_and_or_int16(int16_t *p, int16_t x)
-{
-  return InterlockedOr16((short *)p, x);
-}
-
-ATOMIC_INLINE int16_t atomic_fetch_and_and_int16(int16_t *p, int16_t x)
-{
-  return InterlockedAnd16((short *)p, x);
+	return InterlockedAnd((long *)p, x);
 }
 
 /******************************************************************************/
@@ -184,9 +172,9 @@ ATOMIC_INLINE int16_t atomic_fetch_and_and_int16(int16_t *p, int16_t x)
 ATOMIC_INLINE uint8_t atomic_fetch_and_and_uint8(uint8_t *p, uint8_t b)
 {
 #if (LG_SIZEOF_PTR == 8 || LG_SIZEOF_INT == 8)
-  return InterlockedAnd8((char *)p, (char)b);
+	return InterlockedAnd8((char *)p, (char)b);
 #else
-  return _InterlockedAnd8((char *)p, (char)b);
+	return _InterlockedAnd8((char *)p, (char)b);
 #endif
 }
 
@@ -194,9 +182,9 @@ ATOMIC_INLINE uint8_t atomic_fetch_and_and_uint8(uint8_t *p, uint8_t b)
 ATOMIC_INLINE uint8_t atomic_fetch_and_or_uint8(uint8_t *p, uint8_t b)
 {
 #if (LG_SIZEOF_PTR == 8 || LG_SIZEOF_INT == 8)
-  return InterlockedOr8((char *)p, (char)b);
+	return InterlockedOr8((char *)p, (char)b);
 #else
-  return _InterlockedOr8((char *)p, (char)b);
+	return _InterlockedOr8((char *)p, (char)b);
 #endif
 }
 
@@ -205,9 +193,9 @@ ATOMIC_INLINE uint8_t atomic_fetch_and_or_uint8(uint8_t *p, uint8_t b)
 ATOMIC_INLINE int8_t atomic_fetch_and_and_int8(int8_t *p, int8_t b)
 {
 #if (LG_SIZEOF_PTR == 8 || LG_SIZEOF_INT == 8)
-  return InterlockedAnd8((char *)p, (char)b);
+	return InterlockedAnd8((char *)p, (char)b);
 #else
-  return _InterlockedAnd8((char *)p, (char)b);
+	return _InterlockedAnd8((char *)p, (char)b);
 #endif
 }
 
@@ -215,13 +203,14 @@ ATOMIC_INLINE int8_t atomic_fetch_and_and_int8(int8_t *p, int8_t b)
 ATOMIC_INLINE int8_t atomic_fetch_and_or_int8(int8_t *p, int8_t b)
 {
 #if (LG_SIZEOF_PTR == 8 || LG_SIZEOF_INT == 8)
-  return InterlockedOr8((char *)p, (char)b);
+	return InterlockedOr8((char *)p, (char)b);
 #else
-  return _InterlockedOr8((char *)p, (char)b);
+	return _InterlockedOr8((char *)p, (char)b);
 #endif
 }
 
-#if defined(__clang__)
+
+#if defined (__clang__)
 #  pragma GCC diagnostic pop
 #endif
 

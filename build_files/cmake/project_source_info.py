@@ -14,6 +14,8 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
+# Contributor(s): Campbell Barton
+#
 # ***** END GPL LICENSE BLOCK *****
 
 # <pep8 compliant>
@@ -25,8 +27,8 @@ __all__ = (
 
 
 import sys
-if sys.version_info.major < 3:
-    print("\nPython3.x or newer needed, found %s.\nAborting!\n" %
+if not sys.version.startswith("3"):
+    print("\nPython3.x needed, found %s.\nAborting!\n" %
           sys.version.partition(" ")[0])
     sys.exit(1)
 
@@ -241,7 +243,6 @@ def main():
 
     for s in build_info():
         print(s)
-
 
 if __name__ == "__main__":
     main()

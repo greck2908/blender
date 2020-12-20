@@ -6,13 +6,11 @@ if "%BUILD_ARCH%"=="" (
 		set WINDOWS_ARCH= Win64
 		set BUILD_ARCH=x64
 	) else (
-		echo Error: 32 bit builds of blender are no longer supported.
-		goto ERR
+		set WINDOWS_ARCH=
+		set BUILD_ARCH=x86
 	)
 ) else if "%BUILD_ARCH%"=="x64" (
 	set WINDOWS_ARCH= Win64
+) else if "%BUILD_ARCH%"=="x86" (
+	set WINDOWS_ARCH=
 )
-:EOF
-exit /b 0
-:ERR 
-exit /b 1

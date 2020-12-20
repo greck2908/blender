@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,92 +14,120 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Contributor(s): Campbell Barton
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup GHOST
+/** \file ghost/intern/GHOST_SystemSDL.h
+ *  \ingroup GHOST
  * Declaration of GHOST_SystemSDL class.
  */
 
-#pragma once
+#ifndef __GHOST_SYSTEMSDL_H__
+#define __GHOST_SYSTEMSDL_H__
 
+#include "GHOST_System.h"
 #include "../GHOST_Types.h"
 #include "GHOST_DisplayManagerSDL.h"
-#include "GHOST_Event.h"
-#include "GHOST_System.h"
 #include "GHOST_TimerManager.h"
 #include "GHOST_WindowSDL.h"
+#include "GHOST_Event.h"
 
 extern "C" {
-#include "SDL.h"
+	#include "SDL.h"
 }
 
 #if !SDL_VERSION_ATLEAST(2, 0, 0)
 #  error "SDL 2.0 or newer is needed to build with Ghost"
 #endif
 
+
 class GHOST_WindowSDL;
 
+
 class GHOST_SystemSDL : public GHOST_System {
- public:
-  void addDirtyWindow(GHOST_WindowSDL *bad_wind);
+public:
 
-  GHOST_SystemSDL();
-  ~GHOST_SystemSDL();
+	void addDirtyWindow(GHOST_WindowSDL *bad_wind);
 
-  bool processEvents(bool waitForEvent);
+	GHOST_SystemSDL();
+	~GHOST_SystemSDL();
 
-  int toggleConsole(int action)
-  {
-    return 0;
-  }
+	bool
+	processEvents(bool waitForEvent);
 
-  GHOST_TSuccess getModifierKeys(GHOST_ModifierKeys &keys) const;
+	int
+	toggleConsole(int action) { return 0; }
 
-  GHOST_TSuccess getButtons(GHOST_Buttons &buttons) const;
+	GHOST_TSuccess
+	getModifierKeys(GHOST_ModifierKeys& keys) const;
 
-  GHOST_TUns8 *getClipboard(bool selection) const;
+	GHOST_TSuccess
+	getButtons(GHOST_Buttons& buttons) const;
 
-  void putClipboard(GHOST_TInt8 *buffer, bool selection) const;
+	GHOST_TUns8 *
+	getClipboard(bool selection) const;
 
-  GHOST_TUns64 getMilliSeconds();
+	void
+	putClipboard(GHOST_TInt8 *buffer, bool selection) const;
 
-  GHOST_TUns8 getNumDisplays() const;
+	GHOST_TUns64
+	getMilliSeconds();
 
-  GHOST_TSuccess getCursorPosition(GHOST_TInt32 &x, GHOST_TInt32 &y) const;
+	GHOST_TUns8
+	getNumDisplays() const;
 
-  GHOST_TSuccess setCursorPosition(GHOST_TInt32 x, GHOST_TInt32 y);
+	GHOST_TSuccess
+	getCursorPosition(GHOST_TInt32& x,
+	                  GHOST_TInt32& y) const;
 
-  void getAllDisplayDimensions(GHOST_TUns32 &width, GHOST_TUns32 &height) const;
+	GHOST_TSuccess
+	setCursorPosition(GHOST_TInt32 x,
+	                  GHOST_TInt32 y);
 
-  void getMainDisplayDimensions(GHOST_TUns32 &width, GHOST_TUns32 &height) const;
+	void
+	getAllDisplayDimensions(GHOST_TUns32& width,
+	                        GHOST_TUns32& height) const;
 
-  GHOST_IContext *createOffscreenContext(GHOST_GLSettings glSettings);
+	void
+	getMainDisplayDimensions(GHOST_TUns32& width,
+	                         GHOST_TUns32& height) const;
 
-  GHOST_TSuccess disposeContext(GHOST_IContext *context);
+	/**
+	 * Informs if the system provides native dialogs (eg. confirm quit)
+	 */
+	virtual bool supportsNativeDialogs(void);
+private:
 
- private:
-  GHOST_TSuccess init();
+	GHOST_TSuccess
+	init();
 
-  GHOST_IWindow *createWindow(const char *title,
-                              GHOST_TInt32 left,
-                              GHOST_TInt32 top,
-                              GHOST_TUns32 width,
-                              GHOST_TUns32 height,
-                              GHOST_TWindowState state,
-                              GHOST_TDrawingContextType type,
-                              GHOST_GLSettings glSettings,
-                              const bool exclusive = false,
-                              const bool is_dialog = false,
-                              const GHOST_IWindow *parentWindow = NULL);
+	GHOST_IWindow *
+	createWindow(const STR_String& title,
+	             GHOST_TInt32 left,
+	             GHOST_TInt32 top,
+	             GHOST_TUns32 width,
+	             GHOST_TUns32 height,
+	             GHOST_TWindowState state,
+	             GHOST_TDrawingContextType type,
+	             GHOST_GLSettings glSettings,
+	             const bool exclusive = false,
+	             const GHOST_TEmbedderWindowID parentWindow = 0
+	             );
 
-  /* SDL specific */
-  GHOST_WindowSDL *findGhostWindow(SDL_Window *sdl_win);
+	/* SDL specific */
+	GHOST_WindowSDL *findGhostWindow(SDL_Window *sdl_win);
 
-  bool generateWindowExposeEvents();
+	bool
+	generateWindowExposeEvents();
 
-  void processEvent(SDL_Event *sdl_event);
+	void
+	processEvent(SDL_Event *sdl_event);
 
-  /** The vector of windows that need to be updated. */
-  std::vector<GHOST_WindowSDL *> m_dirty_windows;
+	/// The vector of windows that need to be updated.
+	std::vector<GHOST_WindowSDL *> m_dirty_windows;
 };
+
+#endif

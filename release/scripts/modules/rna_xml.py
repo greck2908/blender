@@ -14,6 +14,8 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
+# Contributor(s): Campbell Barton
+#
 # ***** END GPL LICENSE BLOCK *****
 
 # <pep8 compliant>
@@ -59,24 +61,22 @@ def print_ln(data):
     print(data, end="")
 
 
-def rna2xml(
-        fw=print_ln,
-        root_node="",
-        root_rna=None,  # must be set
-        root_rna_skip=set(),
-        root_ident="",
-        ident_val="  ",
-        skip_classes=(
-            bpy.types.Operator,
-            bpy.types.Panel,
-            bpy.types.KeyingSet,
-            bpy.types.Header,
-            bpy.types.PropertyGroup,
-        ),
-        skip_typemap=None,
-        pretty_format=True,
-        method='DATA',
-):
+def rna2xml(fw=print_ln,
+            root_node="",
+            root_rna=None,  # must be set
+            root_rna_skip=set(),
+            root_ident="",
+            ident_val="  ",
+            skip_classes=(bpy.types.Operator,
+                          bpy.types.Panel,
+                          bpy.types.KeyingSet,
+                          bpy.types.Header,
+                          bpy.types.PropertyGroup,
+                          ),
+            skip_typemap=None,
+            pretty_format=True,
+            method='DATA'):
+
     from xml.sax.saxutils import quoteattr
     property_typemap = build_property_typemap(skip_classes, skip_typemap)
 
@@ -100,7 +100,7 @@ def rna2xml(
         elif val_type == bool:
             return "TRUE" if val else "FALSE"
         else:
-            raise NotImplementedError("this type is not a number %s" % val_type)
+            raise NotImplemented("this type is not a number %s" % val_type)
 
     def rna2xml_node(ident, value, parent):
         ident_next = ident + ident_val
@@ -177,10 +177,11 @@ def rna2xml(
         # declare + attributes
         if pretty_format:
             if node_attrs:
-                fw("%s<%s\n" % (ident, value_type_name))
-                for node_attr in node_attrs:
-                    fw("%s%s\n" % (ident_next, node_attr))
-                fw("%s>\n" % (ident_next,))
+                tmp_str = "<%s " % value_type_name
+                tmp_ident = "\n" + ident + (" " * len(tmp_str))
+                fw("%s%s%s>\n" % (ident, tmp_str, tmp_ident.join(node_attrs)))
+                del tmp_str
+                del tmp_ident
             else:
                 fw("%s<%s>\n" % (ident, value_type_name))
         else:
@@ -394,7 +395,7 @@ def xml_file_write(context, filepath, rna_map, skip_typemap=None):
 
     fw("<bpy>\n")
 
-    for rna_path, _xml_tag in rna_map:
+    for rna_path, xml_tag in rna_map:
         # xml_tag is ignored, we get this from the rna
         value = _get_context_val(context, rna_path)
         rna2xml(fw,

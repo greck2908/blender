@@ -24,6 +24,9 @@
  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -42,23 +45,38 @@
  * All rights reserved.
  *
  * The Original Code is: adapted from jemalloc.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
+/**
+ * \file atomic_ops.h
  * \ingroup Atomic
  *
- * \brief Provides wrapper around system-specific atomic primitives,
- * and some extensions (faked-atomic operations over float numbers).
+ * \author Copyright (C) 2016 Blender Foundation, adapted from jemalloc.
+ * \brief Provides wrapper around system-specific atomic primitives, and some extensions (faked-atomic operations
+ *        over float numbers).
  */
 
 #ifndef __ATOMIC_OPS_H__
 #define __ATOMIC_OPS_H__
+
+#if defined(__arm__)
+/* Attempt to fix compilation error on Debian armel kernel.
+ * arm7 architecture does have both 32 and 64bit atomics, however
+ * it's gcc doesn't have __GCC_HAVE_SYNC_COMPARE_AND_SWAP_n defined.
+ */
+#  define JE_FORCE_SYNC_COMPARE_AND_SWAP_1
+#  define JE_FORCE_SYNC_COMPARE_AND_SWAP_4
+#  define JE_FORCE_SYNC_COMPARE_AND_SWAP_8
+#endif
 
 #include "intern/atomic_ops_utils.h"
 
 /******************************************************************************/
 /* Function prototypes. */
 
+#if (LG_SIZEOF_PTR == 8 || LG_SIZEOF_INT == 8)
 ATOMIC_INLINE uint64_t atomic_add_and_fetch_uint64(uint64_t *p, uint64_t x);
 ATOMIC_INLINE uint64_t atomic_sub_and_fetch_uint64(uint64_t *p, uint64_t x);
 ATOMIC_INLINE uint64_t atomic_fetch_and_add_uint64(uint64_t *p, uint64_t x);
@@ -70,6 +88,7 @@ ATOMIC_INLINE int64_t atomic_sub_and_fetch_int64(int64_t *p, int64_t x);
 ATOMIC_INLINE int64_t atomic_fetch_and_add_int64(int64_t *p, int64_t x);
 ATOMIC_INLINE int64_t atomic_fetch_and_sub_int64(int64_t *p, int64_t x);
 ATOMIC_INLINE int64_t atomic_cas_int64(int64_t *v, int64_t old, int64_t _new);
+#endif
 
 ATOMIC_INLINE uint32_t atomic_add_and_fetch_uint32(uint32_t *p, uint32_t x);
 ATOMIC_INLINE uint32_t atomic_sub_and_fetch_uint32(uint32_t *p, uint32_t x);
@@ -87,9 +106,6 @@ ATOMIC_INLINE int32_t atomic_fetch_and_add_int32(int32_t *p, int32_t x);
 ATOMIC_INLINE int32_t atomic_fetch_and_or_int32(int32_t *p, int32_t x);
 ATOMIC_INLINE int32_t atomic_fetch_and_and_int32(int32_t *p, int32_t x);
 
-ATOMIC_INLINE int16_t atomic_fetch_and_or_int16(int16_t *p, int16_t b);
-ATOMIC_INLINE int16_t atomic_fetch_and_and_int16(int16_t *p, int16_t b);
-
 ATOMIC_INLINE uint8_t atomic_fetch_and_or_uint8(uint8_t *p, uint8_t b);
 ATOMIC_INLINE uint8_t atomic_fetch_and_and_uint8(uint8_t *p, uint8_t b);
 
@@ -104,8 +120,7 @@ ATOMIC_INLINE size_t atomic_sub_and_fetch_z(size_t *p, size_t x);
 ATOMIC_INLINE size_t atomic_fetch_and_add_z(size_t *p, size_t x);
 ATOMIC_INLINE size_t atomic_fetch_and_sub_z(size_t *p, size_t x);
 ATOMIC_INLINE size_t atomic_cas_z(size_t *v, size_t old, size_t _new);
-/* Uses CAS loop, see warning below. */
-ATOMIC_INLINE size_t atomic_fetch_and_update_max_z(size_t *p, size_t x);
+ATOMIC_INLINE size_t atomic_fetch_and_update_max_z(size_t *p, size_t x); /* Uses CAS loop, see warning below. */
 
 ATOMIC_INLINE unsigned int atomic_add_and_fetch_u(unsigned int *p, unsigned int x);
 ATOMIC_INLINE unsigned int atomic_sub_and_fetch_u(unsigned int *p, unsigned int x);
@@ -115,19 +130,18 @@ ATOMIC_INLINE unsigned int atomic_cas_u(unsigned int *v, unsigned int old, unsig
 
 ATOMIC_INLINE void *atomic_cas_ptr(void **v, void *old, void *_new);
 
+
 ATOMIC_INLINE float atomic_cas_float(float *v, float old, float _new);
 
-/* WARNING! Float 'atomics' are really faked ones, those are actually closer to some kind of
- * spinlock-sync'ed operation, which means they are only efficient if collisions are highly
- * unlikely (i.e. if probability of two threads working on the same pointer at the same time is
- * very low). */
+/* WARNING! Float 'atomics' are really faked ones, those are actually closer to some kind of spinlock-sync'ed operation,
+ *          which means they are only efficient if collisions are highly unlikely (i.e. if probability of two threads
+ *          working on the same pointer at the same time is very low). */
 ATOMIC_INLINE float atomic_add_and_fetch_fl(float *p, const float x);
 
 /******************************************************************************/
 /* Include system-dependent implementations. */
 
-/* Note that we are using _unix flavor as fallback here
- * (it will raise precompiler errors as needed). */
+/* Note that we are using _unix flavor as fallback here (it will raise precompiler errors as needed). */
 #if defined(_MSC_VER)
 #  include "intern/atomic_ops_msvc.h"
 #else

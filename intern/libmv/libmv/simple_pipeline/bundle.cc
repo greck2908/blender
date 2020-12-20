@@ -21,11 +21,9 @@
 #include "libmv/simple_pipeline/bundle.h"
 
 #include <map>
-#include <thread>
 
 #include "ceres/ceres.h"
 #include "ceres/rotation.h"
-#include "libmv/base/map.h"
 #include "libmv/base/vector.h"
 #include "libmv/logging/logging.h"
 #include "libmv/multiview/fundamental.h"
@@ -35,257 +33,51 @@
 #include "libmv/simple_pipeline/reconstruction.h"
 #include "libmv/simple_pipeline/tracks.h"
 #include "libmv/simple_pipeline/distortion_models.h"
-#include "libmv/simple_pipeline/packed_intrinsics.h"
+
+#ifdef _OPENMP
+#  include <omp.h>
+#endif
 
 namespace libmv {
 
-namespace {
+// The intrinsics need to get combined into a single parameter block; use these
+// enums to index instead of numeric constants.
+enum {
+  // Camera calibration values.
+  OFFSET_FOCAL_LENGTH,
+  OFFSET_PRINCIPAL_POINT_X,
+  OFFSET_PRINCIPAL_POINT_Y,
 
-bool NeedUseInvertIntrinsicsPipeline(const CameraIntrinsics *intrinsics) {
-  const DistortionModelType distortion_model =
-      intrinsics->GetDistortionModelType();
-  return (distortion_model == DISTORTION_MODEL_NUKE);
-}
+  // Distortion model coefficients.
+  OFFSET_K1,
+  OFFSET_K2,
+  OFFSET_K3,
+  OFFSET_P1,
+  OFFSET_P2,
 
-// Apply distortion model (distort the input) on the input point in the
-// normalized space to get distorted coordinate in the image space.
-//
-// Using intrinsics values from the parameter block, which makes this function
-// suitable for use from a cost functor.
-//
-// Only use for distortion models which are analytically defined for their
-// Apply() function.
-//
-// The invariant_intrinsics are used to access intrinsics which are never
-// packed into parameter block: for example, distortion model type and image
-// dimension.
-template<typename T>
-void ApplyDistortionModelUsingIntrinsicsBlock(
-    const CameraIntrinsics *invariant_intrinsics,
-    const T* const intrinsics_block,
-    const T& normalized_x, const T& normalized_y,
-    T* distorted_x, T* distorted_y) {
-  // Unpack the intrinsics.
-  const T& focal_length =
-      intrinsics_block[PackedIntrinsics::OFFSET_FOCAL_LENGTH];
-  const T& principal_point_x =
-      intrinsics_block[PackedIntrinsics::OFFSET_PRINCIPAL_POINT_X];
-  const T& principal_point_y =
-      intrinsics_block[PackedIntrinsics::OFFSET_PRINCIPAL_POINT_Y];
-
-  // TODO(keir): Do early bailouts for zero distortion; these are expensive
-  // jet operations.
-  switch (invariant_intrinsics->GetDistortionModelType()) {
-    case DISTORTION_MODEL_POLYNOMIAL:
-      {
-        const T& k1 = intrinsics_block[PackedIntrinsics::OFFSET_K1];
-        const T& k2 = intrinsics_block[PackedIntrinsics::OFFSET_K2];
-        const T& k3 = intrinsics_block[PackedIntrinsics::OFFSET_K3];
-        const T& p1 = intrinsics_block[PackedIntrinsics::OFFSET_P1];
-        const T& p2 = intrinsics_block[PackedIntrinsics::OFFSET_P2];
-
-        ApplyPolynomialDistortionModel(focal_length,
-                                       focal_length,
-                                       principal_point_x,
-                                       principal_point_y,
-                                       k1, k2, k3,
-                                       p1, p2,
-                                       normalized_x, normalized_y,
-                                       distorted_x, distorted_y);
-        return;
-      }
-
-    case DISTORTION_MODEL_DIVISION:
-      {
-        const T& k1 = intrinsics_block[PackedIntrinsics::OFFSET_K1];
-        const T& k2 = intrinsics_block[PackedIntrinsics::OFFSET_K2];
-
-        ApplyDivisionDistortionModel(focal_length,
-                                     focal_length,
-                                     principal_point_x,
-                                     principal_point_y,
-                                     k1, k2,
-                                     normalized_x, normalized_y,
-                                     distorted_x, distorted_y);
-        return;
-      }
-
-    case DISTORTION_MODEL_NUKE:
-      {
-        LOG(FATAL) << "Unsupported distortion model.";
-        return;
-      }
-
-    case DISTORTION_MODEL_BROWN:
-      {
-        const T& k1 = intrinsics_block[PackedIntrinsics::OFFSET_K1];
-        const T& k2 = intrinsics_block[PackedIntrinsics::OFFSET_K2];
-        const T& k3 = intrinsics_block[PackedIntrinsics::OFFSET_K3];
-        const T& k4 = intrinsics_block[PackedIntrinsics::OFFSET_K4];
-        const T& p1 = intrinsics_block[PackedIntrinsics::OFFSET_P1];
-        const T& p2 = intrinsics_block[PackedIntrinsics::OFFSET_P2];
-
-        ApplyBrownDistortionModel(focal_length,
-                                  focal_length,
-                                  principal_point_x,
-                                  principal_point_y,
-                                  k1, k2, k3, k4,
-                                  p1, p2,
-                                  normalized_x, normalized_y,
-                                  distorted_x, distorted_y);
-        return;
-      }
-  }
-
-  LOG(FATAL) << "Unknown distortion model.";
-}
-
-// Invert distortion model (undistort the input) on the input point in the
-// image space to get undistorted coordinate in the normalized space.
-//
-// Using intrinsics values from the parameter block, which makes this function
-// suitable for use from a cost functor.
-//
-// Only use for distortion models which are analytically defined for their
-// Invert() function.
-//
-// The invariant_intrinsics are used to access intrinsics which are never
-// packed into parameter block: for example, distortion model type and image
-// dimension.
-template<typename T>
-void InvertDistortionModelUsingIntrinsicsBlock(
-    const CameraIntrinsics *invariant_intrinsics,
-    const T* const intrinsics_block,
-    const T& image_x, const T& image_y,
-    T* normalized_x, T* normalized_y) {
-  // Unpack the intrinsics.
-  const T& focal_length =
-      intrinsics_block[PackedIntrinsics::OFFSET_FOCAL_LENGTH];
-  const T& principal_point_x =
-      intrinsics_block[PackedIntrinsics::OFFSET_PRINCIPAL_POINT_X];
-  const T& principal_point_y =
-      intrinsics_block[PackedIntrinsics::OFFSET_PRINCIPAL_POINT_Y];
-
-  // TODO(keir): Do early bailouts for zero distortion; these are expensive
-  // jet operations.
-  switch (invariant_intrinsics->GetDistortionModelType()) {
-    case DISTORTION_MODEL_POLYNOMIAL:
-    case DISTORTION_MODEL_DIVISION:
-    case DISTORTION_MODEL_BROWN:
-      LOG(FATAL) << "Unsupported distortion model.";
-      return;
-
-    case DISTORTION_MODEL_NUKE:
-      {
-        const T& k1 = intrinsics_block[PackedIntrinsics::OFFSET_K1];
-        const T& k2 = intrinsics_block[PackedIntrinsics::OFFSET_K2];
-
-        InvertNukeDistortionModel(focal_length,
-                                  focal_length,
-                                  principal_point_x,
-                                  principal_point_y,
-                                  invariant_intrinsics->image_width(),
-                                  invariant_intrinsics->image_height(),
-                                  k1, k2,
-                                  image_x, image_y,
-                                  normalized_x, normalized_y);
-        return;
-      }
-  }
-
-  LOG(FATAL) << "Unknown distortion model.";
-}
-
-template<typename T>
-void NormalizedToImageSpace(const T* const intrinsics_block,
-                            const T& normalized_x, const T& normalized_y,
-                            T* image_x, T* image_y) {
-  // Unpack the intrinsics.
-  const T& focal_length =
-      intrinsics_block[PackedIntrinsics::OFFSET_FOCAL_LENGTH];
-  const T& principal_point_x =
-      intrinsics_block[PackedIntrinsics::OFFSET_PRINCIPAL_POINT_X];
-  const T& principal_point_y =
-      intrinsics_block[PackedIntrinsics::OFFSET_PRINCIPAL_POINT_Y];
-
-  *image_x = normalized_x * focal_length + principal_point_x;
-  *image_y = normalized_y * focal_length + principal_point_y;
-}
-
-// Cost functor which computes reprojection error of 3D point X on camera
-// defined by angle-axis rotation and its translation (which are in the same
-// block due to optimization reasons).
-//
-// This functor can only be used for distortion models which have analytically
-// defined Apply() function.
-struct ReprojectionErrorApplyIntrinsics {
-  ReprojectionErrorApplyIntrinsics(
-      const CameraIntrinsics *invariant_intrinsics,
-      const double observed_distorted_x,
-      const double observed_distorted_y,
-      const double weight)
-      : invariant_intrinsics_(invariant_intrinsics),
-        observed_distorted_x_(observed_distorted_x),
-        observed_distorted_y_(observed_distorted_y),
-        weight_(weight) {}
-
-  template <typename T>
-  bool operator()(const T* const intrinsics,
-                  const T* const R_t,  // Rotation denoted by angle axis
-                                       // followed with translation
-                  const T* const X,    // Point coordinates 3x1.
-                  T* residuals) const {
-    // Compute projective coordinates: x = RX + t.
-    T x[3];
-
-    ceres::AngleAxisRotatePoint(R_t, X, x);
-    x[0] += R_t[3];
-    x[1] += R_t[4];
-    x[2] += R_t[5];
-
-    // Prevent points from going behind the camera.
-    if (x[2] < T(0)) {
-      return false;
-    }
-
-    // Compute normalized coordinates: x /= x[2].
-    T xn = x[0] / x[2];
-    T yn = x[1] / x[2];
-
-    T predicted_distorted_x, predicted_distorted_y;
-    ApplyDistortionModelUsingIntrinsicsBlock(
-        invariant_intrinsics_,
-        intrinsics,
-        xn, yn,
-        &predicted_distorted_x, &predicted_distorted_y);
-
-    // The error is the difference between the predicted and observed position.
-    residuals[0] = (predicted_distorted_x - T(observed_distorted_x_)) * weight_;
-    residuals[1] = (predicted_distorted_y - T(observed_distorted_y_)) * weight_;
-    return true;
-  }
-
-  const CameraIntrinsics *invariant_intrinsics_;
-  const double observed_distorted_x_;
-  const double observed_distorted_y_;
-  const double weight_;
+  // Maximal possible offset.
+  OFFSET_MAX,
 };
 
-// Cost functor which computes reprojection error of 3D point X on camera
-// defined by angle-axis rotation and its translation (which are in the same
-// block due to optimization reasons).
+#define FIRST_DISTORTION_COEFFICIENT OFFSET_K1
+#define LAST_DISTORTION_COEFFICIENT OFFSET_P2
+#define NUM_DISTORTION_COEFFICIENTS  \
+  (LAST_DISTORTION_COEFFICIENT - FIRST_DISTORTION_COEFFICIENT + 1)
+
+namespace {
+
+// Cost functor which computes reprojection error of 3D point X
+// on camera defined by angle-axis rotation and it's translation
+// (which are in the same block due to optimization reasons).
 //
-// This functor can only be used for distortion models which have analytically
-// defined Invert() function.
-struct ReprojectionErrorInvertIntrinsics {
-  ReprojectionErrorInvertIntrinsics(
-      const CameraIntrinsics *invariant_intrinsics,
-      const double observed_distorted_x,
-      const double observed_distorted_y,
-      const double weight)
-      : invariant_intrinsics_(invariant_intrinsics),
-        observed_distorted_x_(observed_distorted_x),
-        observed_distorted_y_(observed_distorted_y),
+// This functor uses a radial distortion model.
+struct OpenCVReprojectionError {
+  OpenCVReprojectionError(const DistortionModelType distortion_model,
+                          const double observed_x,
+                          const double observed_y,
+                          const double weight)
+      : distortion_model_(distortion_model),
+        observed_x_(observed_x), observed_y_(observed_y),
         weight_(weight) {}
 
   template <typename T>
@@ -295,12 +87,9 @@ struct ReprojectionErrorInvertIntrinsics {
                   const T* const X,    // Point coordinates 3x1.
                   T* residuals) const {
     // Unpack the intrinsics.
-    const T& focal_length =
-        intrinsics[PackedIntrinsics::OFFSET_FOCAL_LENGTH];
-    const T& principal_point_x =
-        intrinsics[PackedIntrinsics::OFFSET_PRINCIPAL_POINT_X];
-    const T& principal_point_y =
-        intrinsics[PackedIntrinsics::OFFSET_PRINCIPAL_POINT_Y];
+    const T& focal_length      = intrinsics[OFFSET_FOCAL_LENGTH];
+    const T& principal_point_x = intrinsics[OFFSET_PRINCIPAL_POINT_X];
+    const T& principal_point_y = intrinsics[OFFSET_PRINCIPAL_POINT_Y];
 
     // Compute projective coordinates: x = RX + t.
     T x[3];
@@ -319,37 +108,63 @@ struct ReprojectionErrorInvertIntrinsics {
     T xn = x[0] / x[2];
     T yn = x[1] / x[2];
 
-    // Compute image space coordinate from normalized.
-    T predicted_x = focal_length * xn + principal_point_x;
-    T predicted_y = focal_length * yn + principal_point_y;
+    T predicted_x, predicted_y;
 
-    T observed_undistorted_normalized_x, observed_undistorted_normalized_y;
-    InvertDistortionModelUsingIntrinsicsBlock(
-        invariant_intrinsics_,
-        intrinsics,
-        T(observed_distorted_x_), T(observed_distorted_y_),
-        &observed_undistorted_normalized_x, &observed_undistorted_normalized_y);
+    // Apply distortion to the normalized points to get (xd, yd).
+    // TODO(keir): Do early bailouts for zero distortion; these are expensive
+    // jet operations.
+    switch (distortion_model_) {
+      case DISTORTION_MODEL_POLYNOMIAL:
+        {
+          const T& k1 = intrinsics[OFFSET_K1];
+          const T& k2 = intrinsics[OFFSET_K2];
+          const T& k3 = intrinsics[OFFSET_K3];
+          const T& p1 = intrinsics[OFFSET_P1];
+          const T& p2 = intrinsics[OFFSET_P2];
 
-    T observed_undistorted_image_x, observed_undistorted_image_y;
-    NormalizedToImageSpace(
-        intrinsics,
-        observed_undistorted_normalized_x, observed_undistorted_normalized_y,
-        &observed_undistorted_image_x, &observed_undistorted_image_y);
+          ApplyPolynomialDistortionModel(focal_length,
+                                         focal_length,
+                                         principal_point_x,
+                                         principal_point_y,
+                                         k1, k2, k3,
+                                         p1, p2,
+                                         xn, yn,
+                                         &predicted_x,
+                                         &predicted_y);
+          break;
+        }
+      case DISTORTION_MODEL_DIVISION:
+        {
+          const T& k1 = intrinsics[OFFSET_K1];
+          const T& k2 = intrinsics[OFFSET_K2];
+
+          ApplyDivisionDistortionModel(focal_length,
+                                       focal_length,
+                                       principal_point_x,
+                                       principal_point_y,
+                                       k1, k2,
+                                       xn, yn,
+                                       &predicted_x,
+                                       &predicted_y);
+          break;
+        }
+      default:
+        LOG(FATAL) << "Unknown distortion model";
+    }
 
     // The error is the difference between the predicted and observed position.
-    residuals[0] = (predicted_x - observed_undistorted_image_x) * weight_;
-    residuals[1] = (predicted_y - observed_undistorted_image_y) * weight_;
-
+    residuals[0] = (predicted_x - T(observed_x_)) * weight_;
+    residuals[1] = (predicted_y - T(observed_y_)) * weight_;
     return true;
   }
 
-  const CameraIntrinsics *invariant_intrinsics_;
-  const double observed_distorted_x_;
-  const double observed_distorted_y_;
+  const DistortionModelType distortion_model_;
+  const double observed_x_;
+  const double observed_y_;
   const double weight_;
 };
 
-// Print a message to the log which camera intrinsics are gonna to be optimized.
+// Print a message to the log which camera intrinsics are gonna to be optimixed.
 void BundleIntrinsicsLogMessage(const int bundle_intrinsics) {
   if (bundle_intrinsics == BUNDLE_NO_INTRINSICS) {
     LOG(INFO) << "Bundling only camera positions.";
@@ -368,8 +183,6 @@ void BundleIntrinsicsLogMessage(const int bundle_intrinsics) {
     APPEND_BUNDLING_INTRINSICS("px, py", BUNDLE_PRINCIPAL_POINT);
     APPEND_BUNDLING_INTRINSICS("k1",     BUNDLE_RADIAL_K1);
     APPEND_BUNDLING_INTRINSICS("k2",     BUNDLE_RADIAL_K2);
-    APPEND_BUNDLING_INTRINSICS("k3",     BUNDLE_RADIAL_K3);
-    APPEND_BUNDLING_INTRINSICS("k4",     BUNDLE_RADIAL_K4);
     APPEND_BUNDLING_INTRINSICS("p1",     BUNDLE_TANGENTIAL_P1);
     APPEND_BUNDLING_INTRINSICS("p2",     BUNDLE_TANGENTIAL_P2);
 
@@ -377,42 +190,87 @@ void BundleIntrinsicsLogMessage(const int bundle_intrinsics) {
   }
 }
 
+// Pack intrinsics from object to an array for easier
+// and faster minimization.
+void PackIntrinisicsIntoArray(const CameraIntrinsics &intrinsics,
+                              double ceres_intrinsics[OFFSET_MAX]) {
+  ceres_intrinsics[OFFSET_FOCAL_LENGTH]       = intrinsics.focal_length();
+  ceres_intrinsics[OFFSET_PRINCIPAL_POINT_X]  = intrinsics.principal_point_x();
+  ceres_intrinsics[OFFSET_PRINCIPAL_POINT_Y]  = intrinsics.principal_point_y();
+
+  int num_distortion_parameters = intrinsics.num_distortion_parameters();
+  assert(num_distortion_parameters <= NUM_DISTORTION_COEFFICIENTS);
+
+  const double *distortion_parameters = intrinsics.distortion_parameters();
+  for (int i = 0; i < num_distortion_parameters; ++i) {
+    ceres_intrinsics[FIRST_DISTORTION_COEFFICIENT + i] =
+        distortion_parameters[i];
+  }
+}
+
+// Unpack intrinsics back from an array to an object.
+void UnpackIntrinsicsFromArray(const double ceres_intrinsics[OFFSET_MAX],
+                               CameraIntrinsics *intrinsics) {
+  intrinsics->SetFocalLength(ceres_intrinsics[OFFSET_FOCAL_LENGTH],
+                             ceres_intrinsics[OFFSET_FOCAL_LENGTH]);
+
+  intrinsics->SetPrincipalPoint(ceres_intrinsics[OFFSET_PRINCIPAL_POINT_X],
+                                ceres_intrinsics[OFFSET_PRINCIPAL_POINT_Y]);
+
+  int num_distortion_parameters = intrinsics->num_distortion_parameters();
+  assert(num_distortion_parameters <= NUM_DISTORTION_COEFFICIENTS);
+
+  double *distortion_parameters = intrinsics->distortion_parameters();
+  for (int i = 0; i < num_distortion_parameters; ++i) {
+    distortion_parameters[i] =
+        ceres_intrinsics[FIRST_DISTORTION_COEFFICIENT + i];
+  }
+}
+
 // Get a vector of camera's rotations denoted by angle axis
 // conjuncted with translations into single block
 //
-// Element with key i matches to a rotation+translation for
+// Element with index i matches to a rotation+translation for
 // camera at image i.
-map<int, Vec6> PackCamerasRotationAndTranslation(
+vector<Vec6> PackCamerasRotationAndTranslation(
+    const Tracks &tracks,
     const EuclideanReconstruction &reconstruction) {
-  map<int, Vec6> all_cameras_R_t;
+  vector<Vec6> all_cameras_R_t;
+  int max_image = tracks.MaxImage();
 
-  vector<EuclideanCamera> all_cameras = reconstruction.AllCameras();
-  for (const EuclideanCamera& camera : all_cameras) {
-    Vec6 camera_R_t;
-    ceres::RotationMatrixToAngleAxis(&camera.R(0, 0), &camera_R_t(0));
-    camera_R_t.tail<3>() = camera.t;
-    all_cameras_R_t.insert(make_pair(camera.image, camera_R_t));
+  all_cameras_R_t.resize(max_image + 1);
+
+  for (int i = 0; i <= max_image; i++) {
+    const EuclideanCamera *camera = reconstruction.CameraForImage(i);
+
+    if (!camera) {
+      continue;
+    }
+
+    ceres::RotationMatrixToAngleAxis(&camera->R(0, 0),
+                                     &all_cameras_R_t[i](0));
+    all_cameras_R_t[i].tail<3>() = camera->t;
   }
-
   return all_cameras_R_t;
 }
 
 // Convert cameras rotations fro mangle axis back to rotation matrix.
 void UnpackCamerasRotationAndTranslation(
-    const map<int, Vec6> &all_cameras_R_t,
+    const Tracks &tracks,
+    const vector<Vec6> &all_cameras_R_t,
     EuclideanReconstruction *reconstruction) {
+  int max_image = tracks.MaxImage();
 
-  for (map<int, Vec6>::value_type image_and_camera_R_T : all_cameras_R_t) {
-    const int image = image_and_camera_R_T.first;
-    const Vec6& camera_R_t = image_and_camera_R_T.second;
+  for (int i = 0; i <= max_image; i++) {
+    EuclideanCamera *camera = reconstruction->CameraForImage(i);
 
-    EuclideanCamera *camera = reconstruction->CameraForImage(image);
     if (!camera) {
       continue;
     }
 
-    ceres::AngleAxisToRotationMatrix(&camera_R_t(0), &camera->R(0, 0));
-    camera->t = camera_R_t.tail<3>();
+    ceres::AngleAxisToRotationMatrix(&all_cameras_R_t[i](0),
+                                     &camera->R(0, 0));
+    camera->t = all_cameras_R_t[i].tail<3>();
   }
 }
 
@@ -441,120 +299,71 @@ void CRSMatrixToEigenMatrix(const ceres::CRSMatrix &crs_matrix,
 
 void EuclideanBundlerPerformEvaluation(const Tracks &tracks,
                                        EuclideanReconstruction *reconstruction,
-                                       map<int, Vec6> *all_cameras_R_t,
+                                       vector<Vec6> *all_cameras_R_t,
                                        ceres::Problem *problem,
                                        BundleEvaluation *evaluation) {
-  int max_track = tracks.MaxTrack();
-  // Number of camera rotations equals to number of translation,
-  int num_cameras = all_cameras_R_t->size();
-  int num_points = 0;
+    int max_track = tracks.MaxTrack();
+    // Number of camera rotations equals to number of translation,
+    int num_cameras = all_cameras_R_t->size();
+    int num_points = 0;
 
-  vector<EuclideanPoint*> minimized_points;
-  for (int i = 0; i <= max_track; i++) {
-    EuclideanPoint *point = reconstruction->PointForTrack(i);
-    if (point) {
-      // We need to know whether the track is a constant zero weight.
-      // If it is so it wouldn't have a parameter block in the problem.
-      //
-      // Usually getting all markers of a track is considered slow, but this
-      // code is only used by the keyframe selection code where there aren't
-      // that many tracks in the storage and there are only 2 frames for each
-      // of the tracks.
-      vector<Marker> markera_of_track = tracks.MarkersForTrack(i);
-      for (int j = 0; j < markera_of_track.size(); j++) {
-        if (markera_of_track.at(j).weight != 0.0) {
-          minimized_points.push_back(point);
-          num_points++;
-          break;
+    vector<EuclideanPoint*> minimized_points;
+    for (int i = 0; i <= max_track; i++) {
+      EuclideanPoint *point = reconstruction->PointForTrack(i);
+      if (point) {
+        // We need to know whether the track is constant zero weight,
+        // and it so it wouldn't have parameter block in the problem.
+        //
+        // Getting all markers for track is not so bac currently since
+        // this code is only used by keyframe selection when there are
+        // not so much tracks and only 2 frames anyway.
+        vector<Marker> markera_of_track = tracks.MarkersForTrack(i);
+        for (int j = 0; j < markera_of_track.size(); j++) {
+          if (markera_of_track.at(j).weight != 0.0) {
+            minimized_points.push_back(point);
+            num_points++;
+            break;
+          }
         }
       }
     }
-  }
 
-  LG << "Number of cameras " << num_cameras;
-  LG << "Number of points " << num_points;
+    LG << "Number of cameras " << num_cameras;
+    LG << "Number of points " << num_points;
 
-  evaluation->num_cameras = num_cameras;
-  evaluation->num_points = num_points;
+    evaluation->num_cameras = num_cameras;
+    evaluation->num_points = num_points;
 
-  if (evaluation->evaluate_jacobian) {      // Evaluate jacobian matrix.
-    ceres::CRSMatrix evaluated_jacobian;
-    ceres::Problem::EvaluateOptions eval_options;
+    if (evaluation->evaluate_jacobian) {      // Evaluate jacobian matrix.
+      ceres::CRSMatrix evaluated_jacobian;
+      ceres::Problem::EvaluateOptions eval_options;
 
-    // Cameras goes first in the ordering.
-    int max_image = tracks.MaxImage();
-    for (int i = 0; i <= max_image; i++) {
-      const EuclideanCamera *camera = reconstruction->CameraForImage(i);
-      if (camera) {
-        double *current_camera_R_t = &(*all_cameras_R_t)[i](0);
+      // Cameras goes first in the ordering.
+      int max_image = tracks.MaxImage();
+      for (int i = 0; i <= max_image; i++) {
+        const EuclideanCamera *camera = reconstruction->CameraForImage(i);
+        if (camera) {
+          double *current_camera_R_t = &(*all_cameras_R_t)[i](0);
 
-        // All cameras are variable now.
-        problem->SetParameterBlockVariable(current_camera_R_t);
+          // All cameras are variable now.
+          problem->SetParameterBlockVariable(current_camera_R_t);
 
-        eval_options.parameter_blocks.push_back(current_camera_R_t);
+          eval_options.parameter_blocks.push_back(current_camera_R_t);
+        }
       }
+
+      // Points goes at the end of ordering,
+      for (int i = 0; i < minimized_points.size(); i++) {
+        EuclideanPoint *point = minimized_points.at(i);
+        eval_options.parameter_blocks.push_back(&point->X(0));
+      }
+
+      problem->Evaluate(eval_options,
+                        NULL, NULL, NULL,
+                        &evaluated_jacobian);
+
+      CRSMatrixToEigenMatrix(evaluated_jacobian, &evaluation->jacobian);
     }
-
-    // Points goes at the end of ordering,
-    for (int i = 0; i < minimized_points.size(); i++) {
-      EuclideanPoint *point = minimized_points.at(i);
-      eval_options.parameter_blocks.push_back(&point->X(0));
-    }
-
-    problem->Evaluate(eval_options,
-                      NULL, NULL, NULL,
-                      &evaluated_jacobian);
-
-    CRSMatrixToEigenMatrix(evaluated_jacobian, &evaluation->jacobian);
-  }
-}
-
-template<typename CostFunction>
-void AddResidualBlockToProblemImpl(const CameraIntrinsics *invariant_intrinsics,
-                                   double observed_x, double observed_y,
-                                   double weight,
-                                   double *intrinsics_block,
-                                   double *camera_R_t,
-                                   EuclideanPoint *point,
-                                   ceres::Problem* problem) {
-  problem->AddResidualBlock(new ceres::AutoDiffCostFunction<
-      CostFunction, 2, PackedIntrinsics::NUM_PARAMETERS, 6, 3>(
-          new CostFunction(
-              invariant_intrinsics,
-              observed_x, observed_y,
-              weight)),
-      NULL,
-      intrinsics_block,
-      camera_R_t,
-      &point->X(0));
-}
-
-void AddResidualBlockToProblem(const CameraIntrinsics *invariant_intrinsics,
-                               const Marker &marker,
-                               double marker_weight,
-                               double* intrinsics_block,
-                               double *camera_R_t,
-                               EuclideanPoint *point,
-                               ceres::Problem* problem) {
-  if (NeedUseInvertIntrinsicsPipeline(invariant_intrinsics)) {
-    AddResidualBlockToProblemImpl<ReprojectionErrorInvertIntrinsics>(
-            invariant_intrinsics,
-            marker.x, marker.y,
-            marker_weight,
-            intrinsics_block,
-            camera_R_t,
-            point,
-            problem);
-  } else {
-    AddResidualBlockToProblemImpl<ReprojectionErrorApplyIntrinsics>(
-            invariant_intrinsics,
-            marker.x, marker.y,
-            marker_weight,
-            intrinsics_block,
-            camera_R_t,
-            point,
-            problem);
-  }
 }
 
 // This is an utility function to only bundle 3D position of
@@ -566,10 +375,10 @@ void AddResidualBlockToProblem(const CameraIntrinsics *invariant_intrinsics,
 //
 // At this point we only need to bundle points positions, cameras
 // are to be totally still here.
-void EuclideanBundlePointsOnly(const CameraIntrinsics *invariant_intrinsics,
+void EuclideanBundlePointsOnly(const DistortionModelType distortion_model,
                                const vector<Marker> &markers,
-                               map<int, Vec6> &all_cameras_R_t,
-                               double* intrinsics_block,
+                               vector<Vec6> &all_cameras_R_t,
+                               double ceres_intrinsics[OFFSET_MAX],
                                EuclideanReconstruction *reconstruction) {
   ceres::Problem::Options problem_options;
   ceres::Problem problem(problem_options);
@@ -583,16 +392,20 @@ void EuclideanBundlePointsOnly(const CameraIntrinsics *invariant_intrinsics,
     }
 
     // Rotation of camera denoted in angle axis followed with
-    // camera translation.
+    // camera translaiton.
     double *current_camera_R_t = &all_cameras_R_t[camera->image](0);
 
-    AddResidualBlockToProblem(invariant_intrinsics,
-                              marker,
-                              1.0,
-                              intrinsics_block,
-                              current_camera_R_t,
-                              point,
-                              &problem);
+    problem.AddResidualBlock(new ceres::AutoDiffCostFunction<
+        OpenCVReprojectionError, 2, OFFSET_MAX, 6, 3>(
+            new OpenCVReprojectionError(
+                distortion_model,
+                marker.x,
+                marker.y,
+                1.0)),
+        NULL,
+        ceres_intrinsics,
+        current_camera_R_t,
+        &point->X(0));
 
     problem.SetParameterBlockConstant(current_camera_R_t);
     num_residuals++;
@@ -604,7 +417,7 @@ void EuclideanBundlePointsOnly(const CameraIntrinsics *invariant_intrinsics,
     return;
   }
 
-  problem.SetParameterBlockConstant(intrinsics_block);
+  problem.SetParameterBlockConstant(ceres_intrinsics);
 
   // Configure the solver.
   ceres::Solver::Options options;
@@ -614,13 +427,18 @@ void EuclideanBundlePointsOnly(const CameraIntrinsics *invariant_intrinsics,
   options.use_explicit_schur_complement = true;
   options.use_inner_iterations = true;
   options.max_num_iterations = 100;
-  options.num_threads = std::thread::hardware_concurrency();
+
+#ifdef _OPENMP
+  options.num_threads = omp_get_max_threads();
+  options.num_linear_solver_threads = omp_get_max_threads();
+#endif
 
   // Solve!
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
 
   LG << "Final report:\n" << summary.FullReport();
+
 }
 
 }  // namespace
@@ -646,22 +464,22 @@ void EuclideanBundleCommonIntrinsics(
   LG << "Original intrinsics: " << *intrinsics;
   vector<Marker> markers = tracks.AllMarkers();
 
-  // N-th element denotes whether track N is a constant zero-weighted track.
+  // N-th element denotes whether track N is a constant zero-weigthed track.
   vector<bool> zero_weight_tracks_flags(tracks.MaxTrack() + 1, true);
 
-  // Pack all intrinsics parameters into a single block and rely on local
-  // parameterizations to control which intrinsics are allowed to vary.
-  PackedIntrinsics packed_intrinsics;
-  intrinsics->Pack(&packed_intrinsics);
-  double* intrinsics_block = packed_intrinsics.GetParametersBlock();
+  // Residual blocks with 10 parameters are unwieldly with Ceres, so pack the
+  // intrinsics into a single block and rely on local parameterizations to
+  // control which intrinsics are allowed to vary.
+  double ceres_intrinsics[OFFSET_MAX];
+  PackIntrinisicsIntoArray(*intrinsics, ceres_intrinsics);
 
   // Convert cameras rotations to angle axis and merge with translation
   // into single parameter block for maximal minimization speed.
   //
   // Block for minimization has got the following structure:
   //   <3 elements for angle-axis> <3 elements for translation>
-  map<int, Vec6> all_cameras_R_t =
-    PackCamerasRotationAndTranslation(*reconstruction);
+  vector<Vec6> all_cameras_R_t =
+    PackCamerasRotationAndTranslation(tracks, *reconstruction);
 
   // Parameterization used to restrict camera motion for modal solvers.
   ceres::SubsetParameterization *constant_translation_parameterization = NULL;
@@ -691,20 +509,24 @@ void EuclideanBundleCommonIntrinsics(
     }
 
     // Rotation of camera denoted in angle axis followed with
-    // camera translation.
+    // camera translaiton.
     double *current_camera_R_t = &all_cameras_R_t[camera->image](0);
 
     // Skip residual block for markers which does have absolutely
     // no affect on the final solution.
     // This way ceres is not gonna to go crazy.
     if (marker.weight != 0.0) {
-      AddResidualBlockToProblem(intrinsics,
-                                marker,
-                                marker.weight,
-                                intrinsics_block,
-                                current_camera_R_t,
-                                point,
-                                &problem);
+      problem.AddResidualBlock(new ceres::AutoDiffCostFunction<
+          OpenCVReprojectionError, 2, OFFSET_MAX, 6, 3>(
+              new OpenCVReprojectionError(
+                  intrinsics->GetDistortionModelType(),
+                  marker.x,
+                  marker.y,
+                  marker.weight)),
+          NULL,
+          ceres_intrinsics,
+          current_camera_R_t,
+          &point->X(0));
 
       // We lock the first camera to better deal with scene orientation ambiguity.
       if (!have_locked_camera) {
@@ -739,38 +561,32 @@ void EuclideanBundleCommonIntrinsics(
   if (bundle_intrinsics == BUNDLE_NO_INTRINSICS) {
     // No camera intrinsics are being refined,
     // set the whole parameter block as constant for best performance.
-    problem.SetParameterBlockConstant(intrinsics_block);
+    problem.SetParameterBlockConstant(ceres_intrinsics);
   } else {
     // Set the camera intrinsics that are not to be bundled as
     // constant using some macro trickery.
 
     std::vector<int> constant_intrinsics;
 #define MAYBE_SET_CONSTANT(bundle_enum, offset) \
-    if (!(bundle_intrinsics & bundle_enum) || \
-        !packed_intrinsics.IsParameterDefined(offset)) { \
+    if (!(bundle_intrinsics & bundle_enum)) { \
       constant_intrinsics.push_back(offset); \
     }
-    MAYBE_SET_CONSTANT(BUNDLE_FOCAL_LENGTH,
-                       PackedIntrinsics::OFFSET_FOCAL_LENGTH);
-    MAYBE_SET_CONSTANT(BUNDLE_PRINCIPAL_POINT,
-                       PackedIntrinsics::OFFSET_PRINCIPAL_POINT_X);
-    MAYBE_SET_CONSTANT(BUNDLE_PRINCIPAL_POINT,
-                       PackedIntrinsics::OFFSET_PRINCIPAL_POINT_Y);
-    MAYBE_SET_CONSTANT(BUNDLE_RADIAL_K1,       PackedIntrinsics::OFFSET_K1);
-    MAYBE_SET_CONSTANT(BUNDLE_RADIAL_K2,       PackedIntrinsics::OFFSET_K2);
-    MAYBE_SET_CONSTANT(BUNDLE_RADIAL_K3,       PackedIntrinsics::OFFSET_K3);
-    MAYBE_SET_CONSTANT(BUNDLE_RADIAL_K4,       PackedIntrinsics::OFFSET_K4);
-    MAYBE_SET_CONSTANT(BUNDLE_TANGENTIAL_P1,   PackedIntrinsics::OFFSET_P1);
-    MAYBE_SET_CONSTANT(BUNDLE_TANGENTIAL_P2,   PackedIntrinsics::OFFSET_P2);
+    MAYBE_SET_CONSTANT(BUNDLE_FOCAL_LENGTH,    OFFSET_FOCAL_LENGTH);
+    MAYBE_SET_CONSTANT(BUNDLE_PRINCIPAL_POINT, OFFSET_PRINCIPAL_POINT_X);
+    MAYBE_SET_CONSTANT(BUNDLE_PRINCIPAL_POINT, OFFSET_PRINCIPAL_POINT_Y);
+    MAYBE_SET_CONSTANT(BUNDLE_RADIAL_K1,       OFFSET_K1);
+    MAYBE_SET_CONSTANT(BUNDLE_RADIAL_K2,       OFFSET_K2);
+    MAYBE_SET_CONSTANT(BUNDLE_TANGENTIAL_P1,   OFFSET_P1);
+    MAYBE_SET_CONSTANT(BUNDLE_TANGENTIAL_P2,   OFFSET_P2);
 #undef MAYBE_SET_CONSTANT
 
-    if (!constant_intrinsics.empty()) {
-      ceres::SubsetParameterization *subset_parameterization =
-        new ceres::SubsetParameterization(PackedIntrinsics::NUM_PARAMETERS,
-                                          constant_intrinsics);
+    // Always set K3 constant, it's not used at the moment.
+    constant_intrinsics.push_back(OFFSET_K3);
 
-      problem.SetParameterization(intrinsics_block, subset_parameterization);
-    }
+    ceres::SubsetParameterization *subset_parameterization =
+      new ceres::SubsetParameterization(OFFSET_MAX, constant_intrinsics);
+
+    problem.SetParameterization(ceres_intrinsics, subset_parameterization);
   }
 
   // Configure the solver.
@@ -781,7 +597,11 @@ void EuclideanBundleCommonIntrinsics(
   options.use_explicit_schur_complement = true;
   options.use_inner_iterations = true;
   options.max_num_iterations = 100;
-  options.num_threads = std::thread::hardware_concurrency();
+
+#ifdef _OPENMP
+  options.num_threads = omp_get_max_threads();
+  options.num_linear_solver_threads = omp_get_max_threads();
+#endif
 
   // Solve!
   ceres::Solver::Summary summary;
@@ -790,12 +610,13 @@ void EuclideanBundleCommonIntrinsics(
   LG << "Final report:\n" << summary.FullReport();
 
   // Copy rotations and translations back.
-  UnpackCamerasRotationAndTranslation(all_cameras_R_t, reconstruction);
+  UnpackCamerasRotationAndTranslation(tracks,
+                                      all_cameras_R_t,
+                                      reconstruction);
 
   // Copy intrinsics back.
-  if (bundle_intrinsics != BUNDLE_NO_INTRINSICS) {
-    intrinsics->Unpack(packed_intrinsics);
-  }
+  if (bundle_intrinsics != BUNDLE_NO_INTRINSICS)
+    UnpackIntrinsicsFromArray(ceres_intrinsics, intrinsics);
 
   LG << "Final intrinsics: " << *intrinsics;
 
@@ -820,10 +641,10 @@ void EuclideanBundleCommonIntrinsics(
 
   if (zero_weight_markers.size()) {
     LG << "Refining position of constant zero-weighted tracks";
-    EuclideanBundlePointsOnly(intrinsics,
+    EuclideanBundlePointsOnly(intrinsics->GetDistortionModelType(),
                               zero_weight_markers,
                               all_cameras_R_t,
-                              intrinsics_block,
+                              ceres_intrinsics,
                               reconstruction);
   }
 }

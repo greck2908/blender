@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,27 +15,29 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
-#pragma once
+#ifndef __COM_WRAPOPERATION_H__
+#define __COM_WRAPOPERATION_H__
 
 #include "COM_ReadBufferOperation.h"
 
 class WrapOperation : public ReadBufferOperation {
- private:
-  int m_wrappingType;
+private:
+	int m_wrappingType;
+public:
+	WrapOperation(DataType datetype);
+	bool determineDependingAreaOfInterest(rcti *input, ReadBufferOperation *readOperation, rcti *output);
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 
- public:
-  WrapOperation(DataType datatype);
-  bool determineDependingAreaOfInterest(rcti *input,
-                                        ReadBufferOperation *readOperation,
-                                        rcti *output);
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+	void setWrapping(int wrapping_type);
+	float getWrappedOriginalXPos(float x);
+	float getWrappedOriginalYPos(float y);
 
-  void setWrapping(int wrapping_type);
-  float getWrappedOriginalXPos(float x);
-  float getWrappedOriginalYPos(float y);
-
-  void setFactorXY(float factorX, float factorY);
+	void setFactorXY(float factorX, float factorY);
 };
+
+#endif

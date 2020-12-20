@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,26 +17,33 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): mar-2001 nzc.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup imbuf
+/** \file blender/imbuf/intern/imbuf.h
+ *  \ingroup imbuf
  */
 
-#pragma once
+#ifndef __IMBUF_H__
+#define __IMBUF_H__
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <stdio.h>
 
 #ifndef WIN32
 #  include <unistd.h>
 #endif
 
 #include <fcntl.h>
-#include <math.h>
-#include <string.h>
 #include <sys/stat.h>
+#include <string.h>
+#include <math.h>
 
 #ifndef WIN32
 #  include <sys/mman.h>
@@ -42,8 +51,7 @@
 #endif
 
 #define SWAP_SHORT(x) (((x & 0xff) << 8) | ((x >> 8) & 0xff))
-#define SWAP_LONG(x) \
-  (((x) << 24) | (((x)&0xff00) << 8) | (((x) >> 8) & 0xff00) | (((x) >> 24) & 0xff))
+#define SWAP_LONG(x) (((x) << 24) | (((x) & 0xff00) << 8) | (((x) >> 8) & 0xff00) | (((x) >> 24) & 0xff))
 
 #define ENDIAN_NOP(x) (x)
 
@@ -60,3 +68,5 @@
 #endif
 
 #define IMB_DPI_DEFAULT 72.0f
+
+#endif	/* __IMBUF_H__ */

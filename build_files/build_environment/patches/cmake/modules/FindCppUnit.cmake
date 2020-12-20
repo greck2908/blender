@@ -29,6 +29,9 @@ ENDIF()
 
 SET(_cppunit_SEARCH_DIRS
   ${CPPUNIT_ROOT_DIR}
+  /usr/local
+  /sw # Fink
+  /opt/local # DarwinPorts
   /opt/lib/cppunit
 )
 

@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,26 +16,23 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  * The Original Code is Copyright (C) 2009, Blender Foundation
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup editors
+/** \file ED_sequencer.h
+ *  \ingroup editors
  */
 
-#pragma once
+#ifndef __ED_SEQUENCER_H__
+#define __ED_SEQUENCER_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
+struct bContext;
 struct Scene;
 struct Sequence;
 struct SpaceSeq;
-struct bContext;
 
-void ED_sequencer_select_sequence_single(struct Scene *scene,
-                                         struct Sequence *seq,
-                                         bool deselect_all);
+void ED_sequencer_select_sequence_single(struct Scene *scene, struct Sequence *seq, bool deselect_all);
 void ED_sequencer_deselect_all(struct Scene *scene);
 
 bool ED_space_sequencer_maskedit_mask_poll(struct bContext *C);
@@ -46,9 +45,7 @@ bool ED_space_sequencer_check_show_strip(struct SpaceSeq *sseq);
 void ED_operatormacros_sequencer(void);
 
 Sequence *ED_sequencer_special_preview_get(void);
-void ED_sequencer_special_preview_set(struct bContext *C, const int mval[2]);
-void ED_sequencer_special_preview_clear(void);
+void      ED_sequencer_special_preview_set(struct bContext *C, const int mval[2]);
+void      ED_sequencer_special_preview_clear(void);
 
-#ifdef __cplusplus
-}
-#endif
+#endif /*  __ED_SEQUENCER_H__ */

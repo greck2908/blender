@@ -48,44 +48,43 @@ class GradientProblemEvaluator : public Evaluator {
   explicit GradientProblemEvaluator(const GradientProblem& problem)
       : problem_(problem) {}
   virtual ~GradientProblemEvaluator() {}
-  SparseMatrix* CreateJacobian() const final { return nullptr; }
-  bool Evaluate(const EvaluateOptions& evaluate_options,
-                const double* state,
-                double* cost,
-                double* residuals,
-                double* gradient,
-                SparseMatrix* jacobian) final {
+  virtual SparseMatrix* CreateJacobian() const { return NULL; }
+  virtual bool Evaluate(const EvaluateOptions& evaluate_options,
+                        const double* state,
+                        double* cost,
+                        double* residuals,
+                        double* gradient,
+                        SparseMatrix* jacobian) {
     CHECK(jacobian == NULL);
     ScopedExecutionTimer total_timer("Evaluator::Total", &execution_summary_);
-    // The reason we use Residual and Jacobian here even when we are
-    // only computing the cost and gradient has to do with the fact
-    // that the line search minimizer code is used by both the
-    // GradientProblemSolver and the main CeresSolver coder where the
-    // Evaluator evaluates the Jacobian, and these magic strings need
-    // to be consistent across the code base for the time accounting
-    // to work.
     ScopedExecutionTimer call_type_timer(
-        gradient == NULL ? "Evaluator::Residual" : "Evaluator::Jacobian",
+        gradient == NULL ? "Evaluator::Cost" : "Evaluator::Gradient",
         &execution_summary_);
     return problem_.Evaluate(state, cost, gradient);
   }
 
-  bool Plus(const double* state,
-            const double* delta,
-            double* state_plus_delta) const final {
+  virtual bool Plus(const double* state,
+                    const double* delta,
+                    double* state_plus_delta) const {
     return problem_.Plus(state, delta, state_plus_delta);
   }
 
-  int NumParameters() const final { return problem_.NumParameters(); }
+  virtual int NumParameters() const {
+    return problem_.NumParameters();
+  }
 
-  int NumEffectiveParameters() const final {
+  virtual int NumEffectiveParameters()  const {
     return problem_.NumLocalParameters();
   }
 
-  int NumResiduals() const final { return 1; }
+  virtual int NumResiduals() const { return 1; }
 
-  std::map<std::string, internal::CallStatistics> Statistics() const final {
-    return execution_summary_.statistics();
+  virtual std::map<std::string, int> CallStatistics() const {
+    return execution_summary_.calls();
+  }
+
+  virtual std::map<std::string, double> TimeStatistics() const {
+    return execution_summary_.times();
   }
 
  private:

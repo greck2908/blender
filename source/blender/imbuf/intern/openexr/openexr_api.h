@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,29 +17,41 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): Austin Benesh. Ton Roosendaal.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup openexr
+/** \file blender/imbuf/intern/openexr/openexr_api.h
+ *  \ingroup openexr
  */
 
-#pragma once
 
-#include <stdio.h>
+#ifndef __OPENEXR_API_H__
+#define __OPENEXR_API_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void imb_initopenexr(void);
-void imb_exitopenexr(void);
+#include <stdio.h>
 
-bool imb_is_a_openexr(const unsigned char *mem, const size_t size);
+void		imb_initopenexr					(void);
+void		imb_exitopenexr					(void);
 
-bool imb_save_openexr(struct ImBuf *ibuf, const char *name, int flags);
+int		imb_is_a_openexr			(const unsigned char *mem);
 
-struct ImBuf *imb_load_openexr(const unsigned char *mem, size_t size, int flags, char *colorspace);
+int		imb_save_openexr			(struct ImBuf *ibuf, const char *name, int flags);
+
+struct ImBuf *imb_load_openexr		(const unsigned char *mem, size_t size, int flags, char *colorspace);
 
 #ifdef __cplusplus
 }
 #endif
+
+
+
+#endif /* __OPENEXR_API_H */

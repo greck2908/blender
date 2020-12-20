@@ -22,22 +22,17 @@
 
 CCL_NAMESPACE_BEGIN
 
-typedef void (*ViewInitFunc)();
-typedef void (*ViewExitFunc)();
+typedef void (*ViewInitFunc)(void);
+typedef void (*ViewExitFunc)(void);
 typedef void (*ViewResizeFunc)(int width, int height);
-typedef void (*ViewDisplayFunc)();
+typedef void (*ViewDisplayFunc)(void);
 typedef void (*ViewKeyboardFunc)(unsigned char key);
 typedef void (*ViewMotionFunc)(int x, int y, int button);
 
-void view_main_loop(const char *title,
-                    int width,
-                    int height,
-                    ViewInitFunc initf,
-                    ViewExitFunc exitf,
-                    ViewResizeFunc resize,
-                    ViewDisplayFunc display,
-                    ViewKeyboardFunc keyboard,
-                    ViewMotionFunc motion);
+void view_main_loop(const char *title, int width, int height,
+	ViewInitFunc initf, ViewExitFunc exitf,
+	ViewResizeFunc resize, ViewDisplayFunc display,
+	ViewKeyboardFunc keyboard, ViewMotionFunc motion);
 
 void view_display_info(const char *info);
 void view_display_help();

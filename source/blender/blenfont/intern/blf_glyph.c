@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,18 +17,24 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
+ *
+ *
+ * Contributor(s): Blender Foundation
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup blf
+/** \file blender/blenfont/intern/blf_glyph.c
+ *  \ingroup blf
  *
  * Glyph rendering, texturing and caching. Wraps Freetype and OpenGL functions.
  */
 
-#include <math.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include <ft2build.h>
 
@@ -37,553 +45,499 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_userdef_types.h"
 #include "DNA_vec_types.h"
+#include "DNA_userdef_types.h"
 
 #include "BLI_listbase.h"
 #include "BLI_rect.h"
 #include "BLI_threads.h"
 
+#include "BIF_gl.h"
 #include "BLF_api.h"
 
-#include "GPU_capabilities.h"
-#include "GPU_immediate.h"
+#ifndef BLF_STANDALONE
+#  include "GPU_basic_shader.h"
+#endif
 
-#include "blf_internal.h"
 #include "blf_internal_types.h"
+#include "blf_internal.h"
 
-#include "BLI_math_vector.h"
 #include "BLI_strict_flags.h"
-
-KerningCacheBLF *blf_kerning_cache_find(FontBLF *font)
-{
-  KerningCacheBLF *p;
-
-  p = (KerningCacheBLF *)font->kerning_caches.first;
-  while (p) {
-    if (p->mode == font->kerning_mode) {
-      return p;
-    }
-    p = p->next;
-  }
-  return NULL;
-}
-
-/* Create a new glyph cache for the current kerning mode. */
-KerningCacheBLF *blf_kerning_cache_new(FontBLF *font, GlyphCacheBLF *gc)
-{
-  KerningCacheBLF *kc;
-
-  kc = (KerningCacheBLF *)MEM_callocN(sizeof(KerningCacheBLF), "blf_kerning_cache_new");
-  kc->next = NULL;
-  kc->prev = NULL;
-  kc->mode = font->kerning_mode;
-
-  unsigned int i, j;
-  for (i = 0; i < 0x80; i++) {
-    for (j = 0; j < 0x80; j++) {
-      GlyphBLF *g = blf_glyph_search(gc, i);
-      if (!g) {
-        FT_UInt glyph_index = FT_Get_Char_Index(font->face, i);
-        g = blf_glyph_add(font, gc, glyph_index, i);
-      }
-      /* Can fail on certain fonts */
-      GlyphBLF *g_prev = blf_glyph_search(gc, j);
-
-      FT_Vector delta = {
-          .x = 0,
-          .y = 0,
-      };
-      if (g && g_prev && FT_Get_Kerning(font->face, g_prev->idx, g->idx, kc->mode, &delta) == 0) {
-        kc->table[i][j] = (int)delta.x >> 6;
-      }
-      else {
-        kc->table[i][j] = 0;
-      }
-    }
-  }
-
-  BLI_addhead(&font->kerning_caches, kc);
-  return kc;
-}
-
-void blf_kerning_cache_clear(FontBLF *font)
-{
-  font->kerning_cache = NULL;
-  BLI_freelistN(&font->kerning_caches);
-}
 
 GlyphCacheBLF *blf_glyph_cache_find(FontBLF *font, unsigned int size, unsigned int dpi)
 {
-  GlyphCacheBLF *p;
+	GlyphCacheBLF *p;
 
-  p = (GlyphCacheBLF *)font->cache.first;
-  while (p) {
-    if (p->size == size && p->dpi == dpi && (p->bold == ((font->flags & BLF_BOLD) != 0)) &&
-        (p->italic == ((font->flags & BLF_ITALIC) != 0))) {
-      return p;
-    }
-    p = p->next;
-  }
-  return NULL;
+	p = (GlyphCacheBLF *)font->cache.first;
+	while (p) {
+		if (p->size == size && p->dpi == dpi)
+			return p;
+		p = p->next;
+	}
+	return NULL;
 }
 
-/* Create a new glyph cache for the current size, dpi, bold, italic. */
+/* Create a new glyph cache for the current size and dpi. */
 GlyphCacheBLF *blf_glyph_cache_new(FontBLF *font)
 {
-  GlyphCacheBLF *gc;
+	GlyphCacheBLF *gc;
 
-  gc = (GlyphCacheBLF *)MEM_callocN(sizeof(GlyphCacheBLF), "blf_glyph_cache_new");
-  gc->next = NULL;
-  gc->prev = NULL;
-  gc->size = font->size;
-  gc->dpi = font->dpi;
-  gc->bold = ((font->flags & BLF_BOLD) != 0);
-  gc->italic = ((font->flags & BLF_ITALIC) != 0);
+	gc = (GlyphCacheBLF *)MEM_callocN(sizeof(GlyphCacheBLF), "blf_glyph_cache_new");
+	gc->next = NULL;
+	gc->prev = NULL;
+	gc->size = font->size;
+	gc->dpi = font->dpi;
 
-  memset(gc->glyph_ascii_table, 0, sizeof(gc->glyph_ascii_table));
-  memset(gc->bucket, 0, sizeof(gc->bucket));
+	memset(gc->glyph_ascii_table, 0, sizeof(gc->glyph_ascii_table));
+	memset(gc->bucket, 0, sizeof(gc->bucket));
 
-  gc->glyphs_len_max = (int)font->face->num_glyphs;
-  gc->glyphs_len_free = (int)font->face->num_glyphs;
-  gc->ascender = ((float)font->face->size->metrics.ascender) / 64.0f;
-  gc->descender = ((float)font->face->size->metrics.descender) / 64.0f;
+	gc->textures = (GLuint *)MEM_mallocN(sizeof(GLuint) * 256, __func__);
+	gc->textures_len = 256;
+	gc->texture_current = BLF_TEXTURE_UNSET;
+	gc->offset_x = 0;
+	gc->offset_y = 0;
+	gc->pad = 3;
 
-  if (FT_IS_SCALABLE(font->face)) {
-    gc->glyph_width_max = (int)((float)(font->face->bbox.xMax - font->face->bbox.xMin) *
-                                (((float)font->face->size->metrics.x_ppem) /
-                                 ((float)font->face->units_per_EM)));
+	gc->glyphs_len_max = (int)font->face->num_glyphs;
+	gc->glyphs_len_free = (int)font->face->num_glyphs;
+	gc->ascender = ((float)font->face->size->metrics.ascender) / 64.0f;
+	gc->descender = ((float)font->face->size->metrics.descender) / 64.0f;
 
-    gc->glyph_height_max = (int)((float)(font->face->bbox.yMax - font->face->bbox.yMin) *
-                                 (((float)font->face->size->metrics.y_ppem) /
-                                  ((float)font->face->units_per_EM)));
-  }
-  else {
-    gc->glyph_width_max = (int)(((float)font->face->size->metrics.max_advance) / 64.0f);
-    gc->glyph_height_max = (int)(((float)font->face->size->metrics.height) / 64.0f);
-  }
+	if (FT_IS_SCALABLE(font->face)) {
+		gc->glyph_width_max = (int)((float)(font->face->bbox.xMax - font->face->bbox.xMin) *
+		                            (((float)font->face->size->metrics.x_ppem) /
+		                             ((float)font->face->units_per_EM)));
 
-  /* can happen with size 1 fonts */
-  CLAMP_MIN(gc->glyph_width_max, 1);
-  CLAMP_MIN(gc->glyph_height_max, 1);
+		gc->glyph_height_max = (int)((float)(font->face->bbox.yMax - font->face->bbox.yMin) *
+		                             (((float)font->face->size->metrics.y_ppem) /
+		                              ((float)font->face->units_per_EM)));
+	}
+	else {
+		gc->glyph_width_max = (int)(((float)font->face->size->metrics.max_advance) / 64.0f);
+		gc->glyph_height_max = (int)(((float)font->face->size->metrics.height) / 64.0f);
+	}
 
-  BLI_addhead(&font->cache, gc);
-  return gc;
-}
+	/* can happen with size 1 fonts */
+	CLAMP_MIN(gc->glyph_width_max, 1);
+	CLAMP_MIN(gc->glyph_height_max, 1);
 
-GlyphCacheBLF *blf_glyph_cache_acquire(FontBLF *font)
-{
-  BLI_spin_lock(font->glyph_cache_mutex);
+	gc->p2_width = 0;
+	gc->p2_height = 0;
 
-  GlyphCacheBLF *gc = blf_glyph_cache_find(font, font->size, font->dpi);
-
-  if (!gc) {
-    gc = blf_glyph_cache_new(font);
-  }
-
-  return gc;
-}
-
-void blf_glyph_cache_release(FontBLF *font)
-{
-  BLI_spin_unlock(font->glyph_cache_mutex);
+	BLI_addhead(&font->cache, gc);
+	return gc;
 }
 
 void blf_glyph_cache_clear(FontBLF *font)
 {
-  GlyphCacheBLF *gc;
+	GlyphCacheBLF *gc;
 
-  BLI_spin_lock(font->glyph_cache_mutex);
-
-  while ((gc = BLI_pophead(&font->cache))) {
-    blf_glyph_cache_free(gc);
-  }
-
-  BLI_spin_unlock(font->glyph_cache_mutex);
+	while ((gc = BLI_pophead(&font->cache))) {
+		blf_glyph_cache_free(gc);
+	}
+	font->glyph_cache = NULL;
 }
 
 void blf_glyph_cache_free(GlyphCacheBLF *gc)
 {
-  GlyphBLF *g;
-  for (uint i = 0; i < ARRAY_SIZE(gc->bucket); i++) {
-    while ((g = BLI_pophead(&gc->bucket[i]))) {
-      blf_glyph_free(g);
-    }
-  }
-  if (gc->texture) {
-    GPU_texture_free(gc->texture);
-  }
-  if (gc->bitmap_result) {
-    MEM_freeN(gc->bitmap_result);
-  }
-  MEM_freeN(gc);
+	GlyphBLF *g;
+	int i;
+
+	for (i = 0; i < 257; i++) {
+		while ((g = BLI_pophead(&gc->bucket[i]))) {
+			blf_glyph_free(g);
+		}
+	}
+
+	if (gc->texture_current != BLF_TEXTURE_UNSET) {
+		glDeleteTextures((int)gc->texture_current + 1, gc->textures);
+	}
+	MEM_freeN(gc->textures);
+	MEM_freeN(gc);
+}
+
+static void blf_glyph_cache_texture(FontBLF *font, GlyphCacheBLF *gc)
+{
+	int i;
+
+	/* move the index. */
+	gc->texture_current++;
+
+	if (UNLIKELY(gc->texture_current >= gc->textures_len)) {
+		gc->textures_len *= 2;
+		gc->textures = MEM_reallocN((void *)gc->textures, sizeof(GLuint) * gc->textures_len);
+	}
+
+	gc->p2_width = (int)blf_next_p2((unsigned int)((gc->glyphs_len_free * gc->glyph_width_max) + (gc->pad * 2)));
+	if (gc->p2_width > font->tex_size_max) {
+		gc->p2_width = font->tex_size_max;
+	}
+
+	i = (int)((gc->p2_width - (gc->pad * 2)) / gc->glyph_width_max);
+	gc->p2_height = (int)blf_next_p2((unsigned int)(((gc->glyphs_len_max / i) + 1) * gc->glyph_height_max));
+
+	if (gc->p2_height > font->tex_size_max) {
+		gc->p2_height = font->tex_size_max;
+	}
+
+	glGenTextures(1, &gc->textures[gc->texture_current]);
+	glBindTexture(GL_TEXTURE_2D, (font->tex_bind_state = gc->textures[gc->texture_current]));
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+#ifndef BLF_STANDALONE
+	/* needed since basic shader doesn't support alpha-only textures,
+	 * while we could add support this is only used in a few places
+	 * (an alternative could be to have a simple shader for BLF). */
+	if (GLEW_ARB_texture_swizzle && GPU_basic_shader_use_glsl_get()) {
+		GLint swizzle_mask[] = {GL_ONE, GL_ONE, GL_ONE, GL_ALPHA};
+		glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzle_mask);
+	}
+#endif
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA8, gc->p2_width, gc->p2_height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, NULL);
 }
 
 GlyphBLF *blf_glyph_search(GlyphCacheBLF *gc, unsigned int c)
 {
-  GlyphBLF *p;
-  unsigned int key;
+	GlyphBLF *p;
+	unsigned int key;
 
-  key = blf_hash(c);
-  p = gc->bucket[key].first;
-  while (p) {
-    if (p->c == c) {
-      return p;
-    }
-    p = p->next;
-  }
-  return NULL;
+	key = blf_hash(c);
+	p = gc->bucket[key].first;
+	while (p) {
+		if (p->c == c)
+			return p;
+		p = p->next;
+	}
+	return NULL;
 }
 
-GlyphBLF *blf_glyph_add(FontBLF *font, GlyphCacheBLF *gc, unsigned int index, unsigned int c)
+GlyphBLF *blf_glyph_add(FontBLF *font, unsigned int index, unsigned int c)
 {
-  FT_GlyphSlot slot;
-  GlyphBLF *g;
-  FT_Error err;
-  FT_Bitmap bitmap, tempbitmap;
-  FT_BBox bbox;
-  unsigned int key;
+	FT_GlyphSlot slot;
+	GlyphBLF *g;
+	FT_Error err;
+	FT_Bitmap bitmap, tempbitmap;
+	FT_BBox bbox;
+	unsigned int key;
 
-  g = blf_glyph_search(gc, c);
-  if (g) {
-    return g;
-  }
+	g = blf_glyph_search(font->glyph_cache, c);
+	if (g)
+		return g;
 
-  /* glyphs are dynamically created as needed by font rendering. this means that
-   * to make font rendering thread safe we have to do locking here. note that this
-   * must be a lock for the whole library and not just per font, because the font
-   * renderer uses a shared buffer internally */
-  BLI_spin_lock(font->ft_lib_mutex);
+	/* glyphs are dynamically created as needed by font rendering. this means that
+	 * to make font rendering thread safe we have to do locking here. note that this
+	 * must be a lock for the whole library and not just per font, because the font
+	 * renderer uses a shared buffer internally */
+	BLI_spin_lock(font->ft_lib_mutex);
 
-  /* search again after locking */
-  g = blf_glyph_search(gc, c);
-  if (g) {
-    BLI_spin_unlock(font->ft_lib_mutex);
-    return g;
-  }
+	/* search again after locking */
+	g = blf_glyph_search(font->glyph_cache, c);
+	if (g) {
+		BLI_spin_unlock(font->ft_lib_mutex);
+		return g;
+	}
 
-  int load_flags;
-  int render_mode;
+	if (font->flags & BLF_MONOCHROME) {
+		err = FT_Load_Glyph(font->face, (FT_UInt)index, FT_LOAD_TARGET_MONO);
+	}
+	else {
+		int flags = FT_LOAD_NO_BITMAP;
 
-  if (font->flags & BLF_MONOCHROME) {
-    load_flags = FT_LOAD_TARGET_MONO;
-    render_mode = FT_RENDER_MODE_MONO;
-  }
-  else {
-    load_flags = FT_LOAD_NO_BITMAP;
-    render_mode = FT_RENDER_MODE_NORMAL;
-    if (font->flags & BLF_HINTING_NONE) {
-      load_flags |= FT_LOAD_TARGET_NORMAL | FT_LOAD_NO_HINTING;
-    }
-    else if (font->flags & BLF_HINTING_SLIGHT) {
-      load_flags |= FT_LOAD_TARGET_LIGHT;
-    }
-    else if (font->flags & BLF_HINTING_FULL) {
-      load_flags |= FT_LOAD_TARGET_NORMAL;
-    }
-    else {
-      /* Default, hinting disabled until FreeType has been upgraded
-       * to give good results on all platforms. */
-      load_flags |= FT_LOAD_TARGET_NORMAL | FT_LOAD_NO_HINTING;
-    }
-  }
+		if (font->flags & BLF_HINTING_NONE) {
+			flags |= FT_LOAD_TARGET_NORMAL | FT_LOAD_NO_HINTING;
+		}
+		else if (font->flags & BLF_HINTING_SLIGHT) {
+			flags |= FT_LOAD_TARGET_LIGHT;
+		}
+		else if (font->flags & BLF_HINTING_FULL) {
+			flags |= FT_LOAD_TARGET_NORMAL;
+		}
+		else {
+			/* Default, hinting disabled until FreeType has been upgraded
+			 * to give good results on all platforms. */
+			flags |= FT_LOAD_TARGET_NORMAL | FT_LOAD_NO_HINTING;
+		}
 
-  err = FT_Load_Glyph(font->face, (FT_UInt)index, load_flags);
+		err = FT_Load_Glyph(font->face, (FT_UInt)index, flags);
+	}
 
-  /* Do not oblique a font that is designed to be italic! */
-  if (((font->flags & BLF_ITALIC) != 0) && !(font->face->style_flags & FT_STYLE_FLAG_ITALIC) &&
-      (font->face->glyph->format == FT_GLYPH_FORMAT_OUTLINE)) {
-    /* For (fake) italic: a shear transform with a 6 degree angle. */
-    FT_Matrix transform;
-    transform.xx = 0x10000L;
-    transform.yx = 0x00000L;
-    transform.xy = 0x03000L;
-    transform.yy = 0x10000L;
-    FT_Outline_Transform(&font->face->glyph->outline, &transform);
-  }
+	if (err) {
+		BLI_spin_unlock(font->ft_lib_mutex);
+		return NULL;
+	}
 
-  /* Do not embolden an already bold font! */
-  if (((font->flags & BLF_BOLD) != 0) &&
-      !(font->face->style_flags & FT_STYLE_FLAG_BOLD) &
-          (font->face->glyph->format == FT_GLYPH_FORMAT_OUTLINE)) {
-    /* Strengthen the width more than the height. */
-    const FT_Pos extra_x = FT_MulFix(font->face->units_per_EM, font->face->size->metrics.x_scale) /
-                           14;
-    const FT_Pos extra_y = FT_MulFix(font->face->units_per_EM, font->face->size->metrics.y_scale) /
-                           28;
-    FT_Outline_EmboldenXY(&font->face->glyph->outline, extra_x, extra_y);
-    if ((font->face->face_flags & FT_FACE_FLAG_FIXED_WIDTH) == 0) {
-      /* Need to increase advance, but not for fixed-width fonts. */
-      font->face->glyph->advance.x += (FT_Pos)(((float)extra_x) * 1.05f);
-      font->face->glyph->advance.y += extra_y;
-    }
-    else {
-      /* Widened fixed-pitch font gets a nudge left. */
-      FT_Outline_Translate(&font->face->glyph->outline, (extra_x / -2), 0);
-    }
-  }
+	/* get the glyph. */
+	slot = font->face->glyph;
 
-  if (err) {
-    BLI_spin_unlock(font->ft_lib_mutex);
-    return NULL;
-  }
+	if (font->flags & BLF_MONOCHROME) {
+		err = FT_Render_Glyph(slot, FT_RENDER_MODE_MONO);
 
-  /* get the glyph. */
-  slot = font->face->glyph;
-  err = FT_Render_Glyph(slot, render_mode);
+		/* Convert result from 1 bit per pixel to 8 bit per pixel */
+		/* Accum errors for later, fine if not interested beyond "ok vs any error" */
+		FT_Bitmap_New(&tempbitmap);
+		err += FT_Bitmap_Convert(font->ft_lib, &slot->bitmap, &tempbitmap, 1); /* Does Blender use Pitch 1 always? It works so far */
+		err += FT_Bitmap_Copy(font->ft_lib, &tempbitmap, &slot->bitmap);
+		err += FT_Bitmap_Done(font->ft_lib, &tempbitmap);
+	}
+	else {
+		err = FT_Render_Glyph(slot, FT_RENDER_MODE_NORMAL);
+	}
 
-  if (font->flags & BLF_MONOCHROME) {
-    /* Convert result from 1 bit per pixel to 8 bit per pixel */
-    /* Accum errors for later, fine if not interested beyond "ok vs any error" */
-    FT_Bitmap_New(&tempbitmap);
+	if (err || slot->format != FT_GLYPH_FORMAT_BITMAP) {
+		BLI_spin_unlock(font->ft_lib_mutex);
+		return NULL;
+	}
 
-    /* Does Blender use Pitch 1 always? It works so far */
-    err += FT_Bitmap_Convert(font->ft_lib, &slot->bitmap, &tempbitmap, 1);
-    err += FT_Bitmap_Copy(font->ft_lib, &tempbitmap, &slot->bitmap);
-    err += FT_Bitmap_Done(font->ft_lib, &tempbitmap);
-  }
+	g = (GlyphBLF *)MEM_callocN(sizeof(GlyphBLF), "blf_glyph_add");
+	g->c = c;
+	g->idx = (FT_UInt)index;
+	g->offset_x = -1;
+	g->offset_y = -1;
+	bitmap = slot->bitmap;
+	g->width = (int)bitmap.width;
+	g->height = (int)bitmap.rows;
 
-  if (err || slot->format != FT_GLYPH_FORMAT_BITMAP) {
-    BLI_spin_unlock(font->ft_lib_mutex);
-    return NULL;
-  }
+	if (g->width && g->height) {
+		if (font->flags & BLF_MONOCHROME) {
+			/* Font buffer uses only 0 or 1 values, Blender expects full 0..255 range */
+			int i;
+			for (i = 0; i < (g->width * g->height); i++) {
+				bitmap.buffer[i] = bitmap.buffer[i] ? 255 : 0;
+			}
+		}
 
-  g = (GlyphBLF *)MEM_callocN(sizeof(GlyphBLF), "blf_glyph_add");
-  g->c = c;
-  g->idx = (FT_UInt)index;
-  bitmap = slot->bitmap;
-  g->dims[0] = (int)bitmap.width;
-  g->dims[1] = (int)bitmap.rows;
+		g->bitmap = (unsigned char *)MEM_mallocN((size_t)(g->width * g->height), "glyph bitmap");
+		memcpy((void *)g->bitmap, (void *)bitmap.buffer, (size_t)(g->width * g->height));
+	}
 
-  const int buffer_size = g->dims[0] * g->dims[1];
+	g->advance = ((float)slot->advance.x) / 64.0f;
+	g->advance_i = (int)g->advance;
+	g->pos_x = (float)slot->bitmap_left;
+	g->pos_y = (float)slot->bitmap_top;
+	g->pitch = slot->bitmap.pitch;
 
-  if (buffer_size != 0) {
-    if (font->flags & BLF_MONOCHROME) {
-      /* Font buffer uses only 0 or 1 values, Blender expects full 0..255 range */
-      for (int i = 0; i < buffer_size; i++) {
-        bitmap.buffer[i] = bitmap.buffer[i] ? 255 : 0;
-      }
-    }
+	FT_Outline_Get_CBox(&(slot->outline), &bbox);
+	g->box.xmin = ((float)bbox.xMin) / 64.0f;
+	g->box.xmax = ((float)bbox.xMax) / 64.0f;
+	g->box.ymin = ((float)bbox.yMin) / 64.0f;
+	g->box.ymax = ((float)bbox.yMax) / 64.0f;
 
-    g->bitmap = MEM_mallocN((size_t)buffer_size, "glyph bitmap");
-    memcpy(g->bitmap, bitmap.buffer, (size_t)buffer_size);
-  }
+	key = blf_hash(g->c);
+	BLI_addhead(&(font->glyph_cache->bucket[key]), g);
 
-  g->advance = ((float)slot->advance.x) / 64.0f;
-  g->advance_i = (int)g->advance;
-  g->pos[0] = slot->bitmap_left;
-  g->pos[1] = slot->bitmap_top;
-  g->pitch = slot->bitmap.pitch;
+	BLI_spin_unlock(font->ft_lib_mutex);
 
-  FT_Outline_Get_CBox(&(slot->outline), &bbox);
-  g->box.xmin = ((float)bbox.xMin) / 64.0f;
-  g->box.xmax = ((float)bbox.xMax) / 64.0f;
-  g->box.ymin = ((float)bbox.yMin) / 64.0f;
-  g->box.ymax = ((float)bbox.yMax) / 64.0f;
-
-  key = blf_hash(g->c);
-  BLI_addhead(&(gc->bucket[key]), g);
-
-  BLI_spin_unlock(font->ft_lib_mutex);
-
-  return g;
+	return g;
 }
 
 void blf_glyph_free(GlyphBLF *g)
 {
-  if (g->bitmap) {
-    MEM_freeN(g->bitmap);
-  }
-  MEM_freeN(g);
+	/* don't need free the texture, the GlyphCache already
+	 * have a list of all the texture and free it.
+	 */
+	if (g->bitmap) {
+		MEM_freeN(g->bitmap);
+	}
+	MEM_freeN(g);
 }
 
-static void blf_texture_draw(const unsigned char color[4],
-                             const int glyph_size[2],
-                             const int offset,
-                             float x1,
-                             float y1,
-                             float x2,
-                             float y2)
+static void blf_texture_draw(float uv[2][2], float dx, float y1, float dx1, float y2)
 {
-  /* Only one vertex per glyph, geometry shader expand it into a quad. */
-  /* TODO Get rid of Geom Shader because it's not optimal AT ALL for the GPU */
-  copy_v4_fl4(GPU_vertbuf_raw_step(&g_batch.pos_step),
-              x1 + g_batch.ofs[0],
-              y1 + g_batch.ofs[1],
-              x2 + g_batch.ofs[0],
-              y2 + g_batch.ofs[1]);
-  copy_v4_v4_uchar(GPU_vertbuf_raw_step(&g_batch.col_step), color);
-  copy_v2_v2_int(GPU_vertbuf_raw_step(&g_batch.glyph_size_step), glyph_size);
-  *((int *)GPU_vertbuf_raw_step(&g_batch.offset_step)) = offset;
+	glBegin(GL_QUADS);
+	glTexCoord2f(uv[0][0], uv[0][1]);
+	glVertex2f(dx, y1);
 
-  g_batch.glyph_len++;
-  /* Flush cache if it's full. */
-  if (g_batch.glyph_len == BLF_BATCH_DRAW_LEN_MAX) {
-    blf_batch_draw();
-  }
+	glTexCoord2f(uv[0][0], uv[1][1]);
+	glVertex2f(dx, y2);
+
+	glTexCoord2f(uv[1][0], uv[1][1]);
+	glVertex2f(dx1, y2);
+
+	glTexCoord2f(uv[1][0], uv[0][1]);
+	glVertex2f(dx1, y1);
+	glEnd();
 }
 
-static void blf_texture5_draw(const unsigned char color_in[4],
-                              const int glyph_size[2],
-                              const int offset,
-                              float x1,
-                              float y1,
-                              float x2,
-                              float y2)
+static void blf_texture5_draw(const float shadow_col[4], float uv[2][2], float x1, float y1, float x2, float y2)
 {
-  int glyph_size_flag[2];
-  /* flag the x and y component signs for 5x5 blurring */
-  glyph_size_flag[0] = -glyph_size[0];
-  glyph_size_flag[1] = -glyph_size[1];
+	const float soft[25] = {1 / 60.0f, 1 / 60.0f, 2 / 60.0f, 1 / 60.0f, 1 / 60.0f,
+	                        1 / 60.0f, 3 / 60.0f, 5 / 60.0f, 3 / 60.0f, 1 / 60.0f,
+	                        2 / 60.0f, 5 / 60.0f, 8 / 60.0f, 5 / 60.0f, 2 / 60.0f,
+	                        1 / 60.0f, 3 / 60.0f, 5 / 60.0f, 3 / 60.0f, 1 / 60.0f,
+	                        1 / 60.0f, 1 / 60.0f, 2 / 60.0f, 1 / 60.0f, 1 / 60.0f};
 
-  blf_texture_draw(color_in, glyph_size_flag, offset, x1, y1, x2, y2);
+	const float *fp = soft;
+	float color[4];
+	float dx, dy;
+
+	color[0] = shadow_col[0];
+	color[1] = shadow_col[1];
+	color[2] = shadow_col[2];
+
+	for (dx = -2; dx < 3; dx++) {
+		for (dy = -2; dy < 3; dy++, fp++) {
+			color[3] = *(fp) * shadow_col[3];
+			glColor4fv(color);
+			blf_texture_draw(uv, x1 + dx, y1 + dy, x2 + dx, y2 + dy);
+		}
+	}
+
+	glColor4fv(color);
 }
 
-static void blf_texture3_draw(const unsigned char color_in[4],
-                              const int glyph_size[2],
-                              const int offset,
-                              float x1,
-                              float y1,
-                              float x2,
-                              float y2)
+static void blf_texture3_draw(const float shadow_col[4], float uv[2][2], float x1, float y1, float x2, float y2)
 {
-  int glyph_size_flag[2];
-  /* flag the x component sign for 3x3 blurring */
-  glyph_size_flag[0] = -glyph_size[0];
-  glyph_size_flag[1] = glyph_size[1];
+	const float soft[9] = {1 / 16.0f, 2 / 16.0f, 1 / 16.0f,
+	                       2 / 16.0f, 4 / 16.0f, 2 / 16.0f,
+	                       1 / 16.0f, 2 / 16.0f, 1 / 16.0f};
 
-  blf_texture_draw(color_in, glyph_size_flag, offset, x1, y1, x2, y2);
+	const float *fp = soft;
+	float color[4];
+	float dx, dy;
+
+	color[0] = shadow_col[0];
+	color[1] = shadow_col[1];
+	color[2] = shadow_col[2];
+
+	for (dx = -1; dx < 2; dx++) {
+		for (dy = -1; dy < 2; dy++, fp++) {
+			color[3] = *(fp) * shadow_col[3];
+			glColor4fv(color);
+			blf_texture_draw(uv, x1 + dx, y1 + dy, x2 + dx, y2 + dy);
+		}
+	}
+
+	glColor4fv(color);
 }
 
 static void blf_glyph_calc_rect(rctf *rect, GlyphBLF *g, float x, float y)
 {
-  rect->xmin = floorf(x + (float)g->pos[0]);
-  rect->xmax = rect->xmin + (float)g->dims[0];
-  rect->ymin = floorf(y + (float)g->pos[1]);
-  rect->ymax = rect->ymin - (float)g->dims[1];
+	rect->xmin = floorf(x + g->pos_x);
+	rect->xmax = rect->xmin + (float)g->width;
+	rect->ymin = y + g->pos_y;
+	rect->ymax = y + g->pos_y - (float)g->height;
 }
 
-static void blf_glyph_calc_rect_test(rctf *rect, GlyphBLF *g, float x, float y)
+void blf_glyph_render(FontBLF *font, GlyphBLF *g, float x, float y)
 {
-  /* Intentionally check with g->advance, because this is the
-   * width used by BLF_width. This allows that the text slightly
-   * overlaps the clipping border to achieve better alignment. */
-  rect->xmin = floorf(x);
-  rect->xmax = rect->xmin + MIN2(g->advance, (float)g->dims[0]);
-  rect->ymin = floorf(y);
-  rect->ymax = rect->ymin - (float)g->dims[1];
-}
+	rctf rect;
 
-static void blf_glyph_calc_rect_shadow(rctf *rect, GlyphBLF *g, float x, float y, FontBLF *font)
-{
-  blf_glyph_calc_rect(rect, g, x + (float)font->shadow_x, y + (float)font->shadow_y);
-}
+	if ((!g->width) || (!g->height))
+		return;
 
-void blf_glyph_render(FontBLF *font, GlyphCacheBLF *gc, GlyphBLF *g, float x, float y)
-{
-  if ((!g->dims[0]) || (!g->dims[1])) {
-    return;
-  }
+	if (g->build_tex == 0) {
+		GlyphCacheBLF *gc = font->glyph_cache;
 
-  if (g->glyph_cache == NULL) {
-    if (font->tex_size_max == -1) {
-      font->tex_size_max = GPU_max_texture_size();
-    }
+		if (font->tex_size_max == -1)
+			glGetIntegerv(GL_MAX_TEXTURE_SIZE, (GLint *)&font->tex_size_max);
 
-    g->offset = gc->bitmap_len;
+		if (gc->texture_current == BLF_TEXTURE_UNSET) {
+			blf_glyph_cache_texture(font, gc);
+			gc->offset_x = gc->pad;
+			gc->offset_y = 0;
+		}
 
-    int buff_size = g->dims[0] * g->dims[1];
-    int bitmap_len = gc->bitmap_len + buff_size;
+		if (gc->offset_x > (gc->p2_width - gc->glyph_width_max)) {
+			gc->offset_x = gc->pad;
+			gc->offset_y += gc->glyph_height_max;
 
-    if (bitmap_len > gc->bitmap_len_alloc) {
-      int w = font->tex_size_max;
-      int h = bitmap_len / w + 1;
+			if (gc->offset_y > (gc->p2_height - gc->glyph_height_max)) {
+				gc->offset_y = 0;
+				blf_glyph_cache_texture(font, gc);
+			}
+		}
 
-      gc->bitmap_len_alloc = w * h;
-      gc->bitmap_result = MEM_reallocN(gc->bitmap_result, (size_t)gc->bitmap_len_alloc);
+		g->tex = gc->textures[gc->texture_current];
+		g->offset_x = gc->offset_x;
+		g->offset_y = gc->offset_y;
 
-      /* Keep in sync with the texture. */
-      if (gc->texture) {
-        GPU_texture_free(gc->texture);
-      }
-      gc->texture = GPU_texture_create_1d_array(__func__, w, h, 1, GPU_R8, NULL);
+		/* prevent glTexSubImage2D from failing if the character
+		 * asks for pixels out of bounds, this tends only to happen
+		 * with very small sizes (5px high or less) */
+		if (UNLIKELY((g->offset_x + g->width)  > gc->p2_width)) {
+			g->width  -= (g->offset_x + g->width)  - gc->p2_width;
+			BLI_assert(g->width > 0);
+		}
+		if (UNLIKELY((g->offset_y + g->height) > gc->p2_height)) {
+			g->height -= (g->offset_y + g->height) - gc->p2_height;
+			BLI_assert(g->height > 0);
+		}
 
-      gc->bitmap_len_landed = 0;
-    }
 
-    memcpy(&gc->bitmap_result[gc->bitmap_len], g->bitmap, (size_t)buff_size);
-    gc->bitmap_len = bitmap_len;
+		glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);
+		glPixelStorei(GL_UNPACK_LSB_FIRST, GL_FALSE);
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    gc->glyphs_len_free--;
-    g->glyph_cache = gc;
-  }
+		glBindTexture(GL_TEXTURE_2D, g->tex);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, g->offset_x, g->offset_y, g->width, g->height, GL_ALPHA, GL_UNSIGNED_BYTE, g->bitmap);
+		glPopClientAttrib();
 
-  if (font->flags & BLF_CLIPPING) {
-    rctf rect_test;
-    blf_glyph_calc_rect_test(&rect_test, g, x, y);
-    BLI_rctf_translate(&rect_test, font->pos[0], font->pos[1]);
+		g->uv[0][0] = ((float)g->offset_x) / ((float)gc->p2_width);
+		g->uv[0][1] = ((float)g->offset_y) / ((float)gc->p2_height);
+		g->uv[1][0] = ((float)(g->offset_x + g->width)) / ((float)gc->p2_width);
+		g->uv[1][1] = ((float)(g->offset_y + g->height)) / ((float)gc->p2_height);
 
-    if (!BLI_rctf_inside_rctf(&font->clip_rec, &rect_test)) {
-      return;
-    }
-  }
+		/* update the x offset for the next glyph. */
+		gc->offset_x += (int)BLI_rctf_size_x(&g->box) + gc->pad;
 
-  if (g_batch.glyph_cache != g->glyph_cache) {
-    blf_batch_draw();
-    g_batch.glyph_cache = g->glyph_cache;
-  }
+		gc->glyphs_len_free--;
+		g->build_tex = 1;
+	}
 
-  if (font->flags & BLF_SHADOW) {
-    rctf rect_ofs;
-    blf_glyph_calc_rect_shadow(&rect_ofs, g, x, y, font);
+	blf_glyph_calc_rect(&rect, g, x, y);
 
-    if (font->shadow == 0) {
-      blf_texture_draw(font->shadow_color,
-                       g->dims,
-                       g->offset,
-                       rect_ofs.xmin,
-                       rect_ofs.ymin,
-                       rect_ofs.xmax,
-                       rect_ofs.ymax);
-    }
-    else if (font->shadow <= 4) {
-      blf_texture3_draw(font->shadow_color,
-                        g->dims,
-                        g->offset,
-                        rect_ofs.xmin,
-                        rect_ofs.ymin,
-                        rect_ofs.xmax,
-                        rect_ofs.ymax);
-    }
-    else {
-      blf_texture5_draw(font->shadow_color,
-                        g->dims,
-                        g->offset,
-                        rect_ofs.xmin,
-                        rect_ofs.ymin,
-                        rect_ofs.xmax,
-                        rect_ofs.ymax);
-    }
-  }
+	if (font->flags & BLF_CLIPPING) {
+		/* intentionally check clipping without shadow offset */
+		rctf rect_test = rect;
+		BLI_rctf_translate(&rect_test, font->pos[0], font->pos[1]);
 
-  rctf rect;
-  blf_glyph_calc_rect(&rect, g, x, y);
+		if (!BLI_rctf_inside_rctf(&font->clip_rec, &rect_test)) {
+			return;
+		}
+	}
 
-#if BLF_BLUR_ENABLE
-  switch (font->blur) {
-    case 3:
-      blf_texture3_draw(
-          font->color, g->dims, g->offset, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
-      break;
-    case 5:
-      blf_texture5_draw(
-          font->color, g->dims, g->offset, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
-      break;
-    default:
-      blf_texture_draw(
-          font->color, g->dims, g->offset, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
-  }
-#else
-  blf_texture_draw(font->color, g->dims, g->offset, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
-#endif
+	if (font->tex_bind_state != g->tex) {
+		glBindTexture(GL_TEXTURE_2D, (font->tex_bind_state = g->tex));
+	}
+
+	if (font->flags & BLF_SHADOW) {
+		rctf rect_ofs;
+		blf_glyph_calc_rect(&rect_ofs, g,
+		                    x + (float)font->shadow_x,
+		                    y + (float)font->shadow_y);
+
+		switch (font->shadow) {
+			case 3:
+				blf_texture3_draw(font->shadow_col, g->uv, rect_ofs.xmin, rect_ofs.ymin, rect_ofs.xmax, rect_ofs.ymax);
+				break;
+			case 5:
+				blf_texture5_draw(font->shadow_col, g->uv, rect_ofs.xmin, rect_ofs.ymin, rect_ofs.xmax, rect_ofs.ymax);
+				break;
+			default:
+				glColor4fv(font->shadow_col);
+				blf_texture_draw(g->uv, rect_ofs.xmin, rect_ofs.ymin, rect_ofs.xmax, rect_ofs.ymax);
+				break;
+		}
+
+		glColor4fv(font->orig_col);
+	}
+
+	switch (font->blur) {
+		case 3:
+			blf_texture3_draw(font->orig_col, g->uv, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
+			break;
+		case 5:
+			blf_texture5_draw(font->orig_col, g->uv, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
+			break;
+		default:
+			blf_texture_draw(g->uv, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
+			break;
+	}
+
+	return;
 }

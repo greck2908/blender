@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +17,19 @@
  *
  * The Original Code is Copyright (C) 2012 Blender Foundation.
  * All rights reserved.
+ *
+ * Contributor(s): Campbell Barton
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup pybmesh
+/** \file blender/python/bmesh/bmesh_py_ops.h
+ *  \ingroup pybmesh
  */
 
-#pragma once
+#ifndef __BMESH_PY_OPS_H__
+#define __BMESH_PY_OPS_H__
 
 PyObject *BPyInit_bmesh_ops(void);
+
+#endif /* __BMESH_PY_OPS_H__ */

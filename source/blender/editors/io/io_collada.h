@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,15 +17,23 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation.
  * All rights reserved.
+ *
+ *
+ * Contributor(s): Blender Foundation
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup editor/io
+/** \file blender/editors/io/io_collada.h
+ *  \ingroup editor/io
  */
 
-#pragma once
+#ifndef __IO_COLLADA_H__
+#define __IO_COLLADA_H__
 
 struct wmOperatorType;
 
 void WM_OT_collada_export(struct wmOperatorType *ot);
 void WM_OT_collada_import(struct wmOperatorType *ot);
+
+#endif

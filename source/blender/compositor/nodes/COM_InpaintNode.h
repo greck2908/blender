@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,10 +15,13 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor: Peter Schlaile
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
-#pragma once
+#ifndef __COM_INPAINTNODE_H__
+#define __COM_INPAINTNODE_H__
 
 #include "COM_Node.h"
 
@@ -25,7 +30,9 @@
  * \ingroup Node
  */
 class InpaintNode : public Node {
- public:
-  InpaintNode(bNode *editorNode);
-  void convertToOperations(NodeConverter &converter, const CompositorContext &context) const;
+public:
+	InpaintNode(bNode *editorNode);
+	void convertToOperations(NodeConverter &converter, const CompositorContext &context) const;
 };
+
+#endif

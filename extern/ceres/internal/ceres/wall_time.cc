@@ -50,12 +50,7 @@ double WallTimeInSeconds() {
   return omp_get_wtime();
 #else
 #ifdef _WIN32
-  LARGE_INTEGER count;
-  LARGE_INTEGER frequency;
-  QueryPerformanceCounter(&count);
-  QueryPerformanceFrequency(&frequency);
-  return static_cast<double>(count.QuadPart) /
-         static_cast<double>(frequency.QuadPart);
+  return static_cast<double>(std::time(NULL));
 #else
   timeval time_val;
   gettimeofday(&time_val, NULL);
@@ -64,24 +59,20 @@ double WallTimeInSeconds() {
 #endif
 }
 
-EventLogger::EventLogger(const std::string& logger_name) {
-  if (!VLOG_IS_ON(3)) {
-    return;
-  }
-
-  start_time_ = WallTimeInSeconds();
-  last_event_time_ = start_time_;
-  events_ = StringPrintf(
-      "\n%s\n                                   Delta   Cumulative\n",
-      logger_name.c_str());
+EventLogger::EventLogger(const std::string& logger_name)
+    : start_time_(WallTimeInSeconds()),
+      last_event_time_(start_time_),
+      events_("") {
+  StringAppendF(&events_,
+                "\n%s\n                                   Delta   Cumulative\n",
+                logger_name.c_str());
 }
 
 EventLogger::~EventLogger() {
-  if (!VLOG_IS_ON(3)) {
-    return;
+  if (VLOG_IS_ON(3)) {
+    AddEvent("Total");
+    VLOG(2) << "\n" << events_ << "\n";
   }
-  AddEvent("Total");
-  VLOG(3) << "\n" << events_ << "\n";
 }
 
 void EventLogger::AddEvent(const std::string& event_name) {

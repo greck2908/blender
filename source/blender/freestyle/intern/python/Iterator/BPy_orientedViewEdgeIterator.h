@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,13 +14,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup freestyle
+/** \file source/blender/freestyle/intern/python/Iterator/BPy_orientedViewEdgeIterator.h
+ *  \ingroup freestyle
  */
 
-#pragma once
+#ifndef __FREESTYLE_PYTHON_ORIENTEDVIEWEDGEITERATOR_H__
+#define __FREESTYLE_PYTHON_ORIENTEDVIEWEDGEITERATOR_H__
 
 #include "../BPy_Iterator.h"
 
@@ -33,14 +38,14 @@ extern "C" {
 extern PyTypeObject orientedViewEdgeIterator_Type;
 
 #define BPy_orientedViewEdgeIterator_Check(v) \
-  (PyObject_IsInstance((PyObject *)v, (PyObject *)&orientedViewEdgeIterator_Type))
+            (PyObject_IsInstance((PyObject *)v, (PyObject *)&orientedViewEdgeIterator_Type))
 
 /*---------------------------Python BPy_orientedViewEdgeIterator structure definition----------*/
 typedef struct {
-  BPy_Iterator py_it;
-  ViewVertexInternal::orientedViewEdgeIterator *ove_it;
-  bool reversed;
-  bool at_start;
+	BPy_Iterator py_it;
+	ViewVertexInternal::orientedViewEdgeIterator *ove_it;
+	bool reversed;
+	bool at_start;
 } BPy_orientedViewEdgeIterator;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -48,3 +53,5 @@ typedef struct {
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* __FREESTYLE_PYTHON_ORIENTEDVIEWEDGEITERATOR_H__ */

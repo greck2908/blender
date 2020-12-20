@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,58 +17,63 @@
  *
  * The Original Code is Copyright (C) 2010 Blender Foundation.
  * All rights reserved.
+ *
+ *
+ * Contributor(s): Blender Foundation
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup GHOST
+/** \file ghost/intern/GHOST_SystemPathsUnix.h
+ *  \ingroup GHOST
  */
 
-#pragma once
 
-#include "../GHOST_Types.h"
+#ifndef __GHOST_SYSTEMPATHSUNIX_H__
+#define __GHOST_SYSTEMPATHSUNIX_H__
+
 #include "GHOST_SystemPaths.h"
+#include "../GHOST_Types.h"
+
 
 class GHOST_SystemPathsUnix : public GHOST_SystemPaths {
- public:
-  /**
-   * Constructor
-   * this class should only be instantiated by GHOST_ISystem.
-   */
-  GHOST_SystemPathsUnix();
+public:
 
-  /**
-   * Destructor.
-   */
-  ~GHOST_SystemPathsUnix();
+	/**
+	 * Constructor
+	 * this class should only be instanciated by GHOST_ISystem.
+	 */
+	GHOST_SystemPathsUnix();
 
-  /**
-   * Determine the base dir in which shared resources are located. It will first try to use
-   * "unpack and run" path, then look for properly installed path, including versioning.
-   * \return Unsigned char string pointing to system dir (eg `/usr/share/blender/`).
-   */
-  const GHOST_TUns8 *getSystemDir(int version, const char *versionstr) const;
+	/**
+	 * Destructor.
+	 */
+	~GHOST_SystemPathsUnix();
 
-  /**
-   * Determine the base dir in which user configuration is stored, including versioning.
-   * If needed, it will create the base directory.
-   * \return Unsigned char string pointing to user dir (eg `~/.config/.blender/`).
-   */
-  const GHOST_TUns8 *getUserDir(int version, const char *versionstr) const;
+	/**
+	 * Determine the base dir in which shared resources are located. It will first try to use
+	 * "unpack and run" path, then look for properly installed path, including versioning.
+	 * \return Unsigned char string pointing to system dir (eg `/usr/share/blender/`).
+	 */
+	const GHOST_TUns8 *getSystemDir(int version, const char *versionstr) const;
 
-  /**
-   * Determine a special ("well known") and easy to reach user directory.
-   * \return Unsigned char string pointing to user dir (eg `~/Documents/`).
-   */
-  const GHOST_TUns8 *getUserSpecialDir(GHOST_TUserSpecialDirTypes type) const;
+	/**
+	 * Determine the base dir in which user configuration is stored, including versioning.
+	 * If needed, it will create the base directory.
+	 * \return Unsigned char string pointing to user dir (eg `~/.config/.blender/`).
+	 */
+	const GHOST_TUns8 *getUserDir(int version, const char *versionstr) const;
 
-  /**
-   * Determine the directory of the current binary
-   * \return Unsigned char string pointing to the binary dir
-   */
-  const GHOST_TUns8 *getBinaryDir() const;
+	/**
+	 * Determine the directory of the current binary
+	 * \return Unsigned char string pointing to the binary dir
+	 */
+	const GHOST_TUns8 *getBinaryDir() const;
 
-  /**
-   * Add the file to the operating system most recently used files
-   */
-  void addToSystemRecentFiles(const char *filename) const;
+	/**
+	 * Add the file to the operating system most recently used files
+	 */
+	void addToSystemRecentFiles(const char *filename) const;
 };
+
+#endif  /* __GHOST_SYSTEMPATHSUNIX_H__ */

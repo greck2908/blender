@@ -31,37 +31,38 @@
 #ifndef CERES_INTERNAL_LINEAR_LEAST_SQUARES_PROBLEMS_H_
 #define CERES_INTERNAL_LINEAR_LEAST_SQUARES_PROBLEMS_H_
 
-#include <memory>
 #include <string>
 #include <vector>
-
-#include "ceres/internal/port.h"
 #include "ceres/sparse_matrix.h"
+#include "ceres/internal/port.h"
+#include "ceres/internal/scoped_ptr.h"
 
 namespace ceres {
 namespace internal {
 
 // Structure defining a linear least squares problem and if possible
 // ground truth solutions. To be used by various LinearSolver tests.
-struct CERES_EXPORT_INTERNAL LinearLeastSquaresProblem {
-  LinearLeastSquaresProblem() : num_eliminate_blocks(0) {}
+struct LinearLeastSquaresProblem {
+  LinearLeastSquaresProblem()
+      : A(NULL), b(NULL), D(NULL), num_eliminate_blocks(0),
+        x(NULL), x_D(NULL) {
+  }
 
-  std::unique_ptr<SparseMatrix> A;
-  std::unique_ptr<double[]> b;
-  std::unique_ptr<double[]> D;
+  scoped_ptr<SparseMatrix> A;
+  scoped_array<double> b;
+  scoped_array<double> D;
   // If using the schur eliminator then how many of the variable
   // blocks are e_type blocks.
   int num_eliminate_blocks;
 
   // Solution to min_x |Ax - b|^2
-  std::unique_ptr<double[]> x;
+  scoped_array<double> x;
   // Solution to min_x |Ax - b|^2 + |Dx|^2
-  std::unique_ptr<double[]> x_D;
+  scoped_array<double> x_D;
 };
 
 // Factories for linear least squares problem.
-CERES_EXPORT_INTERNAL LinearLeastSquaresProblem*
-CreateLinearLeastSquaresProblemFromId(int id);
+LinearLeastSquaresProblem* CreateLinearLeastSquaresProblemFromId(int id);
 
 LinearLeastSquaresProblem* LinearLeastSquaresProblem0();
 LinearLeastSquaresProblem* LinearLeastSquaresProblem1();

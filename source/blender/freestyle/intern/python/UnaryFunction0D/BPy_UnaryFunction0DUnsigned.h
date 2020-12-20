@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,13 +14,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup freestyle
+/** \file source/blender/freestyle/intern/python/UnaryFunction0D/BPy_UnaryFunction0DUnsigned.h
+ *  \ingroup freestyle
  */
 
-#pragma once
+#ifndef __FREESTYLE_PYTHON_UNARYFUNCTION0DUNSIGNED_H__
+#define __FREESTYLE_PYTHON_UNARYFUNCTION0DUNSIGNED_H__
 
 #include "../BPy_UnaryFunction0D.h"
 
@@ -31,19 +36,22 @@ extern "C" {
 extern PyTypeObject UnaryFunction0DUnsigned_Type;
 
 #define BPy_UnaryFunction0DUnsigned_Check(v) \
-  (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction0DUnsigned_Type))
+            (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction0DUnsigned_Type))
 
 /*---------------------------Python BPy_UnaryFunction0DUnsigned structure definition----------*/
 typedef struct {
-  BPy_UnaryFunction0D py_uf0D;
-  UnaryFunction0D<unsigned int> *uf0D_unsigned;
+	BPy_UnaryFunction0D py_uf0D;
+	UnaryFunction0D<unsigned int> *uf0D_unsigned;
 } BPy_UnaryFunction0DUnsigned;
 
 /*---------------------------Python BPy_UnaryFunction0DUnsigned visible prototypes-----------*/
 int UnaryFunction0DUnsigned_Init(PyObject *module);
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* __FREESTYLE_PYTHON_UNARYFUNCTION0DUNSIGNED_H__ */

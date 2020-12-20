@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,63 +17,103 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup shdnodes
+/** \file blender/nodes/shader/nodes/node_shader_mapping.c
+ *  \ingroup shdnodes
  */
 
 #include "node_shader_util.h"
 
 /* **************** MAPPING  ******************** */
 static bNodeSocketTemplate sh_node_mapping_in[] = {
-    {SOCK_VECTOR, N_("Vector"), 0.0f, 0.0f, 0.0f, 1.0f, -FLT_MAX, FLT_MAX, PROP_NONE},
-    {SOCK_VECTOR, N_("Location"), 0.0f, 0.0f, 0.0f, 1.0f, -FLT_MAX, FLT_MAX, PROP_TRANSLATION},
-    {SOCK_VECTOR, N_("Rotation"), 0.0f, 0.0f, 0.0f, 1.0f, -FLT_MAX, FLT_MAX, PROP_EULER},
-    {SOCK_VECTOR, N_("Scale"), 1.0f, 1.0f, 1.0f, 1.0f, -FLT_MAX, FLT_MAX, PROP_XYZ},
-    {-1, ""},
+	{	SOCK_VECTOR, 1, N_("Vector"),	0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, PROP_NONE},
+	{	-1, 0, ""	}
 };
 
 static bNodeSocketTemplate sh_node_mapping_out[] = {
-    {SOCK_VECTOR, N_("Vector")},
-    {-1, ""},
+	{	SOCK_VECTOR, 0, N_("Vector")},
+	{	-1, 0, ""	}
 };
 
-static int gpu_shader_mapping(GPUMaterial *mat,
-                              bNode *node,
-                              bNodeExecData *UNUSED(execdata),
-                              GPUNodeStack *in,
-                              GPUNodeStack *out)
+static void *node_shader_initexec_mapping(bNodeExecContext *UNUSED(context),
+                                          bNode *node,
+                                          bNodeInstanceKey UNUSED(key))
 {
-  static const char *names[] = {
-      [NODE_MAPPING_TYPE_POINT] = "mapping_point",
-      [NODE_MAPPING_TYPE_TEXTURE] = "mapping_texture",
-      [NODE_MAPPING_TYPE_VECTOR] = "mapping_vector",
-      [NODE_MAPPING_TYPE_NORMAL] = "mapping_normal",
-  };
-
-  if (node->custom1 < ARRAY_SIZE(names) && names[node->custom1]) {
-    return GPU_stack_link(mat, node, names[node->custom1], in, out);
-  }
-
-  return 0;
+	TexMapping *texmap = node->storage;
+	BKE_texture_mapping_init(texmap);
+	return NULL;
 }
 
-static void node_shader_update_mapping(bNodeTree *UNUSED(ntree), bNode *node)
+/* do the regular mapping options for blender textures */
+static void node_shader_exec_mapping(void *UNUSED(data), int UNUSED(thread), bNode *node, bNodeExecData *UNUSED(execdata), bNodeStack **in, bNodeStack **out)
 {
-  bNodeSocket *sock = nodeFindSocket(node, SOCK_IN, "Location");
-  nodeSetSocketAvailability(
-      sock, ELEM(node->custom1, NODE_MAPPING_TYPE_POINT, NODE_MAPPING_TYPE_TEXTURE));
+	TexMapping *texmap = node->storage;
+	float *vec = out[0]->vec;
+
+	/* stack order input:  vector */
+	/* stack order output: vector */
+	nodestack_get_vec(vec, SOCK_VECTOR, in[0]);
+	mul_m4_v3(texmap->mat, vec);
+
+	if (texmap->flag & TEXMAP_CLIP_MIN) {
+		if (vec[0] < texmap->min[0]) vec[0] = texmap->min[0];
+		if (vec[1] < texmap->min[1]) vec[1] = texmap->min[1];
+		if (vec[2] < texmap->min[2]) vec[2] = texmap->min[2];
+	}
+	if (texmap->flag & TEXMAP_CLIP_MAX) {
+		if (vec[0] > texmap->max[0]) vec[0] = texmap->max[0];
+		if (vec[1] > texmap->max[1]) vec[1] = texmap->max[1];
+		if (vec[2] > texmap->max[2]) vec[2] = texmap->max[2];
+	}
+
+	if (texmap->type == TEXMAP_TYPE_NORMAL)
+		normalize_v3(vec);
+}
+
+
+static void node_shader_init_mapping(bNodeTree *UNUSED(ntree), bNode *node)
+{
+	node->storage = BKE_texture_mapping_add(TEXMAP_TYPE_POINT);
+}
+
+static int gpu_shader_mapping(GPUMaterial *mat, bNode *node, bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
+{
+	TexMapping *texmap = node->storage;
+	float domin = (texmap->flag & TEXMAP_CLIP_MIN) != 0;
+	float domax = (texmap->flag & TEXMAP_CLIP_MAX) != 0;
+	GPUNodeLink *tmat = GPU_uniform((float *)texmap->mat);
+	GPUNodeLink *tmin = GPU_uniform(texmap->min);
+	GPUNodeLink *tmax = GPU_uniform(texmap->max);
+	GPUNodeLink *tdomin = GPU_uniform(&domin);
+	GPUNodeLink *tdomax = GPU_uniform(&domax);
+
+	GPU_stack_link(mat, "mapping", in, out, tmat, tmin, tmax, tdomin, tdomax);
+
+	if (texmap->type == TEXMAP_TYPE_NORMAL)
+		GPU_link(mat, "texco_norm", out[0].link, &out[0].link);
+
+	return true;
 }
 
 void register_node_type_sh_mapping(void)
 {
-  static bNodeType ntype;
+	static bNodeType ntype;
 
-  sh_node_type_base(&ntype, SH_NODE_MAPPING, "Mapping", NODE_CLASS_OP_VECTOR, 0);
-  node_type_socket_templates(&ntype, sh_node_mapping_in, sh_node_mapping_out);
-  node_type_gpu(&ntype, gpu_shader_mapping);
-  node_type_update(&ntype, node_shader_update_mapping);
+	sh_node_type_base(&ntype, SH_NODE_MAPPING, "Mapping", NODE_CLASS_OP_VECTOR, 0);
+	node_type_compatibility(&ntype, NODE_OLD_SHADING | NODE_NEW_SHADING);
+	node_type_socket_templates(&ntype, sh_node_mapping_in, sh_node_mapping_out);
+	node_type_size(&ntype, 320, 160, 360);
+	node_type_init(&ntype, node_shader_init_mapping);
+	node_type_storage(&ntype, "TexMapping", node_free_standard_storage, node_copy_standard_storage);
+	node_type_exec(&ntype, node_shader_initexec_mapping, NULL, node_shader_exec_mapping);
+	node_type_gpu(&ntype, gpu_shader_mapping);
 
-  nodeRegisterType(&ntype);
+	nodeRegisterType(&ntype);
 }

@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,25 +15,29 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Dalai Felinto
  */
 
-#pragma once
-
-#include "COM_DistanceRGBMatteOperation.h"
+#ifndef __COM_DISTANCEYCCMATTEOPERATION_H__
+#define __COM_DISTANCEYCCMATTEOPERATION_H__
 #include "COM_MixOperation.h"
+#include "COM_DistanceRGBMatteOperation.h"
+
 
 /**
  * this program converts an input color to an output value.
  * it assumes we are in sRGB color space.
  */
 class DistanceYCCMatteOperation : public DistanceRGBMatteOperation {
- protected:
-  virtual float calculateDistance(float key[4], float image[4]);
+protected:
+	virtual float calculateDistance(float key[4], float image[4]);
 
- public:
-  /**
-   * Default constructor
-   */
-  DistanceYCCMatteOperation();
+public:
+	/**
+	 * Default constructor
+	 */
+	DistanceYCCMatteOperation();
+
 };
+#endif

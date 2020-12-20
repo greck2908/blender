@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,13 +14,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __FREESTYLE_PRECISION_H__
+#define __FREESTYLE_PRECISION_H__
 
-/** \file
- * \ingroup freestyle
- * \brief Define the float precision used in the program
+/** \file blender/freestyle/intern/system/Precision.h
+ *  \ingroup freestyle
+ *  \brief Define the float precision used in the program
+ *  \author Stephane Grabli
+ *  \date 30/07/2002
  */
 
 namespace Freestyle {
@@ -26,7 +33,9 @@ namespace Freestyle {
 typedef double real;
 
 #ifndef SWIG
-static const real M_EPSILON = 0.00000001;
-#endif  // SWIG
+	static const real M_EPSILON = 0.00000001;
+#endif // SWIG
 
 } /* namespace Freestyle */
+
+#endif // __FREESTYLE_PRECISION_H__

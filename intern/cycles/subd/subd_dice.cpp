@@ -24,260 +24,327 @@ CCL_NAMESPACE_BEGIN
 
 /* EdgeDice Base */
 
-EdgeDice::EdgeDice(const SubdParams &params_) : params(params_)
+EdgeDice::EdgeDice(const SubdParams& params_)
+: params(params_)
 {
-  mesh_P = NULL;
-  mesh_N = NULL;
-  vert_offset = 0;
+	mesh_P = NULL;
+	mesh_N = NULL;
+	vert_offset = 0;
 
-  params.mesh->attributes.add(ATTR_STD_VERTEX_NORMAL);
+	params.mesh->attributes.add(ATTR_STD_VERTEX_NORMAL);
 
-  if (params.ptex) {
-    params.mesh->attributes.add(ATTR_STD_PTEX_UV);
-    params.mesh->attributes.add(ATTR_STD_PTEX_FACE_ID);
-  }
+	if(params.ptex) {
+		params.mesh->attributes.add(ATTR_STD_PTEX_UV);
+		params.mesh->attributes.add(ATTR_STD_PTEX_FACE_ID);
+	}
 }
 
-void EdgeDice::reserve(int num_verts, int num_triangles)
+void EdgeDice::reserve(int num_verts)
 {
-  Mesh *mesh = params.mesh;
+	Mesh *mesh = params.mesh;
 
-  vert_offset = mesh->get_verts().size();
-  tri_offset = mesh->num_triangles();
+	vert_offset = mesh->verts.size();
+	tri_offset = mesh->num_triangles();
 
-  mesh->resize_mesh(mesh->get_verts().size() + num_verts, mesh->num_triangles());
-  mesh->reserve_mesh(mesh->get_verts().size() + num_verts, mesh->num_triangles() + num_triangles);
+	/* todo: optimize so we can reserve in advance, this is like push_back_slow() */
+	if(vert_offset + num_verts > mesh->verts.capacity()) {
+		mesh->reserve_mesh(size_t((vert_offset + num_verts) * 1.2), mesh->num_triangles());
+	}
 
-  Attribute *attr_vN = mesh->attributes.add(ATTR_STD_VERTEX_NORMAL);
+	mesh->resize_mesh(vert_offset + num_verts, tri_offset);
 
-  mesh_P = mesh->verts.data() + vert_offset;
-  mesh_N = attr_vN->data_float3() + vert_offset;
+	Attribute *attr_vN = mesh->attributes.add(ATTR_STD_VERTEX_NORMAL);
 
-  params.mesh->num_subd_verts += num_verts;
+	mesh_P = mesh->verts.data();
+	mesh_N = attr_vN->data_float3();
 }
 
-void EdgeDice::set_vert(Patch *patch, int index, float2 uv)
+int EdgeDice::add_vert(Patch *patch, float2 uv)
 {
-  float3 P, N;
+	float3 P, N;
 
-  patch->eval(&P, NULL, NULL, &N, uv.x, uv.y);
+	patch->eval(&P, NULL, NULL, &N, uv.x, uv.y);
 
-  assert(index < params.mesh->verts.size());
+	assert(vert_offset < params.mesh->verts.size());
 
-  mesh_P[index] = P;
-  mesh_N[index] = N;
-  params.mesh->vert_patch_uv[index + vert_offset] = make_float2(uv.x, uv.y);
+	mesh_P[vert_offset] = P;
+	mesh_N[vert_offset] = N;
+	params.mesh->vert_patch_uv[vert_offset] = make_float2(uv.x, uv.y);
+
+	if(params.ptex) {
+		Attribute *attr_ptex_uv = params.mesh->attributes.add(ATTR_STD_PTEX_UV);
+		params.mesh->attributes.resize();
+
+		float3 *ptex_uv = attr_ptex_uv->data_float3();
+		ptex_uv[vert_offset] = make_float3(uv.x, uv.y, 0.0f);
+	}
+
+	params.mesh->num_subd_verts++;
+
+	return vert_offset++;
 }
 
 void EdgeDice::add_triangle(Patch *patch, int v0, int v1, int v2)
 {
-  Mesh *mesh = params.mesh;
+	Mesh *mesh = params.mesh;
 
-  mesh->add_triangle(v0 + vert_offset, v1 + vert_offset, v2 + vert_offset, patch->shader, true);
-  params.mesh->triangle_patch[params.mesh->num_triangles() - 1] = patch->patch_index;
+	/* todo: optimize so we can reserve in advance, this is like push_back_slow() */
+	if(mesh->triangles.size() == mesh->triangles.capacity())
+		mesh->reserve_mesh(mesh->verts.size(), size_t(max(mesh->num_triangles() + 1, 1) * 1.2));
 
-  tri_offset++;
+	mesh->add_triangle(v0, v1, v2, patch->shader, true);
+	params.mesh->triangle_patch[params.mesh->num_triangles()-1] = patch->patch_index;
+
+	if(params.ptex) {
+		Attribute *attr_ptex_face_id = params.mesh->attributes.add(ATTR_STD_PTEX_FACE_ID);
+		params.mesh->attributes.resize();
+
+		float *ptex_face_id = attr_ptex_face_id->data_float();
+		ptex_face_id[tri_offset] = (float)patch->ptex_face_id();
+	}
+
+	tri_offset++;
 }
 
-void EdgeDice::stitch_triangles(Subpatch &sub, int edge)
+void EdgeDice::stitch_triangles(Patch *patch, vector<int>& outer, vector<int>& inner)
 {
-  int Mu = max(sub.edge_u0.T, sub.edge_u1.T);
-  int Mv = max(sub.edge_v0.T, sub.edge_v1.T);
-  Mu = max(Mu, 2);
-  Mv = max(Mv, 2);
+	if(inner.size() == 0 || outer.size() == 0)
+		return; // XXX avoid crashes for Mu or Mv == 1, missing polygons
 
-  int outer_T = sub.edges[edge].T;
-  int inner_T = ((edge % 2) == 0) ? Mv - 2 : Mu - 2;
+	/* stitch together two arrays of verts with triangles. at each step,
+	 * we compare using the next verts on both sides, to find the split
+	 * direction with the smallest diagonal, and use that in order to keep
+	 * the triangle shape reasonable. */
+	for(size_t i = 0, j = 0; i+1 < inner.size() || j+1 < outer.size();) {
+		int v0, v1, v2;
 
-  if (inner_T < 0 || outer_T < 0)
-    return;  // XXX avoid crashes for Mu or Mv == 1, missing polygons
+		v0 = inner[i];
+		v1 = outer[j];
 
-  /* stitch together two arrays of verts with triangles. at each step,
-   * we compare using the next verts on both sides, to find the split
-   * direction with the smallest diagonal, and use that in order to keep
-   * the triangle shape reasonable. */
-  for (size_t i = 0, j = 0; i < inner_T || j < outer_T;) {
-    int v0, v1, v2;
+		if(j+1 == outer.size()) {
+			v2 = inner[++i];
+		}
+		else if(i+1 == inner.size()) {
+			v2 = outer[++j];
+		}
+		else {
+			/* length of diagonals */
+			float len1 = len_squared(mesh_P[inner[i]] - mesh_P[outer[j+1]]);
+			float len2 = len_squared(mesh_P[outer[j]] - mesh_P[inner[i+1]]);
 
-    v0 = sub.get_vert_along_grid_edge(edge, i);
-    v1 = sub.get_vert_along_edge(edge, j);
+			/* use smallest diagonal */
+			if(len1 < len2)
+				v2 = outer[++j];
+			else
+				v2 = inner[++i];
+		}
 
-    if (j == outer_T) {
-      v2 = sub.get_vert_along_grid_edge(edge, ++i);
-    }
-    else if (i == inner_T) {
-      v2 = sub.get_vert_along_edge(edge, ++j);
-    }
-    else {
-      /* length of diagonals */
-      float len1 = len_squared(mesh_P[sub.get_vert_along_grid_edge(edge, i)] -
-                               mesh_P[sub.get_vert_along_edge(edge, j + 1)]);
-      float len2 = len_squared(mesh_P[sub.get_vert_along_edge(edge, j)] -
-                               mesh_P[sub.get_vert_along_grid_edge(edge, i + 1)]);
-
-      /* use smallest diagonal */
-      if (len1 < len2)
-        v2 = sub.get_vert_along_edge(edge, ++j);
-      else
-        v2 = sub.get_vert_along_grid_edge(edge, ++i);
-    }
-
-    add_triangle(sub.patch, v1, v0, v2);
-  }
+		add_triangle(patch, v0, v1, v2);
+	}
 }
 
 /* QuadDice */
 
-QuadDice::QuadDice(const SubdParams &params_) : EdgeDice(params_)
+QuadDice::QuadDice(const SubdParams& params_)
+: EdgeDice(params_)
 {
 }
 
-float2 QuadDice::map_uv(Subpatch &sub, float u, float v)
+void QuadDice::reserve(EdgeFactors& ef, int Mu, int Mv)
 {
-  /* map UV from subpatch to patch parametric coordinates */
-  float2 d0 = interp(sub.c00, sub.c01, v);
-  float2 d1 = interp(sub.c10, sub.c11, v);
-  return interp(d0, d1, u);
+	/* XXX need to make this also work for edge factor 0 and 1 */
+	int num_verts = (ef.tu0 + ef.tu1 + ef.tv0 + ef.tv1) + (Mu - 1)*(Mv - 1);
+	EdgeDice::reserve(num_verts);
 }
 
-float3 QuadDice::eval_projected(Subpatch &sub, float u, float v)
+float2 QuadDice::map_uv(SubPatch& sub, float u, float v)
 {
-  float2 uv = map_uv(sub, u, v);
-  float3 P;
-
-  sub.patch->eval(&P, NULL, NULL, NULL, uv.x, uv.y);
-  if (params.camera)
-    P = transform_perspective(&params.camera->worldtoraster, P);
-
-  return P;
+	/* map UV from subpatch to patch parametric coordinates */
+	float2 d0 = interp(sub.P00, sub.P01, v);
+	float2 d1 = interp(sub.P10, sub.P11, v);
+	return interp(d0, d1, u);
 }
 
-void QuadDice::set_vert(Subpatch &sub, int index, float u, float v)
+float3 QuadDice::eval_projected(SubPatch& sub, float u, float v)
 {
-  EdgeDice::set_vert(sub.patch, index, map_uv(sub, u, v));
+	float2 uv = map_uv(sub, u, v);
+	float3 P;
+
+	sub.patch->eval(&P, NULL, NULL, NULL, uv.x, uv.y);
+	if(params.camera)
+		P = transform_perspective(&params.camera->worldtoraster, P);
+
+	return P;
 }
 
-void QuadDice::set_side(Subpatch &sub, int edge)
+int QuadDice::add_vert(SubPatch& sub, float u, float v)
 {
-  int t = sub.edges[edge].T;
-
-  /* set verts on the edge of the patch */
-  for (int i = 0; i < t; i++) {
-    float f = i / (float)t;
-
-    float u, v;
-    switch (edge) {
-      case 0:
-        u = 0;
-        v = f;
-        break;
-      case 1:
-        u = f;
-        v = 1;
-        break;
-      case 2:
-        u = 1;
-        v = 1.0f - f;
-        break;
-      case 3:
-      default:
-        u = 1.0f - f;
-        v = 0;
-        break;
-    }
-
-    set_vert(sub, sub.get_vert_along_edge(edge, i), u, v);
-  }
+	return EdgeDice::add_vert(sub.patch, map_uv(sub, u, v));
 }
 
-float QuadDice::quad_area(const float3 &a, const float3 &b, const float3 &c, const float3 &d)
+void QuadDice::add_side_u(SubPatch& sub,
+	vector<int>& outer, vector<int>& inner,
+	int Mu, int Mv, int tu, int side, int offset)
 {
-  return triangle_area(a, b, d) + triangle_area(a, d, c);
+	outer.clear();
+	inner.clear();
+
+	/* set verts on the edge of the patch */
+	outer.push_back(offset + ((side)? 2: 0));
+
+	for(int i = 1; i < tu; i++) {
+		float u = i/(float)tu;
+		float v = (side)? 1.0f: 0.0f;
+
+		outer.push_back(add_vert(sub, u, v));
+	}
+
+	outer.push_back(offset + ((side)? 3: 1));
+
+	/* set verts on the edge of the inner grid */
+	for(int i = 0; i < Mu-1; i++) {
+		int j = (side)? Mv-1-1: 0;
+		inner.push_back(offset + 4 + i + j*(Mu-1));
+	}
 }
 
-float QuadDice::scale_factor(Subpatch &sub, int Mu, int Mv)
+void QuadDice::add_side_v(SubPatch& sub,
+	vector<int>& outer, vector<int>& inner,
+	int Mu, int Mv, int tv, int side, int offset)
 {
-  /* estimate area as 4x largest of 4 quads */
-  float3 P[3][3];
+	outer.clear();
+	inner.clear();
 
-  for (int i = 0; i < 3; i++)
-    for (int j = 0; j < 3; j++)
-      P[i][j] = eval_projected(sub, i * 0.5f, j * 0.5f);
+	/* set verts on the edge of the patch */
+	outer.push_back(offset + ((side)? 1: 0));
 
-  float A1 = quad_area(P[0][0], P[1][0], P[0][1], P[1][1]);
-  float A2 = quad_area(P[1][0], P[2][0], P[1][1], P[2][1]);
-  float A3 = quad_area(P[0][1], P[1][1], P[0][2], P[1][2]);
-  float A4 = quad_area(P[1][1], P[2][1], P[1][2], P[2][2]);
-  float Apatch = max(A1, max(A2, max(A3, A4))) * 4.0f;
+	for(int j = 1; j < tv; j++) {
+		float u = (side)? 1.0f: 0.0f;
+		float v = j/(float)tv;
 
-  /* solve for scaling factor */
-  float Atri = params.dicing_rate * params.dicing_rate * 0.5f;
-  float Ntris = Apatch / Atri;
+		outer.push_back(add_vert(sub, u, v));
+	}
 
-  // XXX does the -sqrt solution matter
-  // XXX max(D, 0.0) is highly suspicious, need to test cases
-  // where D goes negative
-  float N = 0.5f * (Ntris - (sub.edge_u0.T + sub.edge_u1.T + sub.edge_v0.T + sub.edge_v1.T));
-  float D = 4.0f * N * Mu * Mv + (Mu + Mv) * (Mu + Mv);
-  float S = (Mu + Mv + sqrtf(max(D, 0.0f))) / (2 * Mu * Mv);
+	outer.push_back(offset + ((side)? 3: 2));
 
-  return S;
+	/* set verts on the edge of the inner grid */
+	for(int j = 0; j < Mv-1; j++) {
+		int i = (side)? Mu-1-1: 0;
+		inner.push_back(offset + 4 + i + j*(Mu-1));
+	}
 }
 
-void QuadDice::add_grid(Subpatch &sub, int Mu, int Mv, int offset)
+float QuadDice::quad_area(const float3& a, const float3& b, const float3& c, const float3& d)
 {
-  /* create inner grid */
-  float du = 1.0f / (float)Mu;
-  float dv = 1.0f / (float)Mv;
-
-  for (int j = 1; j < Mv; j++) {
-    for (int i = 1; i < Mu; i++) {
-      float u = i * du;
-      float v = j * dv;
-
-      set_vert(sub, offset + (i - 1) + (j - 1) * (Mu - 1), u, v);
-
-      if (i < Mu - 1 && j < Mv - 1) {
-        int i1 = offset + (i - 1) + (j - 1) * (Mu - 1);
-        int i2 = offset + i + (j - 1) * (Mu - 1);
-        int i3 = offset + i + j * (Mu - 1);
-        int i4 = offset + (i - 1) + j * (Mu - 1);
-
-        add_triangle(sub.patch, i1, i2, i3);
-        add_triangle(sub.patch, i1, i3, i4);
-      }
-    }
-  }
+	return triangle_area(a, b, d) + triangle_area(a, d, c);
 }
 
-void QuadDice::dice(Subpatch &sub)
+float QuadDice::scale_factor(SubPatch& sub, EdgeFactors& ef, int Mu, int Mv)
 {
-  /* compute inner grid size with scale factor */
-  int Mu = max(sub.edge_u0.T, sub.edge_u1.T);
-  int Mv = max(sub.edge_v0.T, sub.edge_v1.T);
+	/* estimate area as 4x largest of 4 quads */
+	float3 P[3][3];
 
-#if 0 /* Doesn't work very well, especially at grazing angles. */
-  float S = scale_factor(sub, ef, Mu, Mv);
+	for(int i = 0; i < 3; i++)
+		for(int j = 0; j < 3; j++)
+			P[i][j] = eval_projected(sub, i*0.5f, j*0.5f);
+
+	float A1 = quad_area(P[0][0], P[1][0], P[0][1], P[1][1]);
+	float A2 = quad_area(P[1][0], P[2][0], P[1][1], P[2][1]);
+	float A3 = quad_area(P[0][1], P[1][1], P[0][2], P[1][2]);
+	float A4 = quad_area(P[1][1], P[2][1], P[1][2], P[2][2]);
+	float Apatch = max(A1, max(A2, max(A3, A4)))*4.0f;
+
+	/* solve for scaling factor */
+	float Atri = params.dicing_rate*params.dicing_rate*0.5f;
+	float Ntris = Apatch/Atri;
+
+	// XXX does the -sqrt solution matter
+	// XXX max(D, 0.0) is highly suspicious, need to test cases
+	// where D goes negative
+	float N = 0.5f*(Ntris - (ef.tu0 + ef.tu1 + ef.tv0 + ef.tv1));
+	float D = 4.0f*N*Mu*Mv + (Mu + Mv)*(Mu + Mv);
+	float S = (Mu + Mv + sqrtf(max(D, 0.0f)))/(2*Mu*Mv);
+
+	return S;
+}
+
+void QuadDice::add_corners(SubPatch& sub)
+{
+	/* add verts for patch corners */
+	add_vert(sub, 0.0f, 0.0f);
+	add_vert(sub, 1.0f, 0.0f);
+	add_vert(sub, 0.0f, 1.0f);
+	add_vert(sub, 1.0f, 1.0f);
+}
+
+void QuadDice::add_grid(SubPatch& sub, int Mu, int Mv, int offset)
+{
+	/* create inner grid */
+	float du = 1.0f/(float)Mu;
+	float dv = 1.0f/(float)Mv;
+
+	for(int j = 1; j < Mv; j++) {
+		for(int i = 1; i < Mu; i++) {
+			float u = i*du;
+			float v = j*dv;
+
+			add_vert(sub, u, v);
+
+			if(i < Mu-1 && j < Mv-1) {
+				int i1 = offset + 4 + (i-1) + (j-1)*(Mu-1);
+				int i2 = offset + 4 + i + (j-1)*(Mu-1);
+				int i3 = offset + 4 + i + j*(Mu-1);
+				int i4 = offset + 4 + (i-1) + j*(Mu-1);
+
+				add_triangle(sub.patch, i1, i2, i3);
+				add_triangle(sub.patch, i1, i3, i4);
+			}
+		}
+	}
+}
+
+void QuadDice::dice(SubPatch& sub, EdgeFactors& ef)
+{
+	/* compute inner grid size with scale factor */
+	int Mu = max(ef.tu0, ef.tu1);
+	int Mv = max(ef.tv0, ef.tv1);
+
+#if 0 /* Doesnt work very well, especially at grazing angles. */
+	float S = scale_factor(sub, ef, Mu, Mv);
 #else
-  float S = 1.0f;
+	float S = 1.0f;
 #endif
 
-  Mu = max((int)ceilf(S * Mu), 2);  // XXX handle 0 & 1?
-  Mv = max((int)ceilf(S * Mv), 2);  // XXX handle 0 & 1?
+	Mu = max((int)ceil(S*Mu), 2); // XXX handle 0 & 1?
+	Mv = max((int)ceil(S*Mv), 2); // XXX handle 0 & 1?
 
-  /* inner grid */
-  add_grid(sub, Mu, Mv, sub.inner_grid_vert_offset);
+	/* reserve space for new verts */
+	int offset = params.mesh->verts.size();
+	reserve(ef, Mu, Mv);
 
-  /* sides */
-  set_side(sub, 0);
-  set_side(sub, 1);
-  set_side(sub, 2);
-  set_side(sub, 3);
+	/* corners and inner grid */
+	add_corners(sub);
+	add_grid(sub, Mu, Mv, offset);
 
-  stitch_triangles(sub, 0);
-  stitch_triangles(sub, 1);
-  stitch_triangles(sub, 2);
-  stitch_triangles(sub, 3);
+	/* bottom side */
+	vector<int> outer, inner;
+
+	add_side_u(sub, outer, inner, Mu, Mv, ef.tu0, 0, offset);
+	stitch_triangles(sub.patch, outer, inner);
+
+	/* top side */
+	add_side_u(sub, outer, inner, Mu, Mv, ef.tu1, 1, offset);
+	stitch_triangles(sub.patch, inner, outer);
+
+	/* left side */
+	add_side_v(sub, outer, inner, Mu, Mv, ef.tv0, 0, offset);
+	stitch_triangles(sub.patch, inner, outer);
+
+	/* right side */
+	add_side_v(sub, outer, inner, Mu, Mv, ef.tv1, 1, offset);
+	stitch_triangles(sub.patch, outer, inner);
+
+	assert(vert_offset == params.mesh->verts.size());
 }
 
 CCL_NAMESPACE_END

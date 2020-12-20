@@ -33,7 +33,6 @@
 #include "ceres/cgnr_solver.h"
 #include "ceres/dense_normal_cholesky_solver.h"
 #include "ceres/dense_qr_solver.h"
-#include "ceres/dynamic_sparse_normal_cholesky_solver.h"
 #include "ceres/iterative_schur_complement_solver.h"
 #include "ceres/schur_complement_solver.h"
 #include "ceres/sparse_normal_cholesky_solver.h"
@@ -43,7 +42,8 @@
 namespace ceres {
 namespace internal {
 
-LinearSolver::~LinearSolver() {}
+LinearSolver::~LinearSolver() {
+}
 
 LinearSolverType LinearSolver::LinearSolverForZeroEBlocks(
     LinearSolverType linear_solver_type) {
@@ -70,25 +70,23 @@ LinearSolverType LinearSolver::LinearSolverForZeroEBlocks(
 }
 
 LinearSolver* LinearSolver::Create(const LinearSolver::Options& options) {
-  CHECK(options.context != NULL);
-
   switch (options.type) {
     case CGNR:
       return new CgnrSolver(options);
 
     case SPARSE_NORMAL_CHOLESKY:
-#if defined(CERES_NO_SPARSE)
+#if defined(CERES_NO_SUITESPARSE) &&              \
+    defined(CERES_NO_CXSPARSE) &&                 \
+   !defined(CERES_USE_EIGEN_SPARSE)
       return NULL;
 #else
-      if (options.dynamic_sparsity) {
-        return new DynamicSparseNormalCholeskySolver(options);
-      }
-
       return new SparseNormalCholeskySolver(options);
 #endif
 
     case SPARSE_SCHUR:
-#if defined(CERES_NO_SPARSE)
+#if defined(CERES_NO_SUITESPARSE) &&                 \
+    defined(CERES_NO_CXSPARSE) &&                    \
+   !defined(CERES_USE_EIGEN_SPARSE)
       return NULL;
 #else
       return new SparseSchurComplementSolver(options);
@@ -111,7 +109,8 @@ LinearSolver* LinearSolver::Create(const LinearSolver::Options& options) {
       return new DenseNormalCholeskySolver(options);
 
     default:
-      LOG(FATAL) << "Unknown linear solver type :" << options.type;
+      LOG(FATAL) << "Unknown linear solver type :"
+                 << options.type;
       return NULL;  // MSVC doesn't understand that LOG(FATAL) never returns.
   }
 }

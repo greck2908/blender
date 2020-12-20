@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,39 +15,38 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Dalai Felinto
  */
 
-#pragma once
-
+#ifndef __COM_CHROMAMATTEOPERATION_H__
+#define __COM_CHROMAMATTEOPERATION_H__
 #include "COM_MixOperation.h"
+
 
 /**
  * this program converts an input color to an output value.
  * it assumes we are in sRGB color space.
  */
 class ChromaMatteOperation : public NodeOperation {
- private:
-  NodeChroma *m_settings;
-  SocketReader *m_inputImageProgram;
-  SocketReader *m_inputKeyProgram;
+private:
+	NodeChroma *m_settings;
+	SocketReader *m_inputImageProgram;
+	SocketReader *m_inputKeyProgram;
+public:
+	/**
+	 * Default constructor
+	 */
+	ChromaMatteOperation();
 
- public:
-  /**
-   * Default constructor
-   */
-  ChromaMatteOperation();
+	/**
+	 * the inner loop of this program
+	 */
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 
-  /**
-   * the inner loop of this program
-   */
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+	void initExecution();
+	void deinitExecution();
 
-  void initExecution();
-  void deinitExecution();
-
-  void setSettings(NodeChroma *nodeChroma)
-  {
-    this->m_settings = nodeChroma;
-  }
+	void setSettings(NodeChroma *nodeChroma) { this->m_settings = nodeChroma; }
 };
+#endif

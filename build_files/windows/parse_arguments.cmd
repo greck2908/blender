@@ -12,13 +12,14 @@ if NOT "%1" == "" (
 	if "%1" == "debug" (
 		set BUILD_TYPE=Debug
 	REM Build Configurations
+	) else if "%1" == "noge" (
+		set BUILD_CMAKE_ARGS=%BUILD_CMAKE_ARGS% -DWITH_GAMEENGINE=OFF -DWITH_PLAYER=OFF
+		set BUILD_NGE=_noge
 	) else if "%1" == "builddir" (
-		set BUILD_DIR_OVERRRIDE=%BLENDER_DIR%..\%2
+		set BUILD_DIR_OVERRRIDE="%BLENDER_DIR%..\%2"
 		shift /1
 	) else if "%1" == "with_tests" (
-		set TESTS_CMAKE_ARGS=%TESTS_CMAKE_ARGS% -DWITH_GTESTS=On
-	) else if "%1" == "with_opengl_tests" (
-		set TESTS_CMAKE_ARGS=%TESTS_CMAKE_ARGS% -DWITH_OPENGL_DRAW_TESTS=On -DWITH_OPENGL_RENDER_TESTS=On
+		set TESTS_CMAKE_ARGS=-DWITH_GTESTS=On
 	) else if "%1" == "full" (
 		set TARGET=Full
 		set BUILD_CMAKE_ARGS=%BUILD_CMAKE_ARGS% ^
@@ -41,13 +42,10 @@ if NOT "%1" == "" (
 	) else if "%1" == "release" (
 		set BUILD_CMAKE_ARGS=%BUILD_CMAKE_ARGS% -C"%BLENDER_DIR%\build_files\cmake\config\blender_release.cmake"
 		set TARGET=Release
-	) else if "%1" == "developer" (
-		set BUILD_CMAKE_ARGS=%BUILD_CMAKE_ARGS% -C"%BLENDER_DIR%\build_files\cmake\config\blender_developer.cmake"
 	) else if "%1" == "asan" (
 		set WITH_ASAN=1
-	) else if "%1" == "x86" ( 
-		echo Error: 32 bit builds of blender are no longer supported.
-		goto ERR
+	) else if "%1" == "x86" (
+		set BUILD_ARCH=x86
 	) else if "%1" == "x64" (
 		set BUILD_ARCH=x64
 	) else if "%1" == "2017" (
@@ -55,58 +53,34 @@ if NOT "%1" == "" (
 	) else if "%1" == "2017pre" (
 		set BUILD_VS_YEAR=2017
 		set VSWHERE_ARGS=-prerelease
+		set BUILD_VS_YEAR=2017
 	) else if "%1" == "2017b" (
 		set BUILD_VS_YEAR=2017
 		set VSWHERE_ARGS=-products Microsoft.VisualStudio.Product.BuildTools
-	) else if "%1" == "2019" (
-		set BUILD_VS_YEAR=2019
-	) else if "%1" == "2019pre" (
-		set BUILD_VS_YEAR=2019
-		set VSWHERE_ARGS=-prerelease
-	) else if "%1" == "2019b" (
-		set BUILD_VS_YEAR=2019
-		set VSWHERE_ARGS=-products Microsoft.VisualStudio.Product.BuildTools
+	) else if "%1" == "2015" (
+		set BUILD_VS_YEAR=2015
 	) else if "%1" == "packagename" (
 		set BUILD_CMAKE_ARGS=%BUILD_CMAKE_ARGS% -DCPACK_OVERRIDE_PACKAGENAME="%2"
 		shift /1
 	) else if "%1" == "nobuild" (
 		set NOBUILD=1
-	) else if "%1" == "nobuildinfo" (
-		set BUILD_CMAKE_ARGS=%BUILD_CMAKE_ARGS% -DWITH_BUILDINFO=Off
-	) else if "%1" == "pydebug" (
-		set WITH_PYDEBUG=1
 	) else if "%1" == "showhash" (
 		SET BUILD_SHOW_HASHES=1
 	REM Non-Build Commands
 	) else if "%1" == "update" (
 		SET BUILD_UPDATE=1
-		set BUILD_UPDATE_ARGS=
-	) else if "%1" == "code_update" (
-		SET BUILD_UPDATE=1
-		set BUILD_UPDATE_ARGS="--no-libraries"
 	) else if "%1" == "ninja" (
 		SET BUILD_WITH_NINJA=1
-	) else if "%1" == "sccache" (
-		SET BUILD_WITH_SCCACHE=1
 	) else if "%1" == "clean" (
 		set MUST_CLEAN=1
 	) else if "%1" == "verbose" (
 		set VERBOSE=1
-	) else if "%1" == "test" (
-		set TEST=1
-		set NOBUILD=1
-	) else if "%1" == "format" (
-		set FORMAT=1
-		set FORMAT_ARGS=%2 %3 %4 %5 %6 %7 %8 %9
-		goto EOF
 	) else (
 		echo Command "%1" unknown, aborting!
-		goto ERR
+		exit /b 1
 	)
 	shift /1
 	goto argv_loop
 )
 :EOF
 exit /b 0
-:ERR
-exit /b 1

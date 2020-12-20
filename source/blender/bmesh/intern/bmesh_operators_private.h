@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,17 +14,23 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Contributor(s): Joseph Eagar, Geoffrey Bantle, Campbell Barton
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __BMESH_OPERATORS_PRIVATE_H__
+#define __BMESH_OPERATORS_PRIVATE_H__
 
-/** \file
- * \ingroup bmesh
+/** \file blender/bmesh/intern/bmesh_operators_private.h
+ *  \ingroup bmesh
  */
 
-struct BMOperator;
 struct BMesh;
+struct BMOperator;
 
+void bmo_automerge_exec(BMesh *bm, BMOperator *op);
 void bmo_average_vert_facedata_exec(BMesh *bm, BMOperator *op);
 void bmo_beautify_fill_exec(BMesh *bm, BMOperator *op);
 void bmo_bevel_exec(BMesh *bm, BMOperator *op);
@@ -86,6 +94,9 @@ void bmo_rotate_edges_exec(BMesh *bm, BMOperator *op);
 void bmo_rotate_exec(BMesh *bm, BMOperator *op);
 void bmo_rotate_uvs_exec(BMesh *bm, BMOperator *op);
 void bmo_scale_exec(BMesh *bm, BMOperator *op);
+void bmo_similar_edges_exec(BMesh *bm, BMOperator *op);
+void bmo_similar_faces_exec(BMesh *bm, BMOperator *op);
+void bmo_similar_verts_exec(BMesh *bm, BMOperator *op);
 void bmo_smooth_vert_exec(BMesh *bm, BMOperator *op);
 void bmo_smooth_laplacian_vert_exec(BMesh *bm, BMOperator *op);
 void bmo_solidify_face_region_exec(BMesh *bm, BMOperator *op);
@@ -102,3 +113,5 @@ void bmo_triangulate_exec(BMesh *bm, BMOperator *op);
 void bmo_unsubdivide_exec(BMesh *bm, BMOperator *op);
 void bmo_weld_verts_exec(BMesh *bm, BMOperator *op);
 void bmo_wireframe_exec(BMesh *bm, BMOperator *op);
+
+#endif /* __BMESH_OPERATORS_PRIVATE_H__ */

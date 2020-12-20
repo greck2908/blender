@@ -16,16 +16,21 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
+#
+# The Original Code is: all of this file.
+#
+# Contributor(s): Jacques Beaurain.
+#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
-  .
-  ..
-  ../..
-  ../../../blenkernel
-  ../../../blenlib
-  ../../../makesdna
-  ../../../../../intern/guardedalloc
+	.
+	..
+	../..
+	../../../blenkernel
+	../../../blenlib
+	../../../makesdna
+	../../../../../intern/guardedalloc
 )
 
 set(INC_SYS
@@ -33,23 +38,21 @@ set(INC_SYS
 )
 
 set(SRC
-  cineonlib.h
-  dpxlib.h
-  logImageCore.h
-  logmemfile.h
+	cin_debug_stuff.h
+	cineonlib.h
+	dpxlib.h
+	logImageCore.h
+	logmemfile.h
 
-  cineon_dpx.c
-  cineonlib.c
-  dpxlib.c
-  logImageCore.c
-  logmemfile.c
-)
-
-set(LIB
+	cineon_dpx.c
+	cineonlib.c
+	dpxlib.c
+	logImageCore.c
+	logmemfile.c
 )
 
 if(WITH_IMAGE_CINEON)
-  add_definitions(-DWITH_CINEON)
+	add_definitions(-DWITH_CINEON)
 endif()
 
-blender_add_lib(bf_imbuf_cineon "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+blender_add_lib(bf_imbuf_cineon "${SRC}" "${INC}" "${INC_SYS}")

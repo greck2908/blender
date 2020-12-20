@@ -7,41 +7,96 @@ import shlex
 import shutil
 import subprocess
 import sys
-from pathlib import Path
 
 
-def get_arguments(filepath, output_filepath):
+def render_file(filepath, output_filepath):
     dirname = os.path.dirname(filepath)
     basedir = os.path.dirname(dirname)
     subject = os.path.basename(dirname)
 
-    args = [
-        "--background",
-        "-noaudio",
-        "--factory-startup",
-        "--enable-autoexec",
-        "--debug-memory",
-        "--debug-exit-on-error",
-        filepath,
-        "-E", "CYCLES",
-        "-o", output_filepath,
-        "-F", "PNG"]
+    custom_args = os.getenv('CYCLESTEST_ARGS')
+    custom_args = shlex.split(custom_args) if custom_args else []
 
     # OSL and GPU examples
     # custom_args += ["--python-expr", "import bpy; bpy.context.scene.cycles.shading_system = True"]
     # custom_args += ["--python-expr", "import bpy; bpy.context.scene.cycles.device = 'GPU'"]
-    custom_args = os.getenv('CYCLESTEST_ARGS')
-    if custom_args:
-        args.extend(shlex.split(custom_args))
 
-    if subject == 'bake':
-        args.extend(['--python', os.path.join(basedir, "util", "render_bake.py")])
-    elif subject == 'denoise_animation':
-        args.extend(['--python', os.path.join(basedir, "util", "render_denoise.py")])
+    frame_filepath = output_filepath + '0001.png'
+
+    if subject == 'opengl':
+        command = [
+            BLENDER,
+            "--window-geometry", "0", "0", "1", "1",
+            "-noaudio",
+            "--factory-startup",
+            "--enable-autoexec",
+            filepath,
+            "-E", "CYCLES"]
+        command += custom_args
+        command += [
+            "-o", output_filepath,
+            "-F", "PNG",
+            '--python', os.path.join(basedir,
+                                     "util",
+                                     "render_opengl.py")]
+    elif subject == 'bake':
+        command = [
+            BLENDER,
+            "-b",
+            "-noaudio",
+            "--factory-startup",
+            "--enable-autoexec",
+            filepath,
+            "-E", "CYCLES"]
+        command += custom_args
+        command += [
+            "-o", output_filepath,
+            "-F", "PNG",
+            '--python', os.path.join(basedir,
+                                     "util",
+                                     "render_bake.py")]
     else:
-        args.extend(["-f", "1"])
+        command = [
+            BLENDER,
+            "--background",
+            "-noaudio",
+            "--factory-startup",
+            "--enable-autoexec",
+            filepath,
+            "-E", "CYCLES"]
+        command += custom_args
+        command += [
+            "-o", output_filepath,
+            "-F", "PNG",
+            "-f", "1"]
 
-    return args
+    try:
+        # Success
+        output = subprocess.check_output(command)
+        if os.path.exists(frame_filepath):
+            shutil.copy(frame_filepath, output_filepath)
+            os.remove(frame_filepath)
+        if VERBOSE:
+            print(output.decode("utf-8"))
+        return None
+    except subprocess.CalledProcessError as e:
+        # Error
+        if os.path.exists(frame_filepath):
+            os.remove(frame_filepath)
+        if VERBOSE:
+            print(e.output.decode("utf-8"))
+        if b"Error: engine not found" in e.output:
+            return "NO_ENGINE"
+        elif b"blender probably wont start" in e.output:
+            return "NO_START"
+        return "CRASH"
+    except BaseException as e:
+        # Crash
+        if os.path.exists(frame_filepath):
+            os.remove(frame_filepath)
+        if VERBOSE:
+            print(e)
+        return "CRASH"
 
 
 def create_argparse():
@@ -50,7 +105,6 @@ def create_argparse():
     parser.add_argument("-testdir", nargs=1)
     parser.add_argument("-outdir", nargs=1)
     parser.add_argument("-idiff", nargs=1)
-    parser.add_argument("-device", nargs=1)
     return parser
 
 
@@ -58,27 +112,19 @@ def main():
     parser = create_argparse()
     args = parser.parse_args()
 
-    blender = args.blender[0]
+    global BLENDER, VERBOSE
+
+    BLENDER = args.blender[0]
+    VERBOSE = os.environ.get("BLENDER_VERBOSE") is not None
+
     test_dir = args.testdir[0]
     idiff = args.idiff[0]
     output_dir = args.outdir[0]
-    device = args.device[0]
 
     from modules import render_report
-    report = render_report.Report('Cycles', output_dir, idiff, device)
+    report = render_report.Report("Cycles Test Report", output_dir, idiff)
     report.set_pixelated(True)
-    report.set_reference_dir("cycles_renders")
-    if device == 'CPU':
-        report.set_compare_engine('eevee')
-    else:
-        report.set_compare_engine('cycles', 'CPU')
-
-    # Increase threshold for motion blur, see T78777.
-    test_dir_name = Path(test_dir).name
-    if test_dir_name == 'motion_blur':
-        report.set_fail_threshold(0.032)
-
-    ok = report.run(test_dir, blender, get_arguments, batch=True)
+    ok = report.run(test_dir, render_file)
 
     sys.exit(not ok)
 

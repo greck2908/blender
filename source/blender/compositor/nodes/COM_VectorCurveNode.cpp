@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,25 +15,26 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
 #include "COM_VectorCurveNode.h"
-#include "COM_ExecutionSystem.h"
 #include "COM_VectorCurveOperation.h"
+#include "COM_ExecutionSystem.h"
 
 VectorCurveNode::VectorCurveNode(bNode *editorNode) : Node(editorNode)
 {
-  /* pass */
+	/* pass */
 }
 
-void VectorCurveNode::convertToOperations(NodeConverter &converter,
-                                          const CompositorContext & /*context*/) const
+void VectorCurveNode::convertToOperations(NodeConverter &converter, const CompositorContext &/*context*/) const
 {
-  VectorCurveOperation *operation = new VectorCurveOperation();
-  operation->setCurveMapping((CurveMapping *)this->getbNode()->storage);
-  converter.addOperation(operation);
+	VectorCurveOperation *operation = new VectorCurveOperation();
+	operation->setCurveMapping((CurveMapping *)this->getbNode()->storage);
+	converter.addOperation(operation);
 
-  converter.mapInputSocket(getInputSocket(0), operation->getInputSocket(0));
-  converter.mapOutputSocket(getOutputSocket(0), operation->getOutputSocket());
+	converter.mapInputSocket(getInputSocket(0), operation->getInputSocket(0));
+	converter.mapOutputSocket(getOutputSocket(0), operation->getOutputSocket());
 }

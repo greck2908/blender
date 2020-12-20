@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,38 +17,29 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
+ *
+ * Contributor(s): Blender Foundation
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup editors
+/** \file ED_text.h
+ *  \ingroup editors
  */
 
-#pragma once
+#ifndef __ED_TEXT_H__
+#define __ED_TEXT_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct ARegion;
 struct SpaceText;
-struct Text;
-struct UndoStep;
+struct ARegion;
 struct UndoType;
-struct bContext;
+struct TextUndoBuf;
 
-bool ED_text_region_location_from_cursor(struct SpaceText *st,
-                                         struct ARegion *region,
-                                         const int cursor_co[2],
-                                         int r_pixel_co[2]);
+bool ED_text_region_location_from_cursor(struct SpaceText *st, struct ARegion *ar, const int cursor_co[2], int r_pixel_co[2]);
 
 /* text_undo.c */
 void ED_text_undosys_type(struct UndoType *ut);
 
-struct UndoStep *ED_text_undo_push_init(struct bContext *C);
+struct TextUndoBuf *ED_text_undo_push_init(struct bContext *C);
 
-/* text_format.c */
-bool ED_text_is_syntax_highlight_supported(struct Text *text);
-
-#ifdef __cplusplus
-}
-#endif
+#endif /* __ED_TEXT_H__ */

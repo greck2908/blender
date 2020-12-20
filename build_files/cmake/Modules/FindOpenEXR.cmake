@@ -21,8 +21,12 @@
 #=============================================================================
 # Copyright 2011 Blender Foundation.
 #
-# Distributed under the OSI-approved BSD 3-Clause License,
-# see accompanying file BSD-3-Clause-license.txt for details.
+# Distributed under the OSI-approved BSD License (the "License");
+# see accompanying file Copyright.txt for details.
+#
+# This software is distributed WITHOUT ANY WARRANTY; without even the
+# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the License for more information.
 #=============================================================================
 
 # If OPENEXR_ROOT_DIR was defined in the environment, use it.
@@ -43,6 +47,9 @@ SET(_openexr_FIND_COMPONENTS
 
 SET(_openexr_SEARCH_DIRS
   ${OPENEXR_ROOT_DIR}
+  /usr/local
+  /sw # Fink
+  /opt/local # DarwinPorts
   /opt/lib/openexr
 )
 
@@ -100,7 +107,6 @@ FOREACH(COMPONENT ${_openexr_FIND_COMPONENTS})
   FIND_LIBRARY(OPENEXR_${UPPERCOMPONENT}_LIBRARY
     NAMES
       ${COMPONENT}-${_openexr_libs_ver} ${COMPONENT}
-    NAMES_PER_DIR
     HINTS
       ${_openexr_SEARCH_DIRS}
     PATH_SUFFIXES

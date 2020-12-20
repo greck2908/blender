@@ -37,15 +37,9 @@ BLACKLIST = {
     "io_export_dxf",  # TODO, check on why this fails
     'io_import_dxf',  # Because of cydxfentity.so dependency
 
-    # Utility scripts not meant to be used as modules
-    os.path.join("power_sequencer", "scripts"),
     # The unpacked wheel is only loaded when actually used, not directly on import:
     os.path.join("io_blend_utils", "blender_bam-unpacked.whl"),
 }
-
-for mod in addon_utils.modules():
-    if addon_utils.module_bl_info(mod)['blender'] < (2, 80, 0):
-        BLACKLIST.add(mod.__name__)
 
 # Some modules need to add to the `sys.path`.
 MODULE_SYS_PATHS = {
@@ -55,9 +49,6 @@ MODULE_SYS_PATHS = {
 
 if not bpy.app.build_options.freestyle:
     BLACKLIST.add("render_freestyle_svg")
-
-if not bpy.app.build_options.xr_openxr:
-    BLACKLIST.add("viewport_vr_preview")
 
 BLACKLIST_DIRS = (
     os.path.join(bpy.utils.resource_path('USER'), "scripts"),
@@ -92,6 +83,13 @@ def module_names_all(mod_dir):
     yield from module_names_recursive(mod_dir)
 
 
+def addon_modules_sorted():
+    modules = addon_utils.modules({})
+    modules[:] = [mod for mod in modules if not mod.__file__.startswith(BLACKLIST_DIRS)]
+    modules.sort(key=lambda mod: mod.__name__)
+    return modules
+
+
 def source_list(path, filename_check=None):
     from os.path import join
     for dirpath, dirnames, filenames in os.walk(path):
@@ -102,6 +100,25 @@ def source_list(path, filename_check=None):
             filepath = join(dirpath, filename)
             if filename_check is None or filename_check(filepath):
                 yield filepath
+
+
+def load_addons():
+    modules = addon_modules_sorted()
+    addons = bpy.context.user_preferences.addons
+
+    # first disable all
+    for mod_name in list(addons.keys()):
+        addon_utils.disable(mod_name, default_set=True)
+
+    assert(bool(addons) is False)
+
+    for mod in modules:
+        mod_name = mod.__name__
+        if mod_name in BLACKLIST:
+            continue
+        addon_utils.enable(mod_name, default_set=True)
+        if not (mod_name in addons):
+            raise Exception("'addon_utils.enable(%r)' call failed" % mod_name)
 
 
 def load_modules():
@@ -149,9 +166,7 @@ def load_modules():
     # test we tested all files except for presets and templates
     ignore_paths = [
         os.sep + "presets" + os.sep,
-        os.sep + "templates_osl" + os.sep,
-        os.sep + "templates_py" + os.sep,
-        os.sep + "bl_app_templates_system" + os.sep,
+        os.sep + "templates" + os.sep,
     ] + ([(os.sep + f + os.sep) for f in BLACKLIST] +
          [(os.sep + f + ".py") for f in BLACKLIST])
 
@@ -182,7 +197,7 @@ def load_modules():
                     assert(os.path.samefile(mod_imp.__file__, submod_full))
 
                     modules.append(mod_imp)
-                except Exception:
+                except Exception as e:
                     import traceback
                     # Module might fail to import, but we don't want whole test to fail here.
                     # Reasoning:
@@ -230,8 +245,15 @@ def load_modules():
 
 
 def main():
+    load_addons()
     load_modules()
 
 
 if __name__ == "__main__":
-    main()
+    # So a python error exits(1)
+    try:
+        main()
+    except:
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

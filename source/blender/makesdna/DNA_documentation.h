@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,11 +17,17 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup DNA
- * \page makesdna makesdna
+/**
+ *  \page makesdna makesdna
+ *  \ingroup DNA
  *
  * \section aboutdna About the DNA module
  *
@@ -27,7 +35,7 @@
  * blender file. There is an executable that scans all files, looking
  * for struct-s to serialize (hence sdna: Struct \ref DNA). From this
  * information, it builds a file with numbers that encode the format,
- * the names of variables, and the place to look for them.
+ * the names of variables, and the plce to look for them.
  *
  * \section dnaissues Known issues with DNA
  *
@@ -77,6 +85,8 @@
  *
  * intern/dna_genfile.c
  * (ton)
+ *
  */
+
 
 /* This file has intentionally no definitions or implementation. */

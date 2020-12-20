@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2019 Blender Foundation
+ * Copyright 2011-2016 Blender Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,41 +14,90 @@
  * limitations under the License.
  */
 
-#ifdef _WIN32
-#  include <windows.h>
-#endif
+#include "util/util_windows.h"
 
-#include "util_windows.h"
+#ifdef _WIN32
 
 CCL_NAMESPACE_BEGIN
 
-bool system_windows_version_at_least(int major, int build)
+#ifdef _M_X64
+#  include <VersionHelpers.h>
+#endif
+
+#if _WIN32_WINNT < 0x0601
+tGetActiveProcessorGroupCount *GetActiveProcessorGroupCount;
+tGetActiveProcessorCount *GetActiveProcessorCount;
+tSetThreadGroupAffinity *SetThreadGroupAffinity;
+tGetProcessGroupAffinity *GetProcessGroupAffinity;
+#endif
+
+static WORD GetActiveProcessorGroupCount_stub()
 {
-#ifdef _WIN32
-  HMODULE hMod = ::GetModuleHandleW(L"ntdll.dll");
-  if (hMod == 0) {
-    return false;
-  }
+	return 1;
+}
 
-  typedef NTSTATUS(WINAPI * RtlGetVersionPtr)(PRTL_OSVERSIONINFOW);
-  RtlGetVersionPtr rtl_get_version = (RtlGetVersionPtr)::GetProcAddress(hMod, "RtlGetVersion");
-  if (rtl_get_version == NULL) {
-    return false;
-  }
+static DWORD GetActiveProcessorCount_stub(WORD /*GroupNumber*/)
+{
+	SYSTEM_INFO info;
+	GetSystemInfo(&info);
+	return info.dwNumberOfProcessors;
+}
 
-  RTL_OSVERSIONINFOW rovi = {0};
-  rovi.dwOSVersionInfoSize = sizeof(rovi);
-  if (rtl_get_version(&rovi) != 0) {
-    return false;
-  }
+static BOOL SetThreadGroupAffinity_stub(
+        HANDLE /*hThread*/,
+        const GROUP_AFFINITY  * /*GroupAffinity*/,
+        PGROUP_AFFINITY /*PreviousGroupAffinity*/)
+{
+	return TRUE;
+}
 
-  return (rovi.dwMajorVersion > major ||
-          (rovi.dwMajorVersion == major && rovi.dwBuildNumber >= build));
+static BOOL GetProcessGroupAffinity_stub(HANDLE hProcess,
+                                         PUSHORT GroupCount,
+                                         PUSHORT GroupArray)
+{
+	if(*GroupCount < 1) {
+		return FALSE;
+	}
+	*GroupCount = 1;
+	GroupArray[0] = 0;
+	return TRUE;
+}
+
+static bool supports_numa()
+{
+#ifndef _M_X64
+	return false;
 #else
-  (void)major;
-  (void)build;
-  return false;
+	return IsWindows7OrGreater();
+#endif
+}
+
+void util_windows_init_numa_groups()
+{
+	static bool initialized = false;
+	if(initialized) {
+		return;
+	}
+	initialized = true;
+#if _WIN32_WINNT < 0x0601
+	if(!supports_numa()) {
+		/* Use stubs on platforms which doesn't have rean NUMA/Groups. */
+		GetActiveProcessorGroupCount = GetActiveProcessorGroupCount_stub;
+		GetActiveProcessorCount = GetActiveProcessorCount_stub;
+		SetThreadGroupAffinity = SetThreadGroupAffinity_stub;
+		GetProcessGroupAffinity = GetProcessGroupAffinity_stub;
+		return;
+	}
+	HMODULE kernel = GetModuleHandleA("kernel32.dll");
+#  define READ_SYMBOL(sym) sym = (t##sym*)GetProcAddress(kernel, #sym)
+	READ_SYMBOL(GetActiveProcessorGroupCount);
+	READ_SYMBOL(GetActiveProcessorCount);
+	READ_SYMBOL(SetThreadGroupAffinity);
+	READ_SYMBOL(GetProcessGroupAffinity);
+#  undef READ_SUMBOL
 #endif
 }
 
 CCL_NAMESPACE_END
+
+#endif  /* _WIN32 */

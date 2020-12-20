@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,52 +15,42 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
-#pragma once
+#ifndef __COM_WRITEBUFFEROPERATION_H__
+#define __COM_WRITEBUFFEROPERATION_H__
 
-#include "COM_MemoryProxy.h"
 #include "COM_NodeOperation.h"
+#include "COM_MemoryProxy.h"
 #include "COM_SocketReader.h"
 /**
  * \brief NodeOperation to write to a tile
  * \ingroup Operation
  */
 class WriteBufferOperation : public NodeOperation {
-  MemoryProxy *m_memoryProxy;
-  bool m_single_value; /* single value stored in buffer */
-  NodeOperation *m_input;
+	MemoryProxy *m_memoryProxy;
+	bool m_single_value; /* single value stored in buffer */
+	NodeOperation *m_input;
+public:
+	WriteBufferOperation(DataType datatype);
+	~WriteBufferOperation();
+	MemoryProxy *getMemoryProxy() { return this->m_memoryProxy; }
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+	bool isWriteBufferOperation() const { return true; }
+	bool isSingleValue() const { return m_single_value; }
 
- public:
-  WriteBufferOperation(DataType datatype);
-  ~WriteBufferOperation();
-  MemoryProxy *getMemoryProxy()
-  {
-    return this->m_memoryProxy;
-  }
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
-  bool isWriteBufferOperation() const
-  {
-    return true;
-  }
-  bool isSingleValue() const
-  {
-    return m_single_value;
-  }
+	void executeRegion(rcti *rect, unsigned int tileNumber);
+	void initExecution();
+	void deinitExecution();
+	void executeOpenCLRegion(OpenCLDevice *device, rcti *rect, unsigned int chunkNumber, MemoryBuffer **memoryBuffers, MemoryBuffer *outputBuffer);
+	void determineResolution(unsigned int resolution[2], unsigned int preferredResolution[2]);
+	void readResolutionFromInputSocket();
+	inline NodeOperation *getInput() {
+		return m_input;
+	}
 
-  void executeRegion(rcti *rect, unsigned int tileNumber);
-  void initExecution();
-  void deinitExecution();
-  void executeOpenCLRegion(OpenCLDevice *device,
-                           rcti *rect,
-                           unsigned int chunkNumber,
-                           MemoryBuffer **memoryBuffers,
-                           MemoryBuffer *outputBuffer);
-  void determineResolution(unsigned int resolution[2], unsigned int preferredResolution[2]);
-  void readResolutionFromInputSocket();
-  inline NodeOperation *getInput()
-  {
-    return m_input;
-  }
 };
+#endif

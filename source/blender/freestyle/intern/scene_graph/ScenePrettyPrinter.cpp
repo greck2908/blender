@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,11 +14,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup freestyle
- * \brief Class to display textual information about a scene graph.
+/** \file blender/freestyle/intern/scene_graph/ScenePrettyPrinter.cpp
+ *  \ingroup freestyle
+ *  \brief Class to display textual information about a scene graph.
+ *  \author Stephane Grabli
+ *  \author Emmanuel Turquin
+ *  \date 26/04/2003
  */
 
 #include <iomanip>
@@ -26,11 +33,11 @@
 
 namespace Freestyle {
 
-#define VISIT(CLASS) \
-  void ScenePrettyPrinter::visit##CLASS(CLASS &) \
-  { \
-    _ofs << _space << #CLASS << endl; \
-  }
+#define VISIT(CLASS)                              \
+	void ScenePrettyPrinter::visit##CLASS(CLASS&) \
+	{                                             \
+		_ofs << _space << #CLASS << endl;         \
+	}
 
 VISIT(Node)
 VISIT(NodeShape)
@@ -39,44 +46,44 @@ VISIT(NodeLight)
 VISIT(NodeDrawingStyle)
 VISIT(NodeTransform)
 
-void ScenePrettyPrinter::visitNodeShapeBefore(NodeShape &UNUSED(shape))
+void ScenePrettyPrinter::visitNodeShapeBefore(NodeShape&)
 {
-  increaseSpace();
+	increaseSpace();
 }
 
-void ScenePrettyPrinter::visitNodeShapeAfter(NodeShape &UNUSED(shape))
+void ScenePrettyPrinter::visitNodeShapeAfter(NodeShape&)
 {
-  decreaseSpace();
+	decreaseSpace();
 }
 
-void ScenePrettyPrinter::visitNodeGroupBefore(NodeGroup &UNUSED(group))
+void ScenePrettyPrinter::visitNodeGroupBefore(NodeGroup&)
 {
-  increaseSpace();
+	increaseSpace();
 }
 
-void ScenePrettyPrinter::visitNodeGroupAfter(NodeGroup &UNUSED(group))
+void ScenePrettyPrinter::visitNodeGroupAfter(NodeGroup&)
 {
-  decreaseSpace();
+	decreaseSpace();
 }
 
-void ScenePrettyPrinter::visitNodeDrawingStyleBefore(NodeDrawingStyle &UNUSED(style))
+void ScenePrettyPrinter::visitNodeDrawingStyleBefore(NodeDrawingStyle&)
 {
-  increaseSpace();
+	increaseSpace();
 }
 
-void ScenePrettyPrinter::visitNodeDrawingStyleAfter(NodeDrawingStyle &UNUSED(style))
+void ScenePrettyPrinter::visitNodeDrawingStyleAfter(NodeDrawingStyle&)
 {
-  decreaseSpace();
+	decreaseSpace();
 }
 
-void ScenePrettyPrinter::visitNodeTransformBefore(NodeTransform &UNUSED(transform))
+void ScenePrettyPrinter::visitNodeTransformBefore(NodeTransform&)
 {
-  increaseSpace();
+	increaseSpace();
 }
 
-void ScenePrettyPrinter::visitNodeTransformAfter(NodeTransform &UNUSED(transform))
+void ScenePrettyPrinter::visitNodeTransformAfter(NodeTransform&)
 {
-  decreaseSpace();
+	decreaseSpace();
 }
 
 VISIT(LineRep)
@@ -84,18 +91,17 @@ VISIT(OrientedLineRep)
 VISIT(TriangleRep)
 VISIT(VertexRep)
 
-void ScenePrettyPrinter::visitIndexedFaceSet(IndexedFaceSet &ifs)
+void ScenePrettyPrinter::visitIndexedFaceSet(IndexedFaceSet& ifs)
 {
-  const float *vertices = ifs.vertices();
-  unsigned vsize = ifs.vsize();
+	const float *vertices = ifs.vertices();
+	unsigned vsize = ifs.vsize();
 
-  _ofs << _space << "IndexedFaceSet" << endl;
-  const float *p = vertices;
-  for (unsigned int i = 0; i < vsize / 3; i++) {
-    _ofs << _space << "  " << setw(3) << setfill('0') << i << ": " << p[0] << ", " << p[1] << ", "
-         << p[2] << endl;
-    p += 3;
-  }
+	_ofs << _space << "IndexedFaceSet" << endl;
+	const float *p = vertices;
+	for (unsigned int i = 0; i < vsize / 3; i++) {
+		_ofs << _space << "  " << setw(3) << setfill('0') << i << ": "  << p[0] << ", " << p[1] << ", " << p[2] << endl;
+		p += 3;
+	}
 }
 
 } /* namespace Freestyle */

@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,17 +17,20 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup bli
+/** \file blender/blenlib/BLI_dynlib.h
+ *  \ingroup bli
  */
 
-#pragma once
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef __BLI_DYNLIB_H__
+#define __BLI_DYNLIB_H__
 
 typedef struct DynamicLibrary DynamicLibrary;
 
@@ -34,6 +39,4 @@ void *BLI_dynlib_find_symbol(DynamicLibrary *lib, const char *symname);
 char *BLI_dynlib_get_error_as_string(DynamicLibrary *lib);
 void BLI_dynlib_close(DynamicLibrary *lib);
 
-#ifdef __cplusplus
-}
-#endif
+#endif /* __BLI_DYNLIB_H__ */

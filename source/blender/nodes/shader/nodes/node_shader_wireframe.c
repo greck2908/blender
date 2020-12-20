@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,53 +17,37 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
 #include "../node_shader_util.h"
 
 /* **************** Wireframe ******************** */
 static bNodeSocketTemplate sh_node_wireframe_in[] = {
-    {SOCK_FLOAT, N_("Size"), 0.01f, 0.0f, 0.0f, 0.0f, 0.0f, 100.0f},
-    {-1, ""},
+	{	SOCK_FLOAT, 1, N_("Size"),	0.01f, 0.0f, 0.0f, 0.0f, 0.0f, 100.0f},
+	{	-1, 0, ""	}
 };
 
 static bNodeSocketTemplate sh_node_wireframe_out[] = {
-    {SOCK_FLOAT, N_("Fac"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
-    {-1, ""},
+	{	SOCK_FLOAT, 0, N_("Fac"),	0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
+	{	-1, 0, ""	}
 };
-
-static int node_shader_gpu_wireframe(GPUMaterial *mat,
-                                     bNode *node,
-                                     bNodeExecData *UNUSED(execdata),
-                                     GPUNodeStack *in,
-                                     GPUNodeStack *out)
-{
-  GPU_material_flag_set(mat, GPU_MATFLAG_BARYCENTRIC);
-  /* node->custom1 is use_pixel_size */
-  if (node->custom1) {
-    return GPU_stack_link(
-        mat, node, "node_wireframe_screenspace", in, out, GPU_builtin(GPU_BARYCENTRIC_TEXCO));
-  }
-
-  return GPU_stack_link(mat,
-                        node,
-                        "node_wireframe",
-                        in,
-                        out,
-                        GPU_builtin(GPU_BARYCENTRIC_TEXCO),
-                        GPU_builtin(GPU_BARYCENTRIC_DIST));
-}
 
 /* node type definition */
 void register_node_type_sh_wireframe(void)
 {
-  static bNodeType ntype;
+	static bNodeType ntype;
 
-  sh_node_type_base(&ntype, SH_NODE_WIREFRAME, "Wireframe", NODE_CLASS_INPUT, 0);
-  node_type_socket_templates(&ntype, sh_node_wireframe_in, sh_node_wireframe_out);
-  node_type_init(&ntype, NULL);
-  node_type_storage(&ntype, "", NULL, NULL);
-  node_type_gpu(&ntype, node_shader_gpu_wireframe);
+	sh_node_type_base(&ntype, SH_NODE_WIREFRAME, "Wireframe", NODE_CLASS_INPUT, 0);
+	node_type_compatibility(&ntype, NODE_NEW_SHADING);
+	node_type_socket_templates(&ntype, sh_node_wireframe_in, sh_node_wireframe_out);
+	node_type_init(&ntype, NULL);
+	node_type_storage(&ntype, "", NULL, NULL);
 
-  nodeRegisterType(&ntype);
+	nodeRegisterType(&ntype);
 }

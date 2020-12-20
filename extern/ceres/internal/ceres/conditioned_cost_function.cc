@@ -68,8 +68,7 @@ ConditionedCostFunction::ConditionedCostFunction(
 
 ConditionedCostFunction::~ConditionedCostFunction() {
   if (ownership_ == TAKE_OWNERSHIP) {
-    STLDeleteUniqueContainerPointers(conditioners_.begin(),
-                                     conditioners_.end());
+    STLDeleteElements(&conditioners_);
   } else {
     wrapped_cost_function_.release();
   }
@@ -78,8 +77,8 @@ ConditionedCostFunction::~ConditionedCostFunction() {
 bool ConditionedCostFunction::Evaluate(double const* const* parameters,
                                        double* residuals,
                                        double** jacobians) const {
-  bool success =
-      wrapped_cost_function_->Evaluate(parameters, residuals, jacobians);
+  bool success = wrapped_cost_function_->Evaluate(parameters, residuals,
+                                                  jacobians);
   if (!success) {
     return false;
   }
@@ -103,8 +102,9 @@ bool ConditionedCostFunction::Evaluate(double const* const* parameters,
 
       double unconditioned_residual = residuals[r];
       double* parameter_pointer = &unconditioned_residual;
-      success = conditioners_[r]->Evaluate(
-          &parameter_pointer, &residuals[r], conditioner_derivative_pointer2);
+      success = conditioners_[r]->Evaluate(&parameter_pointer,
+                                           &residuals[r],
+                                           conditioner_derivative_pointer2);
       if (!success) {
         return false;
       }
@@ -117,8 +117,7 @@ bool ConditionedCostFunction::Evaluate(double const* const* parameters,
             int parameter_block_size =
                 wrapped_cost_function_->parameter_block_sizes()[i];
             VectorRef jacobian_row(jacobians[i] + r * parameter_block_size,
-                                   parameter_block_size,
-                                   1);
+                                   parameter_block_size, 1);
             jacobian_row *= conditioner_derivative;
           }
         }

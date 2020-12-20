@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,78 +17,88 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
+ *
+ * Contributor(s): Full recode, Ton Roosendaal, Crete 2005
+ *				 Full recode, Joshua Leung, 2009
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
-
-/** \file
- * \ingroup bke
- * \brief Blender kernel action and pose functionality.
+#ifndef __BKE_ACTION_H__
+#define __BKE_ACTION_H__
+/** \file BKE_action.h
+ *  \ingroup bke
+ *  \brief Blender kernel action and pose functionality.
+ *  \author Reevan McKay
+ *  \author Ton Roosendaal (full recode 2005)
+ *  \author Joshua Leung (full recode 2009)
+ *  \since may 2001
  */
 
 #include "DNA_listBase.h"
 
+/* The following structures are defined in DNA_action_types.h, and DNA_anim_types.h */
+struct bAction;
+struct bActionGroup;
+struct FCurve;
+struct bPose;
+struct bItasc;
+struct bPoseChannel;
+struct Main;
+struct Object;
+
+/* Kernel prototypes */
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-struct BlendDataReader;
-struct BlendExpander;
-struct BlendLibReader;
-struct BlendWriter;
-struct bArmature;
-
-/* The following structures are defined in DNA_action_types.h, and DNA_anim_types.h */
-struct AnimationEvalContext;
-struct FCurve;
-struct Main;
-struct Object;
-struct bAction;
-struct bActionGroup;
-struct bItasc;
-struct bPose;
-struct bPoseChannel;
-struct bPoseChannel_Runtime;
 
 /* Action Lib Stuff ----------------- */
 
 /* Allocate a new bAction with the given name */
 struct bAction *BKE_action_add(struct Main *bmain, const char name[]);
 
+void BKE_action_copy_data(struct Main *bmain, struct bAction *act_dst, const struct bAction *act_src, const int flag);
+/* Allocate a copy of the given Action and all its data */
+struct bAction *BKE_action_copy(struct Main *bmain, const struct bAction *act_src);
+
+/* Deallocate all of the Action's data, but not the Action itself */
+void BKE_action_free(struct bAction *act);
+
+void BKE_action_make_local(struct Main *bmain, struct bAction *act, const bool lib_local);
+
+
 /* Action API ----------------- */
 
 /* types of transforms applied to the given item
- * - these are the return flags for action_get_item_transforms()
+ *  - these are the return flags for action_get_item_transforms()
  */
 typedef enum eAction_TransformFlags {
-  /* location */
-  ACT_TRANS_LOC = (1 << 0),
-  /* rotation */
-  ACT_TRANS_ROT = (1 << 1),
-  /* scaling */
-  ACT_TRANS_SCALE = (1 << 2),
+	/* location */
+	ACT_TRANS_LOC   = (1 << 0),
+	/* rotation */
+	ACT_TRANS_ROT   = (1 << 1),
+	/* scaling */
+	ACT_TRANS_SCALE = (1 << 2),
 
-  /* bbone shape - for all the parameters, provided one is set */
-  ACT_TRANS_BBONE = (1 << 3),
+	/* bbone shape - for all the parameters, provided one is set */
+	ACT_TRANS_BBONE = (1 << 3),
 
-  /* strictly not a transform, but custom properties are also
-   * quite often used in modern rigs
-   */
-  ACT_TRANS_PROP = (1 << 4),
+	/* strictly not a transform, but custom properties are also
+	 * quite often used in modern rigs
+	 */
+	ACT_TRANS_PROP  = (1 << 4),
 
-  /* all flags */
-  ACT_TRANS_ONLY = (ACT_TRANS_LOC | ACT_TRANS_ROT | ACT_TRANS_SCALE),
-  ACT_TRANS_ALL = (ACT_TRANS_ONLY | ACT_TRANS_PROP),
+	/* all flags */
+	ACT_TRANS_ONLY  = (ACT_TRANS_LOC | ACT_TRANS_ROT | ACT_TRANS_SCALE),
+	ACT_TRANS_ALL   = (ACT_TRANS_ONLY | ACT_TRANS_PROP)
 } eAction_TransformFlags;
 
 /* Return flags indicating which transforms the given object/posechannel has
- * - if 'curves' is provided, a list of links to these curves are also returned
- *   whose nodes WILL NEED FREEING
+ *	- if 'curves' is provided, a list of links to these curves are also returned
+ *	  whose nodes WILL NEED FREEING
  */
-short action_get_item_transforms(struct bAction *act,
-                                 struct Object *ob,
-                                 struct bPoseChannel *pchan,
-                                 ListBase *curves);
+short action_get_item_transforms(struct bAction *act, struct Object *ob, struct bPoseChannel *pchan, ListBase *curves);
+
 
 /* Some kind of bounding box operation on the action */
 void calc_action_range(const struct bAction *act, float *start, float *end, short incl_modifiers);
@@ -109,15 +121,10 @@ void action_group_colors_sync(struct bActionGroup *grp, const struct bActionGrou
 struct bActionGroup *action_groups_add_new(struct bAction *act, const char name[]);
 
 /* Add given channel into (active) group  */
-void action_groups_add_channel(struct bAction *act,
-                               struct bActionGroup *agrp,
-                               struct FCurve *fcurve);
+void action_groups_add_channel(struct bAction *act, struct bActionGroup *agrp, struct FCurve *fcurve);
 
 /* Remove the given channel from all groups */
 void action_groups_remove_channel(struct bAction *act, struct FCurve *fcu);
-
-/* Reconstruct group channel pointers. */
-void BKE_action_groups_reconstruct(struct bAction *act);
 
 /* Find a group with the given name */
 struct bActionGroup *BKE_action_group_find_name(struct bAction *act, const char name[]);
@@ -127,48 +134,37 @@ void action_groups_clear_tempflags(struct bAction *act);
 
 /* Pose API ----------------- */
 
-void BKE_pose_channel_free(struct bPoseChannel *pchan);
-void BKE_pose_channel_free_ex(struct bPoseChannel *pchan, bool do_id_user);
+void                 BKE_pose_channel_free(struct bPoseChannel *pchan);
+void                 BKE_pose_channel_free_ex(struct bPoseChannel *pchan, bool do_id_user);
 
-void BKE_pose_channel_runtime_reset(struct bPoseChannel_Runtime *runtime);
-void BKE_pose_channel_runtime_reset_on_copy(struct bPoseChannel_Runtime *runtime);
+void                 BKE_pose_channels_free(struct bPose *pose);
+void                 BKE_pose_channels_free_ex(struct bPose *pose, bool do_id_user);
 
-void BKE_pose_channel_runtime_free(struct bPoseChannel_Runtime *runtime);
+void                 BKE_pose_channels_hash_make(struct bPose *pose);
+void                 BKE_pose_channels_hash_free(struct bPose *pose);
 
-void BKE_pose_channel_free_bbone_cache(struct bPoseChannel_Runtime *runtime);
+void BKE_pose_channels_remove(
+        struct Object *ob,
+        bool (*filter_fn)(const char *bone_name, void *user_data), void *user_data);
 
-void BKE_pose_channels_free(struct bPose *pose);
-void BKE_pose_channels_free_ex(struct bPose *pose, bool do_id_user);
-
-void BKE_pose_channels_hash_make(struct bPose *pose);
-void BKE_pose_channels_hash_free(struct bPose *pose);
-
-void BKE_pose_channels_remove(struct Object *ob,
-                              bool (*filter_fn)(const char *bone_name, void *user_data),
-                              void *user_data);
-
-void BKE_pose_free_data_ex(struct bPose *pose, bool do_id_user);
-void BKE_pose_free_data(struct bPose *pose);
-void BKE_pose_free(struct bPose *pose);
-void BKE_pose_free_ex(struct bPose *pose, bool do_id_user);
-void BKE_pose_copy_data_ex(struct bPose **dst,
-                           const struct bPose *src,
-                           const int flag,
-                           const bool copy_constraints);
-void BKE_pose_copy_data(struct bPose **dst, const struct bPose *src, const bool copy_constraints);
-void BKE_pose_channel_copy_data(struct bPoseChannel *pchan, const struct bPoseChannel *pchan_from);
-void BKE_pose_channel_session_uuid_generate(struct bPoseChannel *pchan);
+void                 BKE_pose_free_data_ex(struct bPose *pose, bool do_id_user);
+void                 BKE_pose_free_data(struct bPose *pose);
+void                 BKE_pose_free(struct bPose *pose);
+void                 BKE_pose_free_ex(struct bPose *pose, bool do_id_user);
+void                 BKE_pose_copy_data_ex(struct bPose **dst, const struct bPose *src, const int flag, const bool copy_constraints);
+void                 BKE_pose_copy_data(struct bPose **dst, const struct bPose *src, const bool copy_constraints);
+void                 BKE_pose_channel_copy_data(struct bPoseChannel *pchan, const struct bPoseChannel *pchan_from);
 struct bPoseChannel *BKE_pose_channel_find_name(const struct bPose *pose, const char *name);
 struct bPoseChannel *BKE_pose_channel_active(struct Object *ob);
-struct bPoseChannel *BKE_pose_channel_active_or_first_selected(struct Object *ob);
 struct bPoseChannel *BKE_pose_channel_verify(struct bPose *pose, const char *name);
 struct bPoseChannel *BKE_pose_channel_get_mirrored(const struct bPose *pose, const char *name);
-
-void BKE_pose_check_uuids_unique_and_report(const struct bPose *pose);
 
 #ifndef NDEBUG
 bool BKE_pose_channels_is_valid(const struct bPose *pose);
 #endif
+
+/* Copy the data from the action-pose (src) into the pose */
+void extract_pose_from_pose(struct bPose *pose, const struct bPose *src);
 
 /* sets constraint flags */
 void BKE_pose_update_constraint_flags(struct bPose *pose);
@@ -205,28 +201,18 @@ void BKE_pose_remove_group_index(struct bPose *pose, const int index);
 /* Assorted Evaluation ----------------- */
 
 /* Used for the Action Constraint */
-void what_does_obaction(struct Object *ob,
-                        struct Object *workob,
-                        struct bPose *pose,
-                        struct bAction *act,
-                        char groupname[],
-                        const struct AnimationEvalContext *anim_eval_context);
+void what_does_obaction(struct Object *ob, struct Object *workob, struct bPose *pose, struct bAction *act, char groupname[], float cframe);
 
 /* for proxy */
-void BKE_pose_copy_pchan_result(struct bPoseChannel *pchanto,
-                                const struct bPoseChannel *pchanfrom);
 bool BKE_pose_copy_result(struct bPose *to, struct bPose *from);
-/* Clear transforms. */
-void BKE_pose_rest(struct bPose *pose, bool selected_bones_only);
+/* clear all transforms */
+void BKE_pose_rest(struct bPose *pose);
 
 /* Tag pose for recalc. Also tag all related data to be recalc. */
 void BKE_pose_tag_recalc(struct Main *bmain, struct bPose *pose);
 
-void BKE_pose_blend_write(struct BlendWriter *writer, struct bPose *pose, struct bArmature *arm);
-void BKE_pose_blend_read_data(struct BlendDataReader *reader, struct bPose *pose);
-void BKE_pose_blend_read_lib(struct BlendLibReader *reader, struct Object *ob, struct bPose *pose);
-void BKE_pose_blend_read_expand(struct BlendExpander *expander, struct bPose *pose);
-
 #ifdef __cplusplus
 };
+#endif
+
 #endif

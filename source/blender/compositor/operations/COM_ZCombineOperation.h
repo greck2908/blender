@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,56 +15,59 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
-#pragma once
-
+#ifndef __COM_ZCOMBINEOPERATION_H__
+#define __COM_ZCOMBINEOPERATION_H__
 #include "COM_MixOperation.h"
+
 
 /**
  * this program converts an input color to an output value.
  * it assumes we are in sRGB color space.
  */
 class ZCombineOperation : public NodeOperation {
- protected:
-  SocketReader *m_image1Reader;
-  SocketReader *m_depth1Reader;
-  SocketReader *m_image2Reader;
-  SocketReader *m_depth2Reader;
+protected:
+	SocketReader *m_image1Reader;
+	SocketReader *m_depth1Reader;
+	SocketReader *m_image2Reader;
+	SocketReader *m_depth2Reader;
+public:
+	/**
+	 * Default constructor
+	 */
+	ZCombineOperation();
 
- public:
-  /**
-   * Default constructor
-   */
-  ZCombineOperation();
+	void initExecution();
+	void deinitExecution();
 
-  void initExecution();
-  void deinitExecution();
-
-  /**
-   * the inner loop of this program
-   */
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+	/**
+	 * the inner loop of this program
+	 */
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 };
 
 class ZCombineAlphaOperation : public ZCombineOperation {
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 };
 
 class ZCombineMaskOperation : public NodeOperation {
- protected:
-  SocketReader *m_maskReader;
-  SocketReader *m_image1Reader;
-  SocketReader *m_image2Reader;
+protected:
+	SocketReader *m_maskReader;
+	SocketReader *m_image1Reader;
+	SocketReader *m_image2Reader;
+public:
+	ZCombineMaskOperation();
 
- public:
-  ZCombineMaskOperation();
-
-  void initExecution();
-  void deinitExecution();
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+	void initExecution();
+	void deinitExecution();
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 };
 class ZCombineMaskAlphaOperation : public ZCombineMaskOperation {
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 };
+
+#endif

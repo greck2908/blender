@@ -17,19 +17,15 @@
 #ifndef __BLENDER_SESSION_H__
 #define __BLENDER_SESSION_H__
 
-#include "RNA_blender_cpp.h"
-
 #include "device/device.h"
-
-#include "render/bake.h"
 #include "render/scene.h"
 #include "render/session.h"
+#include "render/bake.h"
 
 #include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
-class BlenderSync;
 class ImageMetaData;
 class Scene;
 class Session;
@@ -37,138 +33,142 @@ class RenderBuffers;
 class RenderTile;
 
 class BlenderSession {
- public:
-  BlenderSession(BL::RenderEngine &b_engine,
-                 BL::Preferences &b_userpref,
-                 BL::BlendData &b_data,
-                 bool preview_osl);
+public:
+	BlenderSession(BL::RenderEngine& b_engine,
+	               BL::UserPreferences& b_userpref,
+	               BL::BlendData& b_data,
+	               BL::Scene& b_scene);
 
-  BlenderSession(BL::RenderEngine &b_engine,
-                 BL::Preferences &b_userpref,
-                 BL::BlendData &b_data,
-                 BL::SpaceView3D &b_v3d,
-                 BL::RegionView3D &b_rv3d,
-                 int width,
-                 int height);
+	BlenderSession(BL::RenderEngine& b_engine,
+	               BL::UserPreferences& b_userpref,
+	               BL::BlendData& b_data,
+	               BL::Scene& b_scene,
+	               BL::SpaceView3D& b_v3d,
+	               BL::RegionView3D& b_rv3d,
+	               int width, int height);
 
-  ~BlenderSession();
+	~BlenderSession();
 
-  /* session */
-  void create_session();
-  void free_session();
+	void create();
 
-  void reset_session(BL::BlendData &b_data, BL::Depsgraph &b_depsgraph);
+	/* session */
+	void create_session();
+	void free_session();
 
-  /* offline render */
-  void render(BL::Depsgraph &b_depsgraph);
+	void reset_session(BL::BlendData& b_data,
+	                   BL::Scene& b_scene);
 
-  void bake(BL::Depsgraph &b_depsgrah,
-            BL::Object &b_object,
-            const string &pass_type,
-            const int custom_flag,
-            const int bake_width,
-            const int bake_height);
+	/* offline render */
+	void render();
 
-  void write_render_result(BL::RenderLayer &b_rlay, RenderTile &rtile);
-  void write_render_tile(RenderTile &rtile);
-  void read_render_tile(RenderTile &rtile);
+	void bake(BL::Object& b_object,
+	          const string& pass_type,
+	          const int custom_flag,
+	          const int object_id,
+	          BL::BakePixel& pixel_array,
+	          const size_t num_pixels,
+	          const int depth,
+	          float pixels[]);
 
-  /* update functions are used to update display buffer only after sample was rendered
-   * only needed for better visual feedback */
-  void update_render_result(BL::RenderLayer &b_rlay, RenderTile &rtile);
-  void update_render_tile(RenderTile &rtile, bool highlight);
+	void write_render_result(BL::RenderResult& b_rr,
+	                         BL::RenderLayer& b_rlay,
+	                         RenderTile& rtile);
+	void write_render_tile(RenderTile& rtile);
 
-  /* interactive updates */
-  void synchronize(BL::Depsgraph &b_depsgraph);
+	/* update functions are used to update display buffer only after sample was rendered
+	 * only needed for better visual feedback */
+	void update_render_result(BL::RenderResult& b_rr,
+	                          BL::RenderLayer& b_rlay,
+	                          RenderTile& rtile);
+	void update_render_tile(RenderTile& rtile, bool highlight);
 
-  /* drawing */
-  bool draw(int w, int h);
-  void tag_redraw();
-  void tag_update();
-  void get_status(string &status, string &substatus);
-  void get_kernel_status(string &kernel_status);
-  void get_progress(float &progress, double &total_time, double &render_time);
-  void test_cancel();
-  void update_status_progress();
-  void update_bake_progress();
+	/* interactive updates */
+	void synchronize();
 
-  bool background;
-  Session *session;
-  Scene *scene;
-  BlenderSync *sync;
-  double last_redraw_time;
+	/* drawing */
+	bool draw(int w, int h);
+	void tag_redraw();
+	void tag_update();
+	void get_status(string& status, string& substatus);
+	void get_progress(float& progress, double& total_time, double& render_time);
+	void test_cancel();
+	void update_status_progress();
+	void update_bake_progress();
 
-  BL::RenderEngine b_engine;
-  BL::Preferences b_userpref;
-  BL::BlendData b_data;
-  BL::RenderSettings b_render;
-  BL::Depsgraph b_depsgraph;
-  /* NOTE: Blender's scene might become invalid after call
-   * free_blender_memory_if_possible().
-   */
-  BL::Scene b_scene;
-  BL::SpaceView3D b_v3d;
-  BL::RegionView3D b_rv3d;
-  string b_rlay_name;
-  string b_rview_name;
+	bool background;
+	Session *session;
+	Scene *scene;
+	BlenderSync *sync;
+	double last_redraw_time;
 
-  string last_status;
-  string last_error;
-  float last_progress;
-  double last_status_time;
+	BL::RenderEngine b_engine;
+	BL::UserPreferences b_userpref;
+	BL::BlendData b_data;
+	BL::RenderSettings b_render;
+	BL::Scene b_scene;
+	BL::SpaceView3D b_v3d;
+	BL::RegionView3D b_rv3d;
+	string b_rlay_name;
+	string b_rview_name;
 
-  int width, height;
-  bool preview_osl;
-  double start_resize_time;
+	string last_status;
+	string last_error;
+	float last_progress;
+	double last_status_time;
 
-  void *python_thread_state;
+	int width, height;
+	double start_resize_time;
 
-  /* Global state which is common for all render sessions created from Blender.
-   * Usually denotes command line arguments.
-   */
-  static DeviceTypeMask device_override;
+	void *python_thread_state;
 
-  /* Blender is running from the command line, no windows are shown and some
-   * extra render optimization is possible (possible to free draw-only data and
-   * so on.
-   */
-  static bool headless;
+	/* Global state which is common for all render sessions created from Blender.
+	 * Usually denotes command line arguments.
+	 */
 
-  /* ** Resumable render ** */
+	/* Blender is running from the command line, no windows are shown and some
+	 * extra render optimization is possible (possible to free draw-only data and
+	 * so on.
+	 */
+	static bool headless;
 
-  /* Overall number of chunks in which the sample range is to be devided. */
-  static int num_resumable_chunks;
+	/* ** Resumable render ** */
 
-  /* Current resumable chunk index to render. */
-  static int current_resumable_chunk;
+	/* Overall number of chunks in which the sample range is to be devided. */
+	static int num_resumable_chunks;
 
-  /* Alternative to single-chunk rendering to render a range of chunks. */
-  static int start_resumable_chunk;
-  static int end_resumable_chunk;
+	/* Current resumable chunk index to render. */
+	static int current_resumable_chunk;
 
-  static bool print_render_stats;
+	/* Alternative to single-chunk rendering to render a range of chunks. */
+	static int start_resumable_chunk;
+	static int end_resumable_chunk;
 
- protected:
-  void stamp_view_layer_metadata(Scene *scene, const string &view_layer_name);
+	static bool print_render_stats;
 
-  void do_write_update_render_result(BL::RenderLayer &b_rlay,
-                                     RenderTile &rtile,
-                                     bool do_update_only);
-  void do_write_update_render_tile(RenderTile &rtile,
-                                   bool do_update_only,
-                                   bool do_read_only,
-                                   bool highlight);
+protected:
+	void do_write_update_render_result(BL::RenderResult& b_rr,
+	                                   BL::RenderLayer& b_rlay,
+	                                   RenderTile& rtile,
+	                                   bool do_update_only);
+	void do_write_update_render_tile(RenderTile& rtile, bool do_update_only, bool highlight);
 
-  void builtin_images_load();
+	int builtin_image_frame(const string &builtin_name);
+	void builtin_image_info(const string &builtin_name,
+	                        void *builtin_data,
+	                        ImageMetaData& metadata);
+	bool builtin_image_pixels(const string &builtin_name,
+	                          void *builtin_data,
+	                          unsigned char *pixels,
+	                          const size_t pixels_size,
+	                          const bool free_cache);
+	bool builtin_image_float_pixels(const string &builtin_name,
+	                                void *builtin_data,
+	                                float *pixels,
+	                                const size_t pixels_size,
+	                                const bool free_cache);
 
-  /* Update tile manager to reflect resumable render settings. */
-  void update_resumable_tile_manager(int num_samples);
-
-  /* Is used after each render layer synchronization is done with the goal
-   * of freeing render engine data which is held from Blender side (for
-   * example, dependency graph).
-   */
-  void free_blender_memory_if_possible();
+	/* Update tile manager to reflect resumable render settings. */
+	void update_resumable_tile_manager(int num_samples);
 };
 
 CCL_NAMESPACE_END

@@ -1,4 +1,6 @@
 /*
+ * Copyright 2012, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,10 +15,14 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2012, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
+ *		Sergey Sharybin
  */
 
-#pragma once
+#ifndef __COM_MASKNODE_H__
+#define __COM_MASKNODE_H__
 
 #include "COM_Node.h"
 #include "DNA_node_types.h"
@@ -26,7 +32,10 @@
  * \ingroup Node
  */
 class MaskNode : public Node {
- public:
-  MaskNode(bNode *editorNode);
-  void convertToOperations(NodeConverter &converter, const CompositorContext &context) const;
+public:
+	MaskNode(bNode *editorNode);
+	void convertToOperations(NodeConverter &converter, const CompositorContext &context) const;
+
 };
+
+#endif  /* __COM_MASKNODE_H__ */

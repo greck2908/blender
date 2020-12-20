@@ -23,39 +23,35 @@
 CCL_NAMESPACE_BEGIN
 
 class Patch {
- public:
-  Patch() : patch_index(0), shader(0), from_ngon(false)
-  {
-  }
+public:
+	virtual ~Patch() {}
+	virtual void eval(float3 *P, float3 *dPdu, float3 *dPdv, float3 *N, float u, float v) = 0;
+	virtual BoundBox bound() = 0;
+	virtual int ptex_face_id() { return -1; }
 
-  virtual ~Patch() = default;
-
-  virtual void eval(float3 *P, float3 *dPdu, float3 *dPdv, float3 *N, float u, float v) = 0;
-
-  int patch_index;
-  int shader;
-  bool from_ngon;
+	int patch_index;
+	int shader;
 };
 
 /* Linear Quad Patch */
 
 class LinearQuadPatch : public Patch {
- public:
-  float3 hull[4];
-  float3 normals[4];
+public:
+	float3 hull[4];
+	float3 normals[4];
 
-  void eval(float3 *P, float3 *dPdu, float3 *dPdv, float3 *N, float u, float v);
-  BoundBox bound();
+	void eval(float3 *P, float3 *dPdu, float3 *dPdv, float3 *N, float u, float v);
+	BoundBox bound();
 };
 
 /* Bicubic Patch */
 
 class BicubicPatch : public Patch {
- public:
-  float3 hull[16];
+public:
+	float3 hull[16];
 
-  void eval(float3 *P, float3 *dPdu, float3 *dPdv, float3 *N, float u, float v);
-  BoundBox bound();
+	void eval(float3 *P, float3 *dPdu, float3 *dPdv, float3 *N, float u, float v);
+	BoundBox bound();
 };
 
 CCL_NAMESPACE_END

@@ -156,8 +156,7 @@ def api_dump():
         for func_id, attr in funcs:
             # arg_str = inspect.formatargspec(*inspect.getargspec(py_func))
 
-            sig = inspect.signature(attr)
-            func_args_ids = [k for k, v in sig.parameters.items()]
+            func_args_ids = tuple(inspect.getargspec(attr).args)
 
             dump_class[func_id] = (
                 "func_py",                  # basic_type
@@ -176,7 +175,7 @@ def api_dump():
     import pprint
 
     filename = api_dunp_fname()
-    filehandle = open(filename, 'w', encoding='utf-8')
+    filehandle = open(filename, 'w')
     tot = filehandle.write(pprint.pformat(dump, width=1))
     filehandle.close()
     print("%s, %d bytes written" % (filename, tot))
@@ -200,11 +199,11 @@ def compare_props(a, b, fuzz=0.75):
 
 def api_changelog(api_from, api_to, api_out):
 
-    file_handle = open(api_from, 'r', encoding='utf-8')
+    file_handle = open(api_from, 'r')
     dict_from = eval(file_handle.read())
     file_handle.close()
 
-    file_handle = open(api_to, 'r', encoding='utf-8')
+    file_handle = open(api_to, 'r')
     dict_to = eval(file_handle.read())
     file_handle.close()
 
@@ -267,7 +266,7 @@ def api_changelog(api_from, api_to, api_out):
 
     # also document function argument changes
 
-    fout = open(api_out, 'w', encoding='utf-8')
+    fout = open(api_out, 'w')
     fw = fout.write
     # print(api_changes)
 

@@ -14,8 +14,12 @@
 #=============================================================================
 # Copyright 2015 Blender Foundation.
 #
-# Distributed under the OSI-approved BSD 3-Clause License,
-# see accompanying file BSD-3-Clause-license.txt for details.
+# Distributed under the OSI-approved BSD License (the "License");
+# see accompanying file Copyright.txt for details.
+#
+# This software is distributed WITHOUT ANY WARRANTY; without even the
+# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the License for more information.
 #=============================================================================
 
 # If LZO_ROOT_DIR was defined in the environment, use it.
@@ -25,6 +29,9 @@ ENDIF()
 
 SET(_lzo_SEARCH_DIRS
   ${LZO_ROOT_DIR}
+  /usr/local
+  /sw # Fink
+  /opt/local # DarwinPorts
 )
 
 FIND_PATH(LZO_INCLUDE_DIR lzo/lzo1x.h
@@ -52,7 +59,7 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(LZO DEFAULT_MSG
 IF(LZO_FOUND)
   SET(LZO_LIBRARIES ${LZO_LIBRARY})
   SET(LZO_INCLUDE_DIRS ${LZO_INCLUDE_DIR})
-ENDIF()
+ENDIF(LZO_FOUND)
 
 MARK_AS_ADVANCED(
   LZO_INCLUDE_DIR

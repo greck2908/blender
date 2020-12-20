@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,22 +14,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __BKE_CUSTOMDATA_FILE_H__
+#define __BKE_CUSTOMDATA_FILE_H__
 
-/** \file
- * \ingroup bke
+/** \file BKE_customdata_file.h
+ *  \ingroup bke
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define CDF_TYPE_IMAGE  0
+#define CDF_TYPE_MESH   1
 
-#define CDF_TYPE_IMAGE 0
-#define CDF_TYPE_MESH 1
-
-#define CDF_LAYER_NAME_MAX 64
+#define CDF_LAYER_NAME_MAX  64
 
 typedef struct CDataFile CDataFile;
 typedef struct CDataFileLayer CDataFileLayer;
@@ -56,6 +57,4 @@ void cdf_remove(const char *filename);
 CDataFileLayer *cdf_layer_find(CDataFile *cdf, int type, const char *name);
 CDataFileLayer *cdf_layer_add(CDataFile *cdf, int type, const char *name, size_t datasize);
 
-#ifdef __cplusplus
-}
-#endif
+#endif /* __BKE_CUSTOMDATA_FILE_H__ */

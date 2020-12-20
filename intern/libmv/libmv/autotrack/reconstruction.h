@@ -23,7 +23,6 @@
 #ifndef LIBMV_AUTOTRACK_RECONSTRUCTION_H_
 #define LIBMV_AUTOTRACK_RECONSTRUCTION_H_
 
-#include "libmv/base/map.h"
 #include "libmv/base/vector.h"
 #include "libmv/numeric/numeric.h"
 #include "libmv/simple_pipeline/camera_intrinsics.h"
@@ -52,7 +51,7 @@ class Point {
 };
 
 // A reconstruction for a set of tracks. The indexing for clip, frame, and
-// track should match that of a Tracks object, stored elsewhere.
+// track should match that of a Tracs object, stored elsewhere.
 class Reconstruction {
  public:
   // All methods copy their input reference or take ownership of the pointer.
@@ -76,7 +75,7 @@ class Reconstruction {
   vector<CameraIntrinsics*> camera_intrinsics_;
 
   // Indexed by Marker::clip then by Marker::frame.
-  vector<map<int, CameraPose>> camera_poses_;
+  vector<vector<CameraPose> > camera_poses_;
 
   // Indexed by Marker::track.
   vector<Point> points_;

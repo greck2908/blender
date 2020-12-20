@@ -38,15 +38,14 @@
 #ifndef CERES_INTERNAL_BLOCK_STRUCTURE_H_
 #define CERES_INTERNAL_BLOCK_STRUCTURE_H_
 
-#include <cstdint>
 #include <vector>
-
 #include "ceres/internal/port.h"
+#include "ceres/types.h"
 
 namespace ceres {
 namespace internal {
 
-typedef int32_t BlockSize;
+typedef int32 BlockSize;
 
 struct Block {
   Block() : size(-1), position(-1) {}
@@ -71,11 +70,6 @@ struct Cell {
 bool CellLessThan(const Cell& lhs, const Cell& rhs);
 
 struct CompressedList {
-  CompressedList() {}
-
-  // Construct a CompressedList with the cells containing num_cells
-  // entries.
-  CompressedList(int num_cells) : cells(num_cells) {}
   Block block;
   std::vector<Cell> cells;
 };

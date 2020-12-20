@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,34 +15,30 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
-#pragma once
+#ifndef __COM_FLIPOPERATION_H__
+#define __COM_FLIPOPERATION_H__
 
 #include "COM_NodeOperation.h"
 
 class FlipOperation : public NodeOperation {
- private:
-  SocketReader *m_inputOperation;
-  bool m_flipX;
-  bool m_flipY;
+private:
+	SocketReader *m_inputOperation;
+	bool m_flipX;
+	bool m_flipY;
+public:
+	FlipOperation();
+	bool determineDependingAreaOfInterest(rcti *input, ReadBufferOperation *readOperation, rcti *output);
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 
- public:
-  FlipOperation();
-  bool determineDependingAreaOfInterest(rcti *input,
-                                        ReadBufferOperation *readOperation,
-                                        rcti *output);
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
-
-  void initExecution();
-  void deinitExecution();
-  void setFlipX(bool flipX)
-  {
-    this->m_flipX = flipX;
-  }
-  void setFlipY(bool flipY)
-  {
-    this->m_flipY = flipY;
-  }
+	void initExecution();
+	void deinitExecution();
+	void setFlipX(bool flipX) { this->m_flipX = flipX; }
+	void setFlipY(bool flipY) { this->m_flipY = flipY; }
 };
+
+#endif

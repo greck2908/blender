@@ -50,7 +50,8 @@ class CompressedRowJacobianWriter {
  public:
   CompressedRowJacobianWriter(Evaluator::Options /* ignored */,
                               Program* program)
-      : program_(program) {}
+    : program_(program) {
+  }
 
   // PopulateJacobianRowAndColumnBlockVectors sets col_blocks and
   // row_blocks for a CompressedRowSparseMatrix, based on the
@@ -63,7 +64,8 @@ class CompressedRowJacobianWriter {
   // (Jacobian writers do not fall under any type hierarchy; they only
   // have to provide an interface as specified in program_evaluator.h).
   static void PopulateJacobianRowAndColumnBlockVectors(
-      const Program* program, CompressedRowSparseMatrix* jacobian);
+      const Program* program,
+      CompressedRowSparseMatrix* jacobian);
 
   // It is necessary to determine the order of the jacobian blocks
   // before copying them into a CompressedRowSparseMatrix (or derived
@@ -81,7 +83,7 @@ class CompressedRowJacobianWriter {
   static void GetOrderedParameterBlocks(
       const Program* program,
       int residual_id,
-      std::vector<std::pair<int, int>>* evaluated_jacobian_blocks);
+      std::vector<std::pair<int, int> >* evaluated_jacobian_blocks);
 
   // JacobianWriter interface.
 
@@ -97,7 +99,7 @@ class CompressedRowJacobianWriter {
 
   void Write(int residual_id,
              int residual_offset,
-             double** jacobians,
+             double **jacobians,
              SparseMatrix* base_jacobian);
 
  private:

@@ -29,9 +29,10 @@
 /*****************************************************************************
  * \file  
  *		 Defines the exception classes that can be thrown
+ *  \author 
  *  	Erwin Aertbelien, Div. PMA, Dep. of Mech. Eng., K.U.Leuven
  *
- * \version 
+ *  \version 
  *		ORO_Geometry V0.2
  *
  *	\par History
@@ -54,7 +55,7 @@ namespace KDL {
 class Error {
 public:
     /** Returns a description string describing the error.
-     *  the returned pointer only guaranteed to exists as long as
+     *  the returned pointer only garanteed to exists as long as 
      * the Error object exists.
      */
 	virtual ~Error() {}

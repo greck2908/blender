@@ -17,10 +17,8 @@
 #ifndef __PARTICLES_H__
 #define __PARTICLES_H__
 
-#include "util/util_array.h"
 #include "util/util_types.h"
-
-#include "graph/node.h"
+#include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -32,45 +30,40 @@ class Scene;
 /* Particle System */
 
 struct Particle {
-  int index;
-  float age;
-  float lifetime;
-  float3 location;
-  float4 rotation;
-  float size;
-  float3 velocity;
-  float3 angular_velocity;
+	int index;
+	float age;
+	float lifetime;
+	float3 location;
+	float4 rotation;
+	float size;
+	float3 velocity;
+	float3 angular_velocity;
 };
 
-class ParticleSystem : public Node {
- public:
-  NODE_DECLARE
+class ParticleSystem {
+public:
+	ParticleSystem();
+	~ParticleSystem();
 
-  ParticleSystem();
-  ~ParticleSystem();
+	void tag_update(Scene *scene);
 
-  void tag_update(Scene *scene);
-
-  array<Particle> particles;
+	array<Particle> particles;
 };
 
 /* ParticleSystem Manager */
 
 class ParticleSystemManager {
- public:
-  bool need_update;
+public:
+	bool need_update;
 
-  ParticleSystemManager();
-  ~ParticleSystemManager();
+	ParticleSystemManager();
+	~ParticleSystemManager();
 
-  void device_update_particles(Device *device,
-                               DeviceScene *dscene,
-                               Scene *scene,
-                               Progress &progress);
-  void device_update(Device *device, DeviceScene *dscene, Scene *scene, Progress &progress);
-  void device_free(Device *device, DeviceScene *dscene);
+	void device_update_particles(Device *device, DeviceScene *dscene, Scene *scene, Progress& progress);
+	void device_update(Device *device, DeviceScene *dscene, Scene *scene, Progress& progress);
+	void device_free(Device *device, DeviceScene *dscene);
 
-  void tag_update(Scene *scene);
+	void tag_update(Scene *scene);
 };
 
 CCL_NAMESPACE_END

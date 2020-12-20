@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,13 +14,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Contributor(s): Jörg Müller.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup bke
+/** \file blender/blenkernel/intern/speaker.c
+ *  \ingroup bke
  */
 
-#include "DNA_defaults.h"
 #include "DNA_object_types.h"
 #include "DNA_sound_types.h"
 #include "DNA_speaker_types.h"
@@ -26,101 +31,68 @@
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 
-#include "BLT_translation.h"
-
-#include "BKE_anim_data.h"
-#include "BKE_idtype.h"
-#include "BKE_lib_id.h"
-#include "BKE_lib_query.h"
+#include "BKE_animsys.h"
+#include "BKE_library.h"
+#include "BKE_library_query.h"
+#include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_speaker.h"
 
-#include "BLO_read_write.h"
-
-static void speaker_init_data(ID *id)
+void BKE_speaker_init(Speaker *spk)
 {
-  Speaker *speaker = (Speaker *)id;
+	BLI_assert(MEMCMP_STRUCT_OFS_IS_ZERO(spk, id));
 
-  BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(speaker, id));
-
-  MEMCPY_STRUCT_AFTER(speaker, DNA_struct_default_get(Speaker), id);
+	spk->attenuation = 1.0f;
+	spk->cone_angle_inner = 360.0f;
+	spk->cone_angle_outer = 360.0f;
+	spk->cone_volume_outer = 1.0f;
+	spk->distance_max = FLT_MAX;
+	spk->distance_reference = 1.0f;
+	spk->flag = 0;
+	spk->pitch = 1.0f;
+	spk->sound = NULL;
+	spk->volume = 1.0f;
+	spk->volume_max = 1.0f;
+	spk->volume_min = 0.0f;
 }
-
-static void speaker_foreach_id(ID *id, LibraryForeachIDData *data)
-{
-  Speaker *speaker = (Speaker *)id;
-
-  BKE_LIB_FOREACHID_PROCESS(data, speaker->sound, IDWALK_CB_USER);
-}
-
-static void speaker_blend_write(BlendWriter *writer, ID *id, const void *id_address)
-{
-  Speaker *spk = (Speaker *)id;
-  if (spk->id.us > 0 || BLO_write_is_undo(writer)) {
-    /* write LibData */
-    BLO_write_id_struct(writer, Speaker, id_address, &spk->id);
-    BKE_id_blend_write(writer, &spk->id);
-
-    if (spk->adt) {
-      BKE_animdata_blend_write(writer, spk->adt);
-    }
-  }
-}
-
-static void speaker_blend_read_data(BlendDataReader *reader, ID *id)
-{
-  Speaker *spk = (Speaker *)id;
-  BLO_read_data_address(reader, &spk->adt);
-  BKE_animdata_blend_read_data(reader, spk->adt);
-
-#if 0
-  spk->sound = newdataadr(fd, spk->sound);
-  direct_link_sound(fd, spk->sound);
-#endif
-}
-
-static void speaker_blend_read_lib(BlendLibReader *reader, ID *id)
-{
-  Speaker *spk = (Speaker *)id;
-  BLO_read_id_address(reader, spk->id.lib, &spk->sound);
-}
-
-static void speaker_blend_read_expand(BlendExpander *expander, ID *id)
-{
-  Speaker *spk = (Speaker *)id;
-  BLO_expand(expander, spk->sound);
-}
-
-IDTypeInfo IDType_ID_SPK = {
-    .id_code = ID_SPK,
-    .id_filter = FILTER_ID_SPK,
-    .main_listbase_index = INDEX_ID_SPK,
-    .struct_size = sizeof(Speaker),
-    .name = "Speaker",
-    .name_plural = "speakers",
-    .translation_context = BLT_I18NCONTEXT_ID_SPEAKER,
-    .flags = 0,
-
-    .init_data = speaker_init_data,
-    .copy_data = NULL,
-    .free_data = NULL,
-    .make_local = NULL,
-    .foreach_id = speaker_foreach_id,
-    .foreach_cache = NULL,
-
-    .blend_write = speaker_blend_write,
-    .blend_read_data = speaker_blend_read_data,
-    .blend_read_lib = speaker_blend_read_lib,
-    .blend_read_expand = speaker_blend_read_expand,
-
-    .blend_read_undo_preserve = NULL,
-};
 
 void *BKE_speaker_add(Main *bmain, const char *name)
 {
-  Speaker *spk;
+	Speaker *spk;
 
-  spk = BKE_id_new(bmain, ID_SPK, name);
+	spk =  BKE_libblock_alloc(bmain, ID_SPK, name, 0);
 
-  return spk;
+	BKE_speaker_init(spk);
+
+	return spk;
+}
+
+/**
+ * Only copy internal data of Speaker ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_speaker_copy_data(Main *UNUSED(bmain), Speaker *UNUSED(spk_dst), const Speaker *UNUSED(spk_src), const int UNUSED(flag))
+{
+	/* Nothing to do! */
+}
+
+Speaker *BKE_speaker_copy(Main *bmain, const Speaker *spk)
+{
+	Speaker *spk_copy;
+	BKE_id_copy_ex(bmain, &spk->id, (ID **)&spk_copy, 0, false);
+	return spk_copy;
+}
+
+void BKE_speaker_make_local(Main *bmain, Speaker *spk, const bool lib_local)
+{
+	BKE_id_make_local_generic(bmain, &spk->id, true, lib_local);
+}
+
+void BKE_speaker_free(Speaker *spk)
+{
+	BKE_animdata_free((ID *)spk, false);
 }

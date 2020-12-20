@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,38 +15,37 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
 #include "COM_ConvertColorProfileOperation.h"
 
-#include "IMB_imbuf.h"
-
-ConvertColorProfileOperation::ConvertColorProfileOperation()
+extern "C" {
+#  include "IMB_imbuf.h"
+}
+ConvertColorProfileOperation::ConvertColorProfileOperation() : NodeOperation()
 {
-  this->addInputSocket(COM_DT_COLOR);
-  this->addOutputSocket(COM_DT_COLOR);
-  this->m_inputOperation = nullptr;
-  this->m_predivided = false;
+	this->addInputSocket(COM_DT_COLOR);
+	this->addOutputSocket(COM_DT_COLOR);
+	this->m_inputOperation = NULL;
+	this->m_predivided = false;
 }
 
 void ConvertColorProfileOperation::initExecution()
 {
-  this->m_inputOperation = this->getInputSocketReader(0);
+	this->m_inputOperation = this->getInputSocketReader(0);
 }
 
-void ConvertColorProfileOperation::executePixelSampled(float output[4],
-                                                       float x,
-                                                       float y,
-                                                       PixelSampler sampler)
+void ConvertColorProfileOperation::executePixelSampled(float output[4], float x, float y, PixelSampler sampler)
 {
-  float color[4];
-  this->m_inputOperation->readSampled(color, x, y, sampler);
-  IMB_buffer_float_from_float(
-      output, color, 4, this->m_toProfile, this->m_fromProfile, this->m_predivided, 1, 1, 0, 0);
+	float color[4];
+	this->m_inputOperation->readSampled(color, x, y, sampler);
+	IMB_buffer_float_from_float(output, color, 4, this->m_toProfile, this->m_fromProfile, this->m_predivided, 1, 1, 0, 0);
 }
 
 void ConvertColorProfileOperation::deinitExecution()
 {
-  this->m_inputOperation = nullptr;
+	this->m_inputOperation = NULL;
 }

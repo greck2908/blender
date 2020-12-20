@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,15 +15,20 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
-#pragma once
+#ifndef __COM_CONVOLUTIONEDGEFILTEROPERATION_H__
+#define __COM_CONVOLUTIONEDGEFILTEROPERATION_H__
 
 #include "COM_ConvolutionFilterOperation.h"
 
 class ConvolutionEdgeFilterOperation : public ConvolutionFilterOperation {
- public:
-  ConvolutionEdgeFilterOperation();
-  void executePixel(float output[4], int x, int y, void *data);
+public:
+	ConvolutionEdgeFilterOperation();
+	void executePixel(float output[4], int x, int y, void *data);
 };
+
+#endif

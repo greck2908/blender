@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,20 +17,28 @@
  *
  * The Original Code is Copyright (C) 2006 Blender Foundation.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup nodes
+/** \file blender/nodes/composite/node_composite_util.h
+ *  \ingroup nodes
  */
 
-#pragma once
+
+#ifndef __NODE_COMPOSITE_UTIL_H__
+#define __NODE_COMPOSITE_UTIL_H__
 
 #include "DNA_ID.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_node_types.h"
 
-#include "BLI_blenlib.h"
 #include "BLI_math.h"
+#include "BLI_blenlib.h"
 
 #include "BLT_translation.h"
 
@@ -40,25 +50,18 @@
 
 #include "node_util.h"
 
-#include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
+#include "IMB_imbuf.h"
 
 #include "RE_pipeline.h"
 
 /* only for forward declarations */
 #include "NOD_composite.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#define CMP_SCALE_MAX 12000
+#define CMP_SCALE_MAX	12000
 
 bool cmp_node_poll_default(struct bNodeType *ntype, struct bNodeTree *ntree);
 void cmp_node_update_default(struct bNodeTree *UNUSED(ntree), struct bNode *node);
-void cmp_node_type_base(
-    struct bNodeType *ntype, int type, const char *name, short nclass, short flag);
+void cmp_node_type_base(struct bNodeType *ntype, int type, const char *name, short nclass, short flag);
 
-#ifdef __cplusplus
-}
-#endif
+#endif  /* __NODE_COMPOSITE_UTIL_H__ */

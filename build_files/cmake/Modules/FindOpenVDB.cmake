@@ -14,8 +14,12 @@
 #=============================================================================
 # Copyright 2015 Blender Foundation.
 #
-# Distributed under the OSI-approved BSD 3-Clause License,
-# see accompanying file BSD-3-Clause-license.txt for details.
+# Distributed under the OSI-approved BSD License (the "License");
+# see accompanying file Copyright.txt for details.
+#
+# This software is distributed WITHOUT ANY WARRANTY; without even the
+# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the License for more information.
 #=============================================================================
 
 # If OPENVDB_ROOT_DIR was defined in the environment, use it.
@@ -25,6 +29,10 @@ ENDIF()
 
 SET(_openvdb_SEARCH_DIRS
   ${OPENVDB_ROOT_DIR}
+  /usr/local
+  /sw # Fink
+  /opt/local # DarwinPorts
+  /opt/openvdb
   /opt/lib/openvdb
 )
 
@@ -49,13 +57,13 @@ FIND_LIBRARY(OPENVDB_LIBRARY
 # handle the QUIETLY and REQUIRED arguments and set OPENVDB_FOUND to TRUE if
 # all listed variables are TRUE
 INCLUDE(FindPackageHandleStandardArgs)
-FIND_PACKAGE_HANDLE_STANDARD_ARGS(OpenVDB DEFAULT_MSG
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(OPENVDB DEFAULT_MSG
     OPENVDB_LIBRARY OPENVDB_INCLUDE_DIR)
 
 IF(OPENVDB_FOUND)
   SET(OPENVDB_LIBRARIES ${OPENVDB_LIBRARY})
   SET(OPENVDB_INCLUDE_DIRS ${OPENVDB_INCLUDE_DIR})
-ENDIF()
+ENDIF(OPENVDB_FOUND)
 
 MARK_AS_ADVANCED(
   OPENVDB_INCLUDE_DIR

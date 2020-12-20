@@ -35,6 +35,7 @@
 #define CERES_INTERNAL_DENSE_NORMAL_CHOLESKY_SOLVER_H_
 
 #include "ceres/linear_solver.h"
+#include "ceres/internal/macros.h"
 
 namespace ceres {
 namespace internal {
@@ -73,16 +74,16 @@ class DenseSparseMatrix;
 // library. This solver always returns a solution, it is the user's
 // responsibility to judge if the solution is good enough for their
 // purposes.
-class DenseNormalCholeskySolver : public DenseSparseMatrixSolver {
+class DenseNormalCholeskySolver: public DenseSparseMatrixSolver {
  public:
   explicit DenseNormalCholeskySolver(const LinearSolver::Options& options);
 
  private:
-  LinearSolver::Summary SolveImpl(
+  virtual LinearSolver::Summary SolveImpl(
       DenseSparseMatrix* A,
       const double* b,
       const LinearSolver::PerSolveOptions& per_solve_options,
-      double* x) final;
+      double* x);
 
   LinearSolver::Summary SolveUsingLAPACK(
       DenseSparseMatrix* A,
@@ -97,6 +98,7 @@ class DenseNormalCholeskySolver : public DenseSparseMatrixSolver {
       double* x);
 
   const LinearSolver::Options options_;
+  CERES_DISALLOW_COPY_AND_ASSIGN(DenseNormalCholeskySolver);
 };
 
 }  // namespace internal

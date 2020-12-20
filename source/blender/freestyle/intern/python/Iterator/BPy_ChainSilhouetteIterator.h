@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,13 +14,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup freestyle
+/** \file source/blender/freestyle/intern/python/Iterator/BPy_ChainSilhouetteIterator.h
+ *  \ingroup freestyle
  */
 
-#pragma once
+#ifndef __FREESTYLE_PYTHON_CHAINSILHOUETTEITERATOR_H__
+#define __FREESTYLE_PYTHON_CHAINSILHOUETTEITERATOR_H__
 
 #include "BPy_ChainingIterator.h"
 
@@ -33,12 +38,12 @@ extern "C" {
 extern PyTypeObject ChainSilhouetteIterator_Type;
 
 #define BPy_ChainSilhouetteIterator_Check(v) \
-  (PyObject_IsInstance((PyObject *)v, (PyObject *)&ChainSilhouetteIterator_Type))
+            (PyObject_IsInstance((PyObject *)v, (PyObject *)&ChainSilhouetteIterator_Type))
 
 /*---------------------------Python BPy_ChainSilhouetteIterator structure definition----------*/
 typedef struct {
-  BPy_ChainingIterator py_c_it;
-  ChainSilhouetteIterator *cs_it;
+	BPy_ChainingIterator py_c_it;
+	ChainSilhouetteIterator *cs_it;
 } BPy_ChainSilhouetteIterator;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -46,3 +51,5 @@ typedef struct {
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* __FREESTYLE_PYTHON_CHAINSILHOUETTEITERATOR_H__ */

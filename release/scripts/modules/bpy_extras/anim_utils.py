@@ -47,12 +47,12 @@ def bake_action(
     :return: an action or None
     :rtype: :class:`bpy.types.Action`
     """
-    if not (kwargs.get("do_pose") or kwargs.get("do_object")):
+    if not (do_pose or do_object):
         return None
 
     action, = bake_action_objects(
         [(obj, action)],
-        frames=frames,
+        frames,
         **kwargs,
     )
     return action
@@ -104,7 +104,7 @@ def bake_action_objects_iter(
         if frame is None:
             break
         scene.frame_set(frame)
-        bpy.context.view_layer.update()
+        scene.update()
         for iter in iter_all:
             iter.send(frame)
     scene.frame_set(frame_back)
@@ -158,8 +158,7 @@ def bake_action_iter(
         'bbone_curveinx', 'bbone_curveoutx',
         'bbone_curveiny', 'bbone_curveouty',
         'bbone_rollin', 'bbone_rollout',
-        'bbone_scaleinx', 'bbone_scaleoutx',
-        'bbone_scaleiny', 'bbone_scaleouty',
+        'bbone_scalein', 'bbone_scaleout',
         'bbone_easein', 'bbone_easeout'
     ]
 
@@ -169,8 +168,7 @@ def bake_action_iter(
         for name, pbone in obj.pose.bones.items():
             if do_visual_keying:
                 # Get the final transform of the bone in its own local space...
-                matrix[name] = obj.convert_space(pose_bone=pbone, matrix=pbone.matrix,
-                                                 from_space='POSE', to_space='LOCAL')
+                matrix[name] = obj.convert_space(pbone, pbone.matrix, 'POSE', 'LOCAL')
             else:
                 matrix[name] = pbone.matrix_basis.copy()
 
@@ -188,7 +186,7 @@ def bake_action_iter(
                 parent = obj.parent
                 matrix = obj.matrix_basis
                 if parent:
-                    return parent.matrix_world @ matrix
+                    return parent.matrix_world * matrix
                 else:
                     return matrix.copy()
     else:
@@ -197,7 +195,7 @@ def bake_action_iter(
                 parent = obj.parent
                 matrix = obj.matrix_world
                 if parent:
-                    return parent.matrix_world.inverted_safe() @ matrix
+                    return parent.matrix_world.inverted_safe() * matrix
                 else:
                     return matrix.copy()
         else:
@@ -215,6 +213,8 @@ def bake_action_iter(
 
     pose_info = []
     obj_info = []
+
+    options = {'INSERTKEY_NEEDED'}
 
     # -------------------------------------------------------------------------
     # Collect transformations
@@ -247,17 +247,11 @@ def bake_action_iter(
     if action is None:
         action = bpy.data.actions.new("Action")
 
-    # Only leave tweak mode if we actually need to modify the action (T57159)
-    if action != atd.action:
-        # Leave tweak mode before trying to modify the action (T48397)
-        if atd.use_tweak_mode:
-            atd.use_tweak_mode = False
+    # Leave tweak mode before trying to modify the action (T48397)
+    if atd.use_tweak_mode:
+        atd.use_tweak_mode = False
 
-        atd.action = action
-
-    # Baking the action only makes sense in Replace mode, so force it (T69105)
-    if not atd.use_tweak_mode:
-        atd.action_blend_type = 'REPLACE'
+    atd.action = action
 
     # -------------------------------------------------------------------------
     # Apply transformations to action
@@ -272,28 +266,19 @@ def bake_action_iter(
                 while pbone.constraints:
                     pbone.constraints.remove(pbone.constraints[0])
 
-            # Create compatible eulers, quats.
+            # create compatible eulers
             euler_prev = None
-            quat_prev = None
 
             for (f, matrix, bbones) in pose_info:
                 pbone.matrix_basis = matrix[name].copy()
 
-                pbone.keyframe_insert("location", index=-1, frame=f, group=name)
+                pbone.keyframe_insert("location", -1, f, name, options)
 
                 rotation_mode = pbone.rotation_mode
                 if rotation_mode == 'QUATERNION':
-                    if quat_prev is not None:
-                        quat = pbone.rotation_quaternion.copy()
-                        quat.make_compatible(quat_prev)
-                        pbone.rotation_quaternion = quat
-                        quat_prev = quat
-                        del quat
-                    else:
-                        quat_prev = pbone.rotation_quaternion.copy()
-                    pbone.keyframe_insert("rotation_quaternion", index=-1, frame=f, group=name)
+                    pbone.keyframe_insert("rotation_quaternion", -1, f, name, options)
                 elif rotation_mode == 'AXIS_ANGLE':
-                    pbone.keyframe_insert("rotation_axis_angle", index=-1, frame=f, group=name)
+                    pbone.keyframe_insert("rotation_axis_angle", -1, f, name, options)
                 else:  # euler, XYZ, ZXY etc
                     if euler_prev is not None:
                         euler = pbone.rotation_euler.copy()
@@ -303,9 +288,9 @@ def bake_action_iter(
                         del euler
                     else:
                         euler_prev = pbone.rotation_euler.copy()
-                    pbone.keyframe_insert("rotation_euler", index=-1, frame=f, group=name)
+                    pbone.keyframe_insert("rotation_euler", -1, f, name, options)
 
-                pbone.keyframe_insert("scale", index=-1, frame=f, group=name)
+                pbone.keyframe_insert("scale", -1, f, name, options)
 
                 # Bendy Bones
                 if pbone.bone.bbone_segments > 1:
@@ -313,7 +298,7 @@ def bake_action_iter(
                     for bb_prop in BBONE_PROPS:
                         # update this property with value from bbone_shape, then key it
                         setattr(pbone, bb_prop, bbone_shape[bb_prop])
-                        pbone.keyframe_insert(bb_prop, index=-1, frame=f, group=name)
+                        pbone.keyframe_insert(bb_prop, -1, f, name, options)
 
     # object. TODO. multiple objects
     if do_object:
@@ -321,36 +306,32 @@ def bake_action_iter(
             while obj.constraints:
                 obj.constraints.remove(obj.constraints[0])
 
-        # Create compatible eulers, quats.
+        # create compatible eulers
         euler_prev = None
-        quat_prev = None
 
         for (f, matrix) in obj_info:
             name = "Action Bake"  # XXX: placeholder
             obj.matrix_basis = matrix
 
-            obj.keyframe_insert("location", index=-1, frame=f, group=name)
+            obj.keyframe_insert("location", -1, f, name, options)
 
             rotation_mode = obj.rotation_mode
             if rotation_mode == 'QUATERNION':
-                if quat_prev is not None:
-                    quat = obj.rotation_quaternion.copy()
-                    quat.make_compatible(quat_prev)
-                    obj.rotation_quaternion = quat
-                    quat_prev = quat
-                    del quat
-                else:
-                    quat_prev = obj.rotation_quaternion.copy()
-                obj.keyframe_insert("rotation_quaternion", index=-1, frame=f, group=name)
+                obj.keyframe_insert("rotation_quaternion", -1, f, name, options)
             elif rotation_mode == 'AXIS_ANGLE':
-                obj.keyframe_insert("rotation_axis_angle", index=-1, frame=f, group=name)
+                obj.keyframe_insert("rotation_axis_angle", -1, f, name, options)
             else:  # euler, XYZ, ZXY etc
                 if euler_prev is not None:
-                    obj.rotation_euler = matrix.to_euler(obj.rotation_mode, euler_prev)
-                euler_prev = obj.rotation_euler.copy()
-                obj.keyframe_insert("rotation_euler", index=-1, frame=f, group=name)
+                    euler = obj.rotation_euler.copy()
+                    euler.make_compatible(euler_prev)
+                    obj.rotation_euler = euler
+                    euler_prev = euler
+                    del euler
+                else:
+                    euler_prev = obj.rotation_euler.copy()
+                obj.keyframe_insert("rotation_euler", -1, f, name, options)
 
-            obj.keyframe_insert("scale", index=-1, frame=f, group=name)
+            obj.keyframe_insert("scale", -1, f, name, options)
 
         if do_parents_clear:
             obj.parent = None

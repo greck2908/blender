@@ -31,12 +31,9 @@
 #ifndef CERES_INTERNAL_PROGRAM_H_
 #define CERES_INTERNAL_PROGRAM_H_
 
-#include <memory>
 #include <set>
 #include <string>
 #include <vector>
-
-#include "ceres/evaluation_callback.h"
 #include "ceres/internal/port.h"
 
 namespace ceres {
@@ -57,7 +54,7 @@ class TripletSparseMatrix;
 // another; for example, the first stage of solving involves stripping all
 // constant parameters and residuals. This is in contrast with Problem, which is
 // not built for transformation.
-class CERES_EXPORT_INTERNAL Program {
+class Program {
  public:
   Program();
   explicit Program(const Program& program);
@@ -67,7 +64,6 @@ class CERES_EXPORT_INTERNAL Program {
   const std::vector<ResidualBlock*>& residual_blocks() const;
   std::vector<ParameterBlock*>* mutable_parameter_blocks();
   std::vector<ResidualBlock*>* mutable_residual_blocks();
-  EvaluationCallback* mutable_evaluation_callback();
 
   // Serialize to/from the program and update states.
   //
@@ -75,8 +71,8 @@ class CERES_EXPORT_INTERNAL Program {
   // computation of the Jacobian of its local parameterization. If
   // this computation fails for some reason, then this method returns
   // false and the state of the parameter blocks cannot be trusted.
-  bool StateVectorToParameterBlocks(const double* state);
-  void ParameterBlocksToStateVector(double* state) const;
+  bool StateVectorToParameterBlocks(const double *state);
+  void ParameterBlocksToStateVector(double *state) const;
 
   // Copy internal state to the user's parameters.
   void CopyParameterBlockStateToUserState();
@@ -131,10 +127,8 @@ class CERES_EXPORT_INTERNAL Program {
   // structure corresponding to the block sparsity of the transpose of
   // the Jacobian matrix.
   //
-  // start_residual_block which allows the user to ignore the first
-  // start_residual_block residuals.
-  std::unique_ptr<TripletSparseMatrix> CreateJacobianBlockSparsityTranspose(
-      int start_residual_block = 0) const;
+  // Caller owns the result.
+  TripletSparseMatrix* CreateJacobianBlockSparsityTranspose() const;
 
   // Create a copy of this program and removes constant parameter
   // blocks and residual blocks with no varying parameter blocks while
@@ -188,7 +182,6 @@ class CERES_EXPORT_INTERNAL Program {
   // The Program does not own the ParameterBlock or ResidualBlock objects.
   std::vector<ParameterBlock*> parameter_blocks_;
   std::vector<ResidualBlock*> residual_blocks_;
-  EvaluationCallback* evaluation_callback_ = nullptr;
 
   friend class ProblemImpl;
 };

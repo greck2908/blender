@@ -16,20 +16,20 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
+# Contributor(s): Campbell Barton
+#
 # ***** END GPL LICENSE BLOCK *****
 
 # <pep8 compliant>
 
 import sys
-if sys.version_info.major < 3:
+if not sys.version.startswith("3"):
     print("\nPython3.x needed, found %s.\nAborting!\n" %
           sys.version.partition(" ")[0])
     sys.exit(1)
 
 from cmake_consistency_check_config import (
-    IGNORE_SOURCE,
-    IGNORE_SOURCE_MISSING,
-    IGNORE_CMAKE,
+    IGNORE,
     UTF8_CHECK,
     SOURCE_DIR,
     BUILD_DIR,
@@ -42,11 +42,6 @@ from os.path import join, dirname, normpath, splitext
 global_h = set()
 global_c = set()
 global_refs = {}
-
-# Ignore cmake file, path pairs.
-global_ignore_source_missing = {}
-for k, v in IGNORE_SOURCE_MISSING:
-    global_ignore_source_missing.setdefault(k, []).append(v)
 
 
 def replace_line(f, i, text, keep_indent=True):
@@ -143,13 +138,6 @@ def cmake_get_src(f):
             cmake_base = dirname(f)
             cmake_base_bin = os.path.join(BUILD_DIR, os.path.relpath(cmake_base, SOURCE_DIR))
 
-            # Find known missing sources list (if we have one).
-            f_rel = os.path.relpath(f, SOURCE_DIR)
-            f_rel_key = f_rel
-            if os.sep != "/":
-                f_rel_key = f_rel_key.replace(os.sep, "/")
-            local_ignore_source_missing = global_ignore_source_missing.get(f_rel_key, [])
-
             while it is not None:
                 i += 1
                 try:
@@ -162,16 +150,12 @@ def cmake_get_src(f):
 
                 if not l.startswith("#"):
 
-                    # Remove in-line comments.
-                    l = l.split(" # ")[0].rstrip()
-
                     if ")" in l:
                         if l.strip() != ")":
                             raise Exception("strict formatting not kept '*)' %s:%d" % (f, i))
                         break
 
                     # replace dirs
-                    l = l.replace("${CMAKE_SOURCE_DIR}", SOURCE_DIR)
                     l = l.replace("${CMAKE_CURRENT_SOURCE_DIR}", cmake_base)
                     l = l.replace("${CMAKE_CURRENT_BINARY_DIR}", cmake_base_bin)
                     l = l.strip('"')
@@ -227,10 +211,7 @@ def cmake_get_src(f):
                                     # replace_line(f, i - 1, new_path_rel)
 
                             else:
-                                if l in local_ignore_source_missing:
-                                    local_ignore_source_missing.remove(l)
-                                else:
-                                    raise Exception("non existent include %s:%d -> %s" % (f, i, new_file))
+                                raise Exception("non existent include %s:%d -> %s" % (f, i, new_file))
 
                         # print(new_file)
 
@@ -257,16 +238,8 @@ def cmake_get_src(f):
     filen.close()
 
 
-def is_ignore_source(f, ignore_used):
-    for index, ig in enumerate(IGNORE_SOURCE):
-        if ig in f:
-            ignore_used[index] = True
-            return True
-    return False
-
-
-def is_ignore_cmake(f, ignore_used):
-    for index, ig in enumerate(IGNORE_CMAKE):
+def is_ignore(f, ignore_used):
+    for index, ig in enumerate(IGNORE):
         if ig in f:
             ignore_used[index] = True
             return True
@@ -277,12 +250,8 @@ def main():
 
     print("Scanning:", SOURCE_DIR)
 
-    ignore_used_source = [False] * len(IGNORE_SOURCE)
-    ignore_used_cmake = [False] * len(IGNORE_CMAKE)
-
     for cmake in source_list(SOURCE_DIR, is_cmake):
-        if not is_ignore_cmake(cmake, ignore_used_cmake):
-            cmake_get_src(cmake)
+        cmake_get_src(cmake)
 
     # First do stupid check, do these files exist?
     print("\nChecking for missing references:")
@@ -313,10 +282,12 @@ def main():
     del is_err
     del errs
 
+    ignore_used = [False] * len(IGNORE)
+
     # now check on files not accounted for.
     print("\nC/C++ Files CMake does not know about...")
     for cf in sorted(source_list(SOURCE_DIR, is_c)):
-        if not is_ignore_source(cf, ignore_used_source):
+        if not is_ignore(cf, ignore_used):
             if cf not in global_c:
                 print("missing_c: ", cf)
 
@@ -333,7 +304,7 @@ def main():
 
     print("\nC/C++ Headers CMake does not know about...")
     for hf in sorted(source_list(SOURCE_DIR, is_c_header)):
-        if not is_ignore_source(hf, ignore_used_source):
+        if not is_ignore(hf, ignore_used):
             if hf not in global_h:
                 print("missing_h: ", hf)
 
@@ -355,21 +326,9 @@ def main():
                                 traceback.print_exc()
 
     # Check ignores aren't stale
-    print("\nCheck for unused 'IGNORE_SOURCE' paths...")
-    for index, ig in enumerate(IGNORE_SOURCE):
-        if not ignore_used_source[index]:
-            print("unused ignore: %r" % ig)
-
-    # Check ignores aren't stale
-    print("\nCheck for unused 'IGNORE_SOURCE_MISSING' paths...")
-    for k, v in sorted(global_ignore_source_missing.items()):
-        for ig in v:
-            print("unused ignore: %r -> %r" % (ig, k))
-
-    # Check ignores aren't stale
-    print("\nCheck for unused 'IGNORE_CMAKE' paths...")
-    for index, ig in enumerate(IGNORE_CMAKE):
-        if not ignore_used_cmake[index]:
+    print("\nCheck for unused 'IGNORE' paths...")
+    for index, ig in enumerate(IGNORE):
+        if not ignore_used[index]:
             print("unused ignore: %r" % ig)
 
 

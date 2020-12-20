@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,14 +17,21 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
+ *
+ * The Original Code is: all of this file.
+ *
+ * Contributor(s): none yet.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup GHOST
+/** \file ghost/GHOST_IEventConsumer.h
+ *  \ingroup GHOST
  * Declaration of GHOST_IEventConsumer interface class.
  */
 
-#pragma once
+#ifndef __GHOST_IEVENTCONSUMER_H__
+#define __GHOST_IEVENTCONSUMER_H__
 
 #include "GHOST_IEvent.h"
 
@@ -33,25 +42,30 @@
  * they want to receive events. The system will call the processEvent() method
  * for every installed event consumer to pass events.
  * \see GHOST_ISystem#addEventConsumer
+ * \author  Maarten Gribnau
+ * \date    May 14, 2001
  */
-class GHOST_IEventConsumer {
- public:
-  /**
-   * Destructor.
-   */
-  virtual ~GHOST_IEventConsumer()
-  {
-  }
+class GHOST_IEventConsumer
+{
+public:
+	/**
+	 * Destructor.
+	 */
+	virtual ~GHOST_IEventConsumer()
+	{
+	}
 
-  /**
-   * This method is called by the system when it has events to dispatch.
-   * \see GHOST_ISystem#dispatchEvents
-   * \param event: The event that can be handled or ignored.
-   * \return Indication as to whether the event was handled.
-   */
-  virtual bool processEvent(GHOST_IEvent *event) = 0;
+	/**
+	 * This method is called by the system when it has events to dispatch.
+	 * \see GHOST_ISystem#dispatchEvents
+	 * \param   event   The event that can be handled or ignored.
+	 * \return  Indication as to whether the event was handled.
+	 */
+	virtual bool processEvent(GHOST_IEvent *event) = 0;
 
 #ifdef WITH_CXX_GUARDEDALLOC
-  MEM_CXX_CLASS_ALLOC_FUNCS("GHOST:GHOST_IEventConsumer")
+	MEM_CXX_CLASS_ALLOC_FUNCS("GHOST:GHOST_IEventConsumer")
 #endif
 };
+
+#endif  /* __GHOST_IEVENTCONSUMER_H__ */

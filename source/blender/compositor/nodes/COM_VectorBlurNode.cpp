@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,31 +15,32 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
 #include "COM_VectorBlurNode.h"
-#include "COM_VectorBlurOperation.h"
 #include "DNA_node_types.h"
+#include "COM_VectorBlurOperation.h"
 
 VectorBlurNode::VectorBlurNode(bNode *editorNode) : Node(editorNode)
 {
-  /* pass */
+	/* pass */
 }
 
-void VectorBlurNode::convertToOperations(NodeConverter &converter,
-                                         const CompositorContext &context) const
+void VectorBlurNode::convertToOperations(NodeConverter &converter, const CompositorContext &context) const
 {
-  bNode *node = this->getbNode();
-  NodeBlurData *vectorBlurSettings = (NodeBlurData *)node->storage;
+	bNode *node = this->getbNode();
+	NodeBlurData *vectorBlurSettings = (NodeBlurData *)node->storage;
 
-  VectorBlurOperation *operation = new VectorBlurOperation();
-  operation->setVectorBlurSettings(vectorBlurSettings);
-  operation->setQuality(context.getQuality());
-  converter.addOperation(operation);
+	VectorBlurOperation *operation = new VectorBlurOperation();
+	operation->setVectorBlurSettings(vectorBlurSettings);
+	operation->setQuality(context.getQuality());
+	converter.addOperation(operation);
 
-  converter.mapInputSocket(getInputSocket(0), operation->getInputSocket(0));
-  converter.mapInputSocket(getInputSocket(1), operation->getInputSocket(1));
-  converter.mapInputSocket(getInputSocket(2), operation->getInputSocket(2));
-  converter.mapOutputSocket(getOutputSocket(), operation->getOutputSocket());
+	converter.mapInputSocket(getInputSocket(0), operation->getInputSocket(0));
+	converter.mapInputSocket(getInputSocket(1), operation->getInputSocket(1));
+	converter.mapInputSocket(getInputSocket(2), operation->getInputSocket(2));
+	converter.mapOutputSocket(getOutputSocket(), operation->getOutputSocket());
 }

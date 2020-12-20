@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,56 +14,54 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Contributor(s): Jörg Müller.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup DNA
+/** \file DNA_speaker_types.h
+ *  \ingroup DNA
  */
 
-#pragma once
+#ifndef __DNA_SPEAKER_TYPES_H__
+#define __DNA_SPEAKER_TYPES_H__
 
 #include "DNA_ID.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 struct AnimData;
 struct bSound;
 
 typedef struct Speaker {
-  ID id;
-  /** Animation data (must be immediately after id for utilities to use it). */
-  struct AnimData *adt;
+	ID id;
+	struct AnimData *adt;	/* animation data (must be immediately after id for utilities to use it) */
 
-  struct bSound *sound;
+	struct bSound *sound;
 
-  /* not animatable properties */
-  float volume_max;
-  float volume_min;
-  float distance_max;
-  float distance_reference;
-  float attenuation;
-  float cone_angle_outer;
-  float cone_angle_inner;
-  float cone_volume_outer;
+	// not animatable properties
+	float volume_max;
+	float volume_min;
+	float distance_max;
+	float distance_reference;
+	float attenuation;
+	float cone_angle_outer;
+	float cone_angle_inner;
+	float cone_volume_outer;
 
-  /* animatable properties */
-  float volume;
-  float pitch;
+	// animatable properties
+	float volume;
+	float pitch;
 
-  /* flag */
-  short flag;
-  char _pad1[6];
+	// flag
+	short flag;
+	short pad1[3];
 } Speaker;
 
 /* **************** SPEAKER ********************* */
 
 /* flag */
-#define SPK_DS_EXPAND (1 << 0)
-#define SPK_MUTED (1 << 1)
-// #define SPK_RELATIVE    (1 << 2)  /* UNUSED */
+#define SPK_DS_EXPAND   (1<<0)
+#define SPK_MUTED       (1<<1)
+#define SPK_RELATIVE    (1<<2)
 
-#ifdef __cplusplus
-}
-#endif
+#endif /* __DNA_SPEAKER_TYPES_H__ */

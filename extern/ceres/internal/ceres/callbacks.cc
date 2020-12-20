@@ -28,10 +28,8 @@
 //
 // Author: sameeragarwal@google.com (Sameer Agarwal)
 
-#include "ceres/callbacks.h"
-
 #include <iostream>  // NO LINT
-
+#include "ceres/callbacks.h"
 #include "ceres/program.h"
 #include "ceres/stringprintf.h"
 #include "glog/logging.h"
@@ -49,36 +47,17 @@ StateUpdatingCallback::~StateUpdatingCallback() {}
 
 CallbackReturnType StateUpdatingCallback::operator()(
     const IterationSummary& summary) {
-  program_->StateVectorToParameterBlocks(parameters_);
-  program_->CopyParameterBlockStateToUserState();
-  return SOLVER_CONTINUE;
-}
-
-GradientProblemSolverStateUpdatingCallback::
-    GradientProblemSolverStateUpdatingCallback(
-        int num_parameters,
-        const double* internal_parameters,
-        double* user_parameters)
-    : num_parameters_(num_parameters),
-      internal_parameters_(internal_parameters),
-      user_parameters_(user_parameters) {}
-
-GradientProblemSolverStateUpdatingCallback::
-    ~GradientProblemSolverStateUpdatingCallback() {}
-
-CallbackReturnType GradientProblemSolverStateUpdatingCallback::operator()(
-    const IterationSummary& summary) {
   if (summary.step_is_successful) {
-    std::copy(internal_parameters_,
-              internal_parameters_ + num_parameters_,
-              user_parameters_);
+    program_->StateVectorToParameterBlocks(parameters_);
+    program_->CopyParameterBlockStateToUserState();
   }
   return SOLVER_CONTINUE;
 }
 
 LoggingCallback::LoggingCallback(const MinimizerType minimizer_type,
                                  const bool log_to_stdout)
-    : minimizer_type(minimizer_type), log_to_stdout_(log_to_stdout) {}
+    : minimizer_type(minimizer_type),
+      log_to_stdout_(log_to_stdout) {}
 
 LoggingCallback::~LoggingCallback() {}
 
@@ -100,13 +79,11 @@ CallbackReturnType LoggingCallback::operator()(
                           summary.iteration_time_in_seconds,
                           summary.cumulative_time_in_seconds);
   } else if (minimizer_type == TRUST_REGION) {
-    // clang-format off
     if (summary.iteration == 0) {
       output = "iter      cost      cost_change  |gradient|   |step|    tr_ratio  tr_radius  ls_iter  iter_time  total_time\n";  // NOLINT
     }
     const char* kReportRowFormat =
         "% 4d % 8e   % 3.2e   % 3.2e  % 3.2e  % 3.2e % 3.2e     % 4d   % 3.2e   % 3.2e";  // NOLINT
-    // clang-format on
     output += StringPrintf(kReportRowFormat,
                            summary.iteration,
                            summary.cost,

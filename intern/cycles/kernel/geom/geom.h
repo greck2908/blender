@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-// clang-format off
 #include "kernel/geom/geom_attribute.h"
 #include "kernel/geom/geom_object.h"
 #ifdef __PATCH_EVAL__
@@ -31,4 +30,3 @@
 #include "kernel/geom/geom_curve_intersect.h"
 #include "kernel/geom/geom_volume.h"
 #include "kernel/geom/geom_primitive.h"
-// clang-format on

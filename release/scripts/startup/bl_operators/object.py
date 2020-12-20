@@ -23,6 +23,7 @@ from bpy.types import Operator
 from bpy.props import (
     BoolProperty,
     EnumProperty,
+    FloatProperty,
     IntProperty,
     StringProperty,
 )
@@ -34,19 +35,19 @@ class SelectPattern(Operator):
     bl_label = "Select Pattern"
     bl_options = {'REGISTER', 'UNDO'}
 
-    pattern: StringProperty(
+    pattern = StringProperty(
         name="Pattern",
         description="Name filter using '*', '?' and "
         "'[abc]' unix style wildcards",
         maxlen=64,
         default="*",
     )
-    case_sensitive: BoolProperty(
+    case_sensitive = BoolProperty(
         name="Case Sensitive",
         description="Do a case sensitive compare",
         default=False,
     )
-    extend: BoolProperty(
+    extend = BoolProperty(
         name="Extend",
         description="Extend the existing selection",
         default=True,
@@ -62,13 +63,11 @@ class SelectPattern(Operator):
             pattern_match = (lambda a, b:
                              fnmatch.fnmatchcase(a.upper(), b.upper()))
         is_ebone = False
-        is_pbone = False
         obj = context.object
         if obj and obj.mode == 'POSE':
             items = obj.data.bones
             if not self.extend:
                 bpy.ops.pose.select_all(action='DESELECT')
-            is_pbone = True
         elif obj and obj.type == 'ARMATURE' and obj.mode == 'EDIT':
             items = obj.data.edit_bones
             if not self.extend:
@@ -79,23 +78,19 @@ class SelectPattern(Operator):
             if not self.extend:
                 bpy.ops.object.select_all(action='DESELECT')
 
-        # Can be pose bones, edit bones or objects
+        # Can be pose bones or objects
         for item in items:
             if pattern_match(item.name, self.pattern):
+                item.select = True
 
                 # hrmf, perhaps there should be a utility function for this.
                 if is_ebone:
-                    item.select = True
                     item.select_head = True
                     item.select_tail = True
                     if item.use_connect:
                         item_parent = item.parent
                         if item_parent is not None:
                             item_parent.select_tail = True
-                elif is_pbone:
-                    item.select = True
-                else:
-                    item.select_set(True)
 
         return {'FINISHED'}
 
@@ -103,18 +98,13 @@ class SelectPattern(Operator):
         wm = context.window_manager
         return wm.invoke_props_popup(self, event)
 
-    def draw(self, _context):
+    def draw(self, context):
         layout = self.layout
 
         layout.prop(self, "pattern")
         row = layout.row()
         row.prop(self, "case_sensitive")
         row.prop(self, "extend")
-
-    @classmethod
-    def poll(cls, context):
-        obj = context.object
-        return (not obj) or (obj.mode == 'OBJECT') or (obj.type == 'ARMATURE')
 
 
 class SelectCamera(Operator):
@@ -123,17 +113,16 @@ class SelectCamera(Operator):
     bl_label = "Select Camera"
     bl_options = {'REGISTER', 'UNDO'}
 
-    extend: BoolProperty(
+    extend = BoolProperty(
         name="Extend",
         description="Extend the selection",
-        default=False,
+        default=False
     )
 
     def execute(self, context):
         scene = context.scene
-        view_layer = context.view_layer
         view = context.space_data
-        if view.type == 'VIEW_3D' and view.use_local_camera:
+        if view.type == 'VIEW_3D' and not view.lock_camera_and_layers:
             camera = view.camera
         else:
             camera = scene.camera
@@ -145,9 +134,9 @@ class SelectCamera(Operator):
         else:
             if not self.extend:
                 bpy.ops.object.select_all(action='DESELECT')
-            view_layer.objects.active = camera
-            # camera.hide = False  # XXX TODO where is this now?
-            camera.select_set(True)
+            scene.objects.active = camera
+            camera.hide = False
+            camera.select = True
             return {'FINISHED'}
 
         return {'CANCELLED'}
@@ -160,16 +149,15 @@ class SelectHierarchy(Operator):
     bl_label = "Select Hierarchy"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction: EnumProperty(
-        items=(
-            ('PARENT', "Parent", ""),
-            ('CHILD', "Child", ""),
-        ),
+    direction = EnumProperty(
+        items=(('PARENT', "Parent", ""),
+               ('CHILD', "Child", ""),
+               ),
         name="Direction",
         description="Direction to select in the hierarchy",
-        default='PARENT',
-    )
-    extend: BoolProperty(
+        default='PARENT')
+
+    extend = BoolProperty(
         name="Extend",
         description="Extend the existing selection",
         default=False,
@@ -180,7 +168,7 @@ class SelectHierarchy(Operator):
         return context.object
 
     def execute(self, context):
-        view_layer = context.view_layer
+        scene = context.scene
         select_new = []
         act_new = None
 
@@ -194,7 +182,7 @@ class SelectHierarchy(Operator):
             for obj in selected_objects:
                 parent = obj.parent
 
-                if parent and parent.visible_get():
+                if parent:
                     if obj_act == obj:
                         act_new = parent
 
@@ -202,7 +190,7 @@ class SelectHierarchy(Operator):
 
         else:
             for obj in selected_objects:
-                select_new.extend([child for child in obj.children if child.visible_get()])
+                select_new.extend(obj.children)
 
             if select_new:
                 select_new.sort(key=lambda obj_iter: obj_iter.name)
@@ -214,30 +202,31 @@ class SelectHierarchy(Operator):
                 bpy.ops.object.select_all(action='DESELECT')
 
             for obj in select_new:
-                obj.select_set(True)
+                obj.select = True
 
-            view_layer.objects.active = act_new
+            scene.objects.active = act_new
             return {'FINISHED'}
 
         return {'CANCELLED'}
 
 
 class SubdivisionSet(Operator):
-    """Sets a Subdivision Surface level (1 to 5)"""
+    """Sets a Subdivision Surface Level (1-5)"""
 
     bl_idname = "object.subdivision_set"
     bl_label = "Subdivision Set"
     bl_options = {'REGISTER', 'UNDO'}
 
-    level: IntProperty(
+    level = IntProperty(
         name="Level",
         min=-100, max=100,
         soft_min=-6, soft_max=6,
         default=1,
     )
-    relative: BoolProperty(
+
+    relative = BoolProperty(
         name="Relative",
-        description=("Apply the subdivision surface level as an offset "
+        description=("Apply the subsurf level as an offset "
                      "relative to the current level"),
         default=False,
     )
@@ -263,7 +252,7 @@ class SubdivisionSet(Operator):
                     if not relative:
                         if level > mod.total_levels:
                             sub = level - mod.total_levels
-                            for _ in range(sub):
+                            for i in range(sub):
                                 bpy.ops.object.multires_subdivide(modifier="Multires")
 
                         if obj.mode == 'SCULPT':
@@ -296,10 +285,10 @@ class SubdivisionSet(Operator):
                 if obj.mode == 'SCULPT':
                     mod = obj.modifiers.new("Multires", 'MULTIRES')
                     if level > 0:
-                        for _ in range(level):
+                        for i in range(0, level):
                             bpy.ops.object.multires_subdivide(modifier="Multires")
                 else:
-                    mod = obj.modifiers.new("Subdivision", 'SUBSURF')
+                    mod = obj.modifiers.new("Subsurf", 'SUBSURF')
                     mod.levels = level
             except:
                 self.report({'WARNING'},
@@ -312,32 +301,32 @@ class SubdivisionSet(Operator):
 
 
 class ShapeTransfer(Operator):
-    """Copy the active shape key of another selected object to this one"""
+    """Copy another selected objects active shape to this one by """ \
+        """applying the relative offsets"""
 
     bl_idname = "object.shape_key_transfer"
     bl_label = "Transfer Shape Key"
     bl_options = {'REGISTER', 'UNDO'}
 
-    mode: EnumProperty(
-        items=(
-            ('OFFSET',
-             "Offset",
-             "Apply the relative positional offset",
-             ),
-            ('RELATIVE_FACE',
-             "Relative Face",
-             "Calculate relative position (using faces)",
-             ),
-            ('RELATIVE_EDGE',
-             "Relative Edge",
-             "Calculate relative position (using edges)",
-             ),
-        ),
+    mode = EnumProperty(
+        items=(('OFFSET',
+                "Offset",
+                "Apply the relative positional offset",
+                ),
+               ('RELATIVE_FACE',
+                "Relative Face",
+                "Calculate relative position (using faces)",
+                ),
+               ('RELATIVE_EDGE',
+                "Relative Edge",
+                "Calculate relative position (using edges)",
+                ),
+               ),
         name="Transformation Mode",
         description="Relative shape positions to the new shape method",
         default='OFFSET',
     )
-    use_clamp: BoolProperty(
+    use_clamp = BoolProperty(
         name="Clamp Offset",
         description=("Clamp the transformation to the distance each "
                      "vertex moves in the original shape"),
@@ -524,7 +513,7 @@ class JoinUVs(Operator):
         if is_editmode:
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
-        if not mesh.uv_layers:
+        if not mesh.uv_textures:
             self.report({'WARNING'},
                         "Object: %s, Mesh: '%s' has no UVs"
                         % (obj.name, mesh.name))
@@ -562,7 +551,7 @@ class JoinUVs(Operator):
                             else:
                                 uv_other = mesh_other.uv_layers.active
                                 if not uv_other:
-                                    mesh_other.uv_layers.new()
+                                    mesh_other.uv_textures.new()
                                     uv_other = mesh_other.uv_layers.active
                                     if not uv_other:
                                         self.report({'ERROR'}, "Could not add "
@@ -575,7 +564,6 @@ class JoinUVs(Operator):
 
                                 # finally do the copy
                                 uv_other.data.foreach_set("uv", uv_array)
-                                mesh_other.update()
 
         if is_editmode:
             bpy.ops.object.mode_set(mode='EDIT', toggle=False)
@@ -586,15 +574,14 @@ class JoinUVs(Operator):
 
 
 class MakeDupliFace(Operator):
-    """Convert objects into instanced faces"""
+    """Convert objects into dupli-face instanced"""
     bl_idname = "object.make_dupli_face"
-    bl_label = "Make Instance Face"
+    bl_label = "Make Dupli-Face"
     bl_options = {'REGISTER', 'UNDO'}
 
     @staticmethod
     def _main(context):
         from mathutils import Vector
-        from collections import defaultdict
 
         SCALE_FAC = 0.01
         offset = 0.5 * SCALE_FAC
@@ -609,11 +596,13 @@ class MakeDupliFace(Operator):
             trans = matrix.to_translation()
             rot = matrix.to_3x3()  # also contains scale
 
-            return [(rot @ b) + trans for b in base_tri]
-        linked = defaultdict(list)
+            return [(rot * b) + trans for b in base_tri]
+        scene = context.scene
+        linked = {}
         for obj in context.selected_objects:
-            if obj.type == 'MESH':
-                linked[obj.data].append(obj)
+            data = obj.data
+            if data:
+                linked.setdefault(data, []).append(obj)
 
         for data, objects in linked.items():
             face_verts = [axis for obj in objects
@@ -636,23 +625,27 @@ class MakeDupliFace(Operator):
             mesh.polygons.foreach_set("loop_total", (4,) * nbr_faces)
             mesh.update()  # generates edge data
 
+            # pick an object to use
+            obj = objects[0]
+
             ob_new = bpy.data.objects.new(mesh.name, mesh)
-            context.collection.objects.link(ob_new)
+            base = scene.objects.link(ob_new)
+            base.layers[:] = obj.layers
 
             ob_inst = bpy.data.objects.new(data.name, data)
-            context.collection.objects.link(ob_inst)
-
-            ob_new.instance_type = 'FACES'
-            ob_inst.parent = ob_new
-            ob_new.use_instance_faces_scale = True
-            ob_new.instance_faces_scale = 1.0 / SCALE_FAC
-
-            ob_inst.select_set(True)
-            ob_new.select_set(True)
+            base = scene.objects.link(ob_inst)
+            base.layers[:] = obj.layers
 
             for obj in objects:
-                for collection in obj.users_collection:
-                    collection.objects.unlink(obj)
+                scene.objects.unlink(obj)
+
+            ob_new.dupli_type = 'FACES'
+            ob_inst.parent = ob_new
+            ob_new.use_dupli_faces_scale = True
+            ob_new.dupli_faces_scale = 1.0 / SCALE_FAC
+
+            ob_inst.select = True
+            ob_new.select = True
 
     def execute(self, context):
         self._main(context)
@@ -671,7 +664,7 @@ class IsolateTypeRender(Operator):
 
         for obj in context.visible_objects:
 
-            if obj.select_get():
+            if obj.select:
                 obj.hide_render = False
             else:
                 if obj.type == act_type:
@@ -699,7 +692,7 @@ class TransformsToDeltas(Operator):
     bl_label = "Transforms to Deltas"
     bl_options = {'REGISTER', 'UNDO'}
 
-    mode: EnumProperty(
+    mode = EnumProperty(
         items=(
             ('ALL', "All Transforms", "Transfer location, rotation, and scale transforms"),
             ('LOC', "Location", "Transfer location transforms only"),
@@ -710,7 +703,7 @@ class TransformsToDeltas(Operator):
         description="Which transforms to transfer",
         default='ALL',
     )
-    reset_values: BoolProperty(
+    reset_values = BoolProperty(
         name="Reset Values",
         description=("Clear transform values after transferring to deltas"),
         default=True,
@@ -743,9 +736,7 @@ class TransformsToDeltas(Operator):
     def transfer_rotation(self, obj):
         # TODO: add transforms together...
         if obj.rotation_mode == 'QUATERNION':
-            delta = obj.delta_rotation_quaternion.copy()
-            obj.delta_rotation_quaternion = obj.rotation_quaternion
-            obj.delta_rotation_quaternion.rotate(delta)
+            obj.delta_rotation_quaternion += obj.rotation_quaternion
 
             if self.reset_values:
                 obj.rotation_quaternion.identity()
@@ -800,7 +791,7 @@ class TransformsToDeltasAnim(Operator):
                 continue
 
             # first pass over F-Curves: ensure that we don't have conflicting
-            # transforms already (e.g. if this was applied already) T29110.
+            # transforms already (e.g. if this was applied already) [#29110]
             existingFCurves = {}
             for fcu in adt.action.fcurves:
                 # get "delta" path - i.e. the final paths which may clash
@@ -859,9 +850,9 @@ class TransformsToDeltasAnim(Operator):
 
 
 class DupliOffsetFromCursor(Operator):
-    """Set offset used for collection instances based on cursor position"""
-    bl_idname = "object.instance_offset_from_cursor"
-    bl_label = "Set Offset from Cursor"
+    """Set offset used for DupliGroup based on cursor position"""
+    bl_idname = "object.dupli_offset_from_cursor"
+    bl_label = "Set Offset From Cursor"
     bl_options = {'INTERNAL', 'UNDO'}
 
     @classmethod
@@ -870,127 +861,166 @@ class DupliOffsetFromCursor(Operator):
 
     def execute(self, context):
         scene = context.scene
-        collection = context.collection
+        group = context.group
 
-        collection.instance_offset = scene.cursor.location
+        group.dupli_offset = scene.cursor_location
 
         return {'FINISHED'}
 
 
-class LoadImageAsEmpty:
+class LodByName(Operator):
+    """Add levels of detail to this object based on object names"""
+    bl_idname = "object.lod_by_name"
+    bl_label = "Setup Levels of Detail By Name"
     bl_options = {'REGISTER', 'UNDO'}
 
-    filepath: StringProperty(
-        subtype='FILE_PATH'
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object is not None)
+
+    def execute(self, context):
+        ob = context.active_object
+
+        prefix = ""
+        suffix = ""
+        name = ""
+        if ob.name.lower().startswith("lod0"):
+            prefix = ob.name[:4]
+            name = ob.name[4:]
+        elif ob.name.lower().endswith("lod0"):
+            name = ob.name[:-4]
+            suffix = ob.name[-4:]
+        else:
+            return {'CANCELLED'}
+
+        level = 0
+        while True:
+            level += 1
+
+            if prefix:
+                prefix = prefix[:3] + str(level)
+            if suffix:
+                suffix = suffix[:3] + str(level)
+
+            lod = None
+            try:
+                lod = bpy.data.objects[prefix + name + suffix]
+            except KeyError:
+                break
+
+            try:
+                ob.lod_levels[level]
+            except IndexError:
+                bpy.ops.object.lod_add()
+
+            ob.lod_levels[level].object = lod
+
+        return {'FINISHED'}
+
+
+class LodClearAll(Operator):
+    """Remove all levels of detail from this object"""
+    bl_idname = "object.lod_clear_all"
+    bl_label = "Clear All Levels of Detail"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.active_object is not None)
+
+    def execute(self, context):
+        ob = context.active_object
+
+        if ob.lod_levels:
+            while 'CANCELLED' not in bpy.ops.object.lod_remove():
+                pass
+
+        return {'FINISHED'}
+
+
+class LodGenerate(Operator):
+    """Generate levels of detail using the decimate modifier"""
+    bl_idname = "object.lod_generate"
+    bl_label = "Generate Levels of Detail"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    count = IntProperty(
+        name="Count",
+        default=3,
     )
-
-    filter_image: BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    filter_folder: BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-
-    view_align: BoolProperty(
-        name="Align to View",
-        default=True,
+    target = FloatProperty(
+        name="Target Size",
+        min=0.0, max=1.0,
+        default=0.1,
+    )
+    package = BoolProperty(
+        name="Package into Group",
+        default=False,
     )
 
     @classmethod
     def poll(cls, context):
-        return context.mode == 'OBJECT'
-
-    def invoke(self, context, _event):
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
+        return (context.active_object is not None)
 
     def execute(self, context):
         scene = context.scene
-        cursor = scene.cursor.location
+        ob = scene.objects.active
 
-        try:
-            image = bpy.data.images.load(self.filepath, check_existing=True)
-        except RuntimeError as ex:
-            self.report({'ERROR'}, str(ex))
-            return {'CANCELLED'}
+        lod_name = ob.name
+        lod_suffix = "lod"
+        lod_prefix = ""
+        if lod_name.lower().endswith("lod0"):
+            lod_suffix = lod_name[-3:-1]
+            lod_name = lod_name[:-3]
+        elif lod_name.lower().startswith("lod0"):
+            lod_suffix = ""
+            lod_prefix = lod_name[:3]
+            lod_name = lod_name[4:]
 
-        bpy.ops.object.empty_add(
-            'INVOKE_REGION_WIN',
-            type='IMAGE',
-            location=cursor,
-            align=('VIEW' if self.view_align else 'WORLD'),
-        )
+        group_name = lod_name.strip(' ._')
+        if self.package:
+            try:
+                bpy.ops.object.group_link(group=group_name)
+            except TypeError:
+                bpy.ops.group.create(name=group_name)
 
-        view_layer = context.view_layer
-        obj = view_layer.objects.active
-        obj.data = image
-        obj.empty_display_size = 5.0
-        self.set_settings(context, obj)
-        return {'FINISHED'}
+        step = (1.0 - self.target) / (self.count - 1)
+        for i in range(1, self.count):
+            scene.objects.active = ob
+            bpy.ops.object.duplicate()
+            lod = context.selected_objects[0]
 
-    def set_settings(self, context, obj):
-        pass
+            scene.objects.active = ob
+            bpy.ops.object.lod_add()
+            scene.objects.active = lod
 
+            if lod_prefix:
+                lod.name = lod_prefix + str(i) + lod_name
+            else:
+                lod.name = lod_name + lod_suffix + str(i)
 
-class LoadBackgroundImage(LoadImageAsEmpty, Operator):
-    """Add a reference image into the background behind objects"""
-    bl_idname = "object.load_background_image"
-    bl_label = "Load Background Image"
+            lod.location.y = ob.location.y + 3.0 * i
 
-    def set_settings(self, context, obj):
-        obj.empty_image_depth = 'BACK'
-        obj.empty_image_side = 'FRONT'
+            if i == 1:
+                modifier = lod.modifiers.new("lod_decimate", 'DECIMATE')
+            else:
+                modifier = lod.modifiers[-1]
 
-        if context.space_data.type == 'VIEW_3D':
-            if not context.space_data.region_3d.is_perspective:
-                obj.show_empty_image_perspective = False
+            modifier.ratio = 1.0 - step * i
 
+            ob.lod_levels[i].object = lod
 
-class LoadReferenceImage(LoadImageAsEmpty, Operator):
-    """Add a reference image into the scene between objects"""
-    bl_idname = "object.load_reference_image"
-    bl_label = "Load Reference Image"
+            if self.package:
+                bpy.ops.object.group_link(group=group_name)
+                lod.parent = ob
 
-    def set_settings(self, context, obj):
-        pass
+        if self.package:
+            for level in ob.lod_levels[1:]:
+                level.object.hide = level.object.hide_render = True
 
-
-class OBJECT_OT_assign_property_defaults(Operator):
-    """Assign the current values of custom properties as their defaults, """ \
-    """for use as part of the rest pose state in NLA track mixing"""
-    bl_idname = "object.assign_property_defaults"
-    bl_label = "Assign Custom Property Values as Default"
-    bl_options = {'UNDO', 'REGISTER'}
-
-    process_data: BoolProperty(name="Process data properties", default=True)
-    process_bones: BoolProperty(name="Process bone properties", default=True)
-
-    @classmethod
-    def poll(cls, context):
-        obj = context.active_object
-        return obj is not None and obj.library is None and obj.mode in {'POSE', 'OBJECT'}
-
-    @staticmethod
-    def assign_defaults(obj):
-        from rna_prop_ui import rna_idprop_ui_prop_default_set
-
-        rna_properties = {'_RNA_UI'} | {prop.identifier for prop in obj.bl_rna.properties if prop.is_runtime}
-
-        for prop, value in obj.items():
-            if prop not in rna_properties:
-                rna_idprop_ui_prop_default_set(obj, prop, value)
-
-    def execute(self, context):
-        obj = context.active_object
-
-        self.assign_defaults(obj)
-
-        if self.process_bones and obj.pose:
-            for pbone in obj.pose.bones:
-                self.assign_defaults(pbone)
-
-        if self.process_data and obj.data and obj.data.library is None:
-            self.assign_defaults(obj.data)
-
-            if self.process_bones and isinstance(obj.data, bpy.types.Armature):
-                for bone in obj.data.bones:
-                    self.assign_defaults(bone)
+        lod.select = False
+        ob.select = True
+        scene.objects.active = ob
 
         return {'FINISHED'}
 
@@ -1000,8 +1030,9 @@ classes = (
     DupliOffsetFromCursor,
     IsolateTypeRender,
     JoinUVs,
-    LoadBackgroundImage,
-    LoadReferenceImage,
+    LodByName,
+    LodClearAll,
+    LodGenerate,
     MakeDupliFace,
     SelectCamera,
     SelectHierarchy,
@@ -1010,5 +1041,4 @@ classes = (
     SubdivisionSet,
     TransformsToDeltas,
     TransformsToDeltasAnim,
-    OBJECT_OT_assign_property_defaults,
 )

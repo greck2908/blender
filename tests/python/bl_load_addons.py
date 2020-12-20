@@ -29,7 +29,7 @@ import addon_utils
 
 import os
 import sys
-import importlib
+import imp
 
 BLACKLIST_DIRS = (
     os.path.join(bpy.utils.resource_path('USER'), "scripts"),
@@ -50,13 +50,6 @@ def _init_addon_blacklist():
     # netrender has known problems re-registering
     BLACKLIST_ADDONS.add("netrender")
 
-    if not bpy.app.build_options.xr_openxr:
-        BLACKLIST_ADDONS.add("viewport_vr_preview")
-
-    for mod in addon_utils.modules():
-        if addon_utils.module_bl_info(mod)['blender'] < (2, 80, 0):
-            BLACKLIST_ADDONS.add(mod.__name__)
-
 
 def addon_modules_sorted():
     modules = addon_utils.modules({})
@@ -71,7 +64,7 @@ def addon_modules_sorted():
 
 def disable_addons():
     # first disable all
-    addons = bpy.context.preferences.addons
+    addons = bpy.context.user_preferences.addons
     for mod_name in list(addons.keys()):
         addon_utils.disable(mod_name, default_set=True)
     assert(bool(addons) is False)
@@ -82,7 +75,7 @@ def test_load_addons():
 
     disable_addons()
 
-    addons = bpy.context.preferences.addons
+    addons = bpy.context.user_preferences.addons
 
     addons_fail = []
 
@@ -104,12 +97,12 @@ def test_load_addons():
 
 def reload_addons(do_reload=True, do_reverse=True):
     modules = addon_modules_sorted()
-    addons = bpy.context.preferences.addons
+    addons = bpy.context.user_preferences.addons
 
     disable_addons()
 
     # Run twice each time.
-    for _ in (0, 1):
+    for i in (0, 1):
         for mod in modules:
             mod_name = mod.__name__
             print("\tenabling:", mod_name)
@@ -124,7 +117,7 @@ def reload_addons(do_reload=True, do_reverse=True):
 
             # now test reloading
             if do_reload:
-                sys.modules[mod_name] = importlib.reload(sys.modules[mod_name])
+                imp.reload(sys.modules[mod_name])
 
         if do_reverse:
             # in case order matters when it shouldn't
@@ -144,4 +137,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+
+    # So a python error exits(1)
+    try:
+        main()
+    except:
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

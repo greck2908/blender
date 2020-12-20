@@ -34,7 +34,7 @@ from bpy.props import (
 
 
 class NodeSetting(PropertyGroup):
-    value: StringProperty(
+    value = StringProperty(
         name="Value",
         description="Python expression to be evaluated "
         "as the initial node setting",
@@ -45,16 +45,16 @@ class NodeSetting(PropertyGroup):
 # Base class for node 'Add' operators
 class NodeAddOperator:
 
-    type: StringProperty(
+    type = StringProperty(
         name="Node Type",
         description="Node type",
     )
-    use_transform: BoolProperty(
+    use_transform = BoolProperty(
         name="Use Transform",
         description="Start transform operator after inserting the node",
         default=False,
     )
-    settings: CollectionProperty(
+    settings = CollectionProperty(
         name="Settings",
         description="Settings to be applied on the newly created node",
         type=NodeSetting,
@@ -94,16 +94,9 @@ class NodeAddOperator:
         for setting in self.settings:
             # XXX catch exceptions here?
             value = eval(setting.value)
-            node_data = node
-            node_attr_name = setting.name
-
-            # Support path to nested data.
-            if '.' in node_attr_name:
-                node_data_path, node_attr_name = node_attr_name.rsplit(".", 1)
-                node_data = node.path_resolve(node_data_path)
 
             try:
-                setattr(node_data, node_attr_name, value)
+                setattr(node, setting.name, value)
             except AttributeError as e:
                 self.report(
                     {'ERROR_INVALID_INPUT'},
@@ -159,7 +152,7 @@ class NODE_OT_add_and_link_node(NodeAddOperator, Operator):
     bl_label = "Add and Link Node"
     bl_options = {'REGISTER', 'UNDO'}
 
-    link_socket_index: IntProperty(
+    link_socket_index = IntProperty(
         name="Link Socket Index",
         description="Index of the socket to link",
     )
@@ -199,12 +192,14 @@ class NODE_OT_add_search(NodeAddOperator, Operator):
 
         for index, item in enumerate(nodeitems_utils.node_items_iter(context)):
             if isinstance(item, nodeitems_utils.NodeItem):
-                enum_items.append(
-                    (str(index),
-                     item.label,
-                     "",
-                     index,
-                     ))
+                nodetype = getattr(bpy.types, item.nodetype, None)
+                if nodetype:
+                    enum_items.append(
+                        (str(index),
+                         item.label,
+                         nodetype.bl_rna.description,
+                         index,
+                         ))
         return enum_items
 
     # Look up the item based on index
@@ -215,7 +210,7 @@ class NODE_OT_add_search(NodeAddOperator, Operator):
                 return item
         return None
 
-    node_item: EnumProperty(
+    node_item = EnumProperty(
         name="Node Type",
         description="Node type",
         items=node_enum_items,

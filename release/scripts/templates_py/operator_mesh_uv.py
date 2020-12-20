@@ -8,13 +8,15 @@ def main(context):
     bm = bmesh.from_edit_mesh(me)
 
     uv_layer = bm.loops.layers.uv.verify()
+    bm.faces.layers.tex.verify()  # currently blender needs both layers.
 
-    # adjust uv coordinates
-    for face in bm.faces:
-        for loop in face.loops:
-            loop_uv = loop[uv_layer]
-            # use xy position of the vertex as a uv coordinate
-            loop_uv.uv = loop.vert.co.xy
+    # adjust UVs
+    for f in bm.faces:
+        for l in f.loops:
+            luv = l[uv_layer]
+            if luv.select:
+                # apply the location of the vertex as a UV
+                luv.uv = l.vert.co.xy
 
     bmesh.update_edit_mesh(me)
 
@@ -26,8 +28,7 @@ class UvOperator(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        obj = context.active_object
-        return obj and obj.type == 'MESH' and obj.mode == 'EDIT'
+        return (context.mode == 'EDIT_MESH')
 
     def execute(self, context):
         main(context)

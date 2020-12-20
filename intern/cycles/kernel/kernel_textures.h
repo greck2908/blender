@@ -35,7 +35,6 @@ KERNEL_TEX(KernelObject, __objects)
 KERNEL_TEX(Transform, __object_motion_pass)
 KERNEL_TEX(DecomposedTransform, __object_motion)
 KERNEL_TEX(uint, __object_flag)
-KERNEL_TEX(float, __object_volume_step)
 
 /* cameras */
 KERNEL_TEX(DecomposedTransform, __camera_motion)
@@ -57,7 +56,6 @@ KERNEL_TEX(uint, __patches)
 /* attributes */
 KERNEL_TEX(uint4, __attributes_map)
 KERNEL_TEX(float, __attributes_float)
-KERNEL_TEX(float2, __attributes_float2)
 KERNEL_TEX(float4, __attributes_float3)
 KERNEL_TEX(uchar4, __attributes_uchar4)
 
@@ -78,7 +76,7 @@ KERNEL_TEX(KernelShader, __shaders)
 KERNEL_TEX(float, __lookup_table)
 
 /* sobol */
-KERNEL_TEX(uint, __sample_pattern_lut)
+KERNEL_TEX(uint, __sobol_directions)
 
 /* image textures */
 KERNEL_TEX(TextureInfo, __texture_info)

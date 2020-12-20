@@ -29,14 +29,14 @@ class DataButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        engine = context.engine
+        engine = context.scene.render.engine
         return context.speaker and (engine in cls.COMPAT_ENGINES)
 
 
 class DATA_PT_context_speaker(DataButtonsPanel, Panel):
     bl_label = ""
     bl_options = {'HIDE_HEADER'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
 
     def draw(self, context):
         layout = self.layout
@@ -45,83 +45,79 @@ class DATA_PT_context_speaker(DataButtonsPanel, Panel):
         speaker = context.speaker
         space = context.space_data
 
+        split = layout.split(percentage=0.65)
+
         if ob:
-            layout.template_ID(ob, "data")
+            split.template_ID(ob, "data")
         elif speaker:
-            layout.template_ID(space, "pin_id")
+            split.template_ID(space, "pin_id")
 
 
 class DATA_PT_speaker(DataButtonsPanel, Panel):
     bl_label = "Sound"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER'}
 
     def draw(self, context):
         layout = self.layout
 
         speaker = context.speaker
 
-        layout.template_ID(speaker, "sound", open="sound.open_mono")
+        split = layout.split(percentage=0.75)
 
-        layout.use_property_split = True
+        split.template_ID(speaker, "sound", open="sound.open_mono")
+        split.prop(speaker, "muted")
 
-        layout.prop(speaker, "muted")
-
-        col = layout.column()
-        col.active = not speaker.muted
-        col.prop(speaker, "volume", slider=True)
-        col.prop(speaker, "pitch")
+        row = layout.row()
+        row.prop(speaker, "volume")
+        row.prop(speaker, "pitch")
 
 
 class DATA_PT_distance(DataButtonsPanel, Panel):
     bl_label = "Distance"
-    bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER'}
 
     def draw(self, context):
         layout = self.layout
 
-        layout.use_property_split = True
-
         speaker = context.speaker
-        layout.active = not speaker.muted
 
-        col = layout.column()
-        sub = col.column(align=True)
-        sub.prop(speaker, "volume_min", slider=True, text="Volume Min")
-        sub.prop(speaker, "volume_max", slider=True, text="Max")
+        split = layout.split()
+
+        col = split.column()
+        col.label("Volume:")
+        col.prop(speaker, "volume_min", text="Minimum")
+        col.prop(speaker, "volume_max", text="Maximum")
         col.prop(speaker, "attenuation")
 
-        col.separator()
-        col.prop(speaker, "distance_max", text="Max Distance")
-        col.prop(speaker, "distance_reference", text="Distance Reference")
+        col = split.column()
+        col.label("Distance:")
+        col.prop(speaker, "distance_max", text="Maximum")
+        col.prop(speaker, "distance_reference", text="Reference")
 
 
 class DATA_PT_cone(DataButtonsPanel, Panel):
     bl_label = "Cone"
-    bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER'}
 
     def draw(self, context):
         layout = self.layout
 
-        layout.use_property_split = True
-
         speaker = context.speaker
-        layout.active = not speaker.muted
 
-        col = layout.column()
+        split = layout.split()
 
-        sub = col.column(align=True)
-        sub.prop(speaker, "cone_angle_outer", text="Angle Outer")
-        sub.prop(speaker, "cone_angle_inner", text="Inner")
+        col = split.column()
+        col.label("Angle:")
+        col.prop(speaker, "cone_angle_outer", text="Outer")
+        col.prop(speaker, "cone_angle_inner", text="Inner")
 
-        col.separator()
-
-        col.prop(speaker, "cone_volume_outer", slider=True)
+        col = split.column()
+        col.label("Volume:")
+        col.prop(speaker, "cone_volume_outer", text="Outer")
 
 
 class DATA_PT_custom_props_speaker(DataButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
     _context_path = "object.data"
     _property_type = bpy.types.Speaker
 

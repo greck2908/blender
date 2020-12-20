@@ -25,16 +25,16 @@
 # Windows and macOS, and install_deps.sh on Linux.
 #
 # WINDOWS USAGE:
-#   Don't call this cmake file yourself, use build_deps.cmd
+#   Don't call this cmake file your self, use build_deps.cmd
 #   build_deps 2013 x64 / build_deps 2013 x86
 #   build_deps 2015 x64 / build_deps 2015 x86
 #
 # MAC OS X USAGE:
-#   Install with homebrew: brew install autoconf automake bison cmake libtool pkg-config yasm
+#	Install with homebrew: brew install autoconf automake libtool yasm nasm
 #   Run "make deps" from main Blender directory
 #
 # LINUX USAGE:
-#   Install compiler cmake autoconf automake libtool yasm tcl
+#   Install compiler, cmake, autoconf, automake, libtool, yasm
 #   Run "make deps" from main Blender directory
 #
 ####################################################################################################
@@ -43,22 +43,28 @@ project("BlenderDependencies")
 cmake_minimum_required(VERSION 3.5)
 
 include(ExternalProject)
-include(cmake/check_software.cmake)
 include(cmake/options.cmake)
 include(cmake/versions.cmake)
 
 if(ENABLE_MINGW64)
-  include(cmake/setup_mingw64.cmake)
+	if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+		include(cmake/setup_mingw64.cmake)
+	else()
+		include(cmake/setup_mingw32.cmake)
+	endif()
 else()
-  set(mingw_LIBDIR ${LIBDIR})
+	set(mingw_LIBDIR ${LIBDIR})
 endif()
 
 include(cmake/zlib.cmake)
+include(cmake/blendthumb.cmake)
 include(cmake/openal.cmake)
 include(cmake/png.cmake)
 include(cmake/jpeg.cmake)
+include(cmake/boost.cmake)
 include(cmake/blosc.cmake)
 include(cmake/pthreads.cmake)
+include(cmake/ilmbase.cmake)
 include(cmake/openexr.cmake)
 include(cmake/freetype.cmake)
 include(cmake/freeglut.cmake)
@@ -76,89 +82,69 @@ include(cmake/clang.cmake)
 if(APPLE)
   include(cmake/openmp.cmake)
 endif()
-if(UNIX)
-  include(cmake/nasm.cmake)
-endif()
 include(cmake/openimageio.cmake)
 include(cmake/tiff.cmake)
 include(cmake/flexbison.cmake)
 include(cmake/osl.cmake)
 include(cmake/tbb.cmake)
 include(cmake/openvdb.cmake)
-include(cmake/nanovdb.cmake)
 include(cmake/python.cmake)
 include(cmake/python_site_packages.cmake)
-include(cmake/package_python.cmake)
 include(cmake/numpy.cmake)
-include(cmake/usd.cmake)
-include(cmake/potrace.cmake)
-# Boost needs to be included after python.cmake due to the PYTHON_BINARY variable being needed.
-include(cmake/boost.cmake)
 include(cmake/pugixml.cmake)
-if((NOT APPLE) OR ("${CMAKE_OSX_ARCHITECTURES}" STREQUAL "x86_64"))
-  include(cmake/ispc.cmake)
-  include(cmake/openimagedenoise.cmake)
-  include(cmake/embree.cmake)
-endif()
-if(NOT APPLE)
-  include(cmake/xr_openxr.cmake)
-endif()
 
 if(WITH_WEBP)
-  include(cmake/webp.cmake)
+	include(cmake/webp.cmake)
 endif()
 
 if(WIN32)
-  # OCIO deps
-  include(cmake/tinyxml.cmake)
-  include(cmake/yamlcpp.cmake)
-  # LCMS is an OCIO dep, but only if you build the apps, leaving it here for convenience
-  # include(cmake/lcms.cmake)
+	# HMD branch deps
+	include(cmake/hidapi.cmake)
+	# OCIO deps
+	include(cmake/tinyxml.cmake)
+	include(cmake/yamlcpp.cmake)
+	# LCMS is an OCIO dep, but only if you build the apps, leaving it here for convenience
+	#include(cmake/lcms.cmake)
+
 endif()
 
 if(NOT WIN32 OR ENABLE_MINGW64)
-  include(cmake/gmp.cmake)
-  include(cmake/openjpeg.cmake)
-  if(NOT WIN32 OR BUILD_MODE STREQUAL Release)
-    if(WIN32)
-      include(cmake/zlib_mingw.cmake)
-    endif()
-    include(cmake/lame.cmake)
-    include(cmake/ogg.cmake)
-    include(cmake/vorbis.cmake)
-    include(cmake/theora.cmake)
-    include(cmake/opus.cmake)
-    include(cmake/vpx.cmake)
-    include(cmake/x264.cmake)
-    include(cmake/xvidcore.cmake)
-    include(cmake/ffmpeg.cmake)
-    include(cmake/fftw.cmake)
-    include(cmake/sndfile.cmake)
-    if(WIN32)
-      include(cmake/iconv.cmake)
-    endif()
-    if(UNIX)
-      include(cmake/flac.cmake)
-      include(cmake/xml2.cmake)
-      if(NOT APPLE)
-        include(cmake/spnav.cmake)
-        include(cmake/jemalloc.cmake)
-      endif()
-    endif()
-  endif()
+	include(cmake/openjpeg.cmake)
+	if(BUILD_MODE STREQUAL Release)
+		if(WIN32)
+			include(cmake/zlib_mingw.cmake)
+		endif()
+		include(cmake/lame.cmake)
+		include(cmake/ogg.cmake)
+		include(cmake/vorbis.cmake)
+		include(cmake/theora.cmake)
+		include(cmake/vpx.cmake)
+		include(cmake/x264.cmake)
+		include(cmake/xvidcore.cmake)
+		include(cmake/faad.cmake)
+		include(cmake/ffmpeg.cmake)
+		include(cmake/fftw.cmake)
+		include(cmake/sndfile.cmake)
+		if(WIN32)
+			include(cmake/iconv.cmake)
+		endif()
+		if(UNIX)
+			include(cmake/flac.cmake)
+			include(cmake/xml2.cmake)
+			if(NOT APPLE)
+				include(cmake/spnav.cmake)
+				include(cmake/jemalloc.cmake)
+			endif()
+		endif()
+	endif()
 endif()
 
 if(UNIX)
-  include(cmake/bzip2.cmake)
-  include(cmake/ffi.cmake)
-  include(cmake/lzma.cmake)
-  include(cmake/ssl.cmake)
-  include(cmake/sqlite.cmake)
-endif()
-
-if(UNIX AND NOT APPLE)
-  include(cmake/libglu.cmake)
-  include(cmake/mesa.cmake)
+	include(cmake/bzip2.cmake)
+	include(cmake/ffi.cmake)
+	include(cmake/lzma.cmake)
+	include(cmake/ssl.cmake)
+	include(cmake/sqlite.cmake)
 endif()
 
 include(cmake/harvest.cmake)

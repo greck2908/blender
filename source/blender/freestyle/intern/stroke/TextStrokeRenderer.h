@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,10 +14,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup freestyle
+/** \file blender/freestyle/intern/stroke/TextStrokeRenderer.h
+ *  \ingroup freestyle
  */
 
 //
@@ -34,11 +38,9 @@
 #ifndef TEXTSTROKERENDERER_H
 #define TEXTSTROKERENDERER_H
 
-#include <fstream>
-
-#include "StrokeRenderer.h"
-
-#include "../system/FreestyleConfig.h"
+# include "StrokeRenderer.h"
+# include "../system/FreestyleConfig.h"
+# include <fstream>
 
 namespace Freestyle {
 
@@ -50,18 +52,23 @@ namespace Freestyle {
 /*                                */
 /**********************************/
 
-class TextStrokeRenderer : public StrokeRenderer {
- public:
-  TextStrokeRenderer(const char *iFileName = NULL);
+class TextStrokeRenderer : public StrokeRenderer
+{
+public:
+	TextStrokeRenderer(const char *iFileName = NULL);
+	virtual ~TextStrokeRenderer();
 
-  /*! Renders a stroke rep */
-  virtual void RenderStrokeRep(StrokeRep *iStrokeRep) const;
-  virtual void RenderStrokeRepBasic(StrokeRep *iStrokeRep) const;
+	/*! Renders a stroke rep */
+	virtual void RenderStrokeRep(StrokeRep *iStrokeRep) const;
+	virtual void RenderStrokeRepBasic(StrokeRep *iStrokeRep) const;
 
- protected:
-  mutable ofstream _ofstream;
+	/*! Closes the output file */
+	void Close();
+
+protected:
+	mutable ofstream _ofstream;
 };
 
 } /* namespace Freestyle */
 
-#endif  // TEXTSTROKERENDERER_H
+#endif // TEXTSTROKERENDERER_H

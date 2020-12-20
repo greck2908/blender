@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,29 +17,36 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
+ *
+ *
+ * Contributor(s): Blender Foundation
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup edarmature
+/** \file blender/editors/armature/armature_intern.h
+ *  \ingroup edarmature
  */
 
-#pragma once
+#ifndef __ARMATURE_INTERN_H__
+#define __ARMATURE_INTERN_H__
 
 /* internal exports only */
 struct wmOperatorType;
 
-struct Base;
-struct Object;
-struct Scene;
 struct bContext;
+struct Scene;
+struct Object;
+struct Base;
+struct bAction;
 struct bPoseChannel;
 
-struct Bone;
-struct EditBone;
 struct bArmature;
+struct EditBone;
+struct Bone;
 
-struct LinkData;
 struct ListBase;
+struct LinkData;
 
 /* ******************************************************* */
 /* Armature EditMode Operators */
@@ -58,7 +67,6 @@ void ARMATURE_OT_select_mirror(struct wmOperatorType *ot);
 void ARMATURE_OT_select_more(struct wmOperatorType *ot);
 void ARMATURE_OT_select_less(struct wmOperatorType *ot);
 void ARMATURE_OT_select_hierarchy(struct wmOperatorType *ot);
-void ARMATURE_OT_select_linked_pick(struct wmOperatorType *ot);
 void ARMATURE_OT_select_linked(struct wmOperatorType *ot);
 void ARMATURE_OT_select_similar(struct wmOperatorType *ot);
 void ARMATURE_OT_shortest_path_pick(struct wmOperatorType *ot);
@@ -72,6 +80,7 @@ void ARMATURE_OT_hide(struct wmOperatorType *ot);
 void ARMATURE_OT_reveal(struct wmOperatorType *ot);
 void ARMATURE_OT_click_extrude(struct wmOperatorType *ot);
 void ARMATURE_OT_fill(struct wmOperatorType *ot);
+void ARMATURE_OT_merge(struct wmOperatorType *ot);
 void ARMATURE_OT_separate(struct wmOperatorType *ot);
 void ARMATURE_OT_split(struct wmOperatorType *ot);
 
@@ -103,7 +112,6 @@ void POSE_OT_select_all(struct wmOperatorType *ot);
 void POSE_OT_select_parent(struct wmOperatorType *ot);
 void POSE_OT_select_hierarchy(struct wmOperatorType *ot);
 void POSE_OT_select_linked(struct wmOperatorType *ot);
-void POSE_OT_select_linked_pick(struct wmOperatorType *ot);
 void POSE_OT_select_constraint_target(struct wmOperatorType *ot);
 void POSE_OT_select_grouped(struct wmOperatorType *ot);
 void POSE_OT_select_mirror(struct wmOperatorType *ot);
@@ -120,7 +128,6 @@ void POSE_OT_group_deselect(struct wmOperatorType *ot);
 void POSE_OT_paths_calculate(struct wmOperatorType *ot);
 void POSE_OT_paths_update(struct wmOperatorType *ot);
 void POSE_OT_paths_clear(struct wmOperatorType *ot);
-void POSE_OT_paths_range_update(struct wmOperatorType *ot);
 
 void POSE_OT_autoside_names(struct wmOperatorType *ot);
 void POSE_OT_flip_names(struct wmOperatorType *ot);
@@ -132,57 +139,54 @@ void POSE_OT_quaternions_flip(struct wmOperatorType *ot);
 void POSE_OT_bone_layers(struct wmOperatorType *ot);
 
 /* ******************************************************* */
+/* Etch-A-Ton (Skeleton Sketching) Operators */
+
+void SKETCH_OT_gesture(struct wmOperatorType *ot);
+void SKETCH_OT_delete(struct wmOperatorType *ot);
+void SKETCH_OT_draw_stroke(struct wmOperatorType *ot);
+void SKETCH_OT_draw_preview(struct wmOperatorType *ot);
+void SKETCH_OT_finish_stroke(struct wmOperatorType *ot);
+void SKETCH_OT_cancel_stroke(struct wmOperatorType *ot);
+void SKETCH_OT_convert(struct wmOperatorType *ot);
+void SKETCH_OT_select(struct wmOperatorType *ot);
+
+/* ******************************************************* */
 /* Pose Tool Utilities (for PoseLib, Pose Sliding, etc.) */
 /* pose_utils.c */
 
 /* Temporary data linking PoseChannels with the F-Curves they affect */
 typedef struct tPChanFCurveLink {
-  struct tPChanFCurveLink *next, *prev;
+	struct tPChanFCurveLink *next, *prev;
 
-  /** Object this Pose Channel belongs to. */
-  struct Object *ob;
+	ListBase fcurves;               /* F-Curves for this PoseChannel (wrapped with LinkData) */
+	struct bPoseChannel *pchan;     /* Pose Channel which data is attached to */
 
-  /** F-Curves for this PoseChannel (wrapped with LinkData) */
-  ListBase fcurves;
-  /** Pose Channel which data is attached to */
-  struct bPoseChannel *pchan;
+	char *pchan_path;               /* RNA Path to this Pose Channel (needs to be freed when we're done) */
 
-  /** RNA Path to this Pose Channel (needs to be freed when we're done) */
-  char *pchan_path;
+	float oldloc[3];                /* transform values at start of operator (to be restored before each modal step) */
+	float oldrot[3];
+	float oldscale[3];
+	float oldquat[4];
+	float oldangle;
+	float oldaxis[3];
 
-  /** transform values at start of operator (to be restored before each modal step) */
-  float oldloc[3];
-  float oldrot[3];
-  float oldscale[3];
-  float oldquat[4];
-  float oldangle;
-  float oldaxis[3];
+	float roll1, roll2;             /* old bbone values (to be restored along with the transform properties) */
+	float curveInX, curveInY;       /* (NOTE: we haven't renamed these this time, as their names are already long enough) */
+	float curveOutX, curveOutY;
+	float ease1, ease2;
+	float scaleIn, scaleOut;
 
-  /** old bbone values (to be restored along with the transform properties) */
-  float roll1, roll2;
-  /** (NOTE: we haven't renamed these this time, as their names are already long enough) */
-  float curve_in_x, curve_in_y;
-  float curve_out_x, curve_out_y;
-  float ease1, ease2;
-  float scale_in_x, scale_in_y;
-  float scale_out_x, scale_out_y;
-
-  /** copy of custom properties at start of operator (to be restored before each modal step) */
-  struct IDProperty *oldprops;
+	struct IDProperty *oldprops;    /* copy of custom properties at start of operator (to be restored before each modal step) */
 } tPChanFCurveLink;
 
 /* ----------- */
 
-struct Object *poseAnim_object_get(struct Object *ob_);
-void poseAnim_mapping_get(struct bContext *C, ListBase *pfLinks);
+void poseAnim_mapping_get(struct bContext *C, ListBase *pfLinks, struct Object *ob, struct bAction *act);
 void poseAnim_mapping_free(ListBase *pfLinks);
 
 void poseAnim_mapping_refresh(struct bContext *C, struct Scene *scene, struct Object *ob);
 void poseAnim_mapping_reset(ListBase *pfLinks);
-void poseAnim_mapping_autoKeyframe(struct bContext *C,
-                                   struct Scene *scene,
-                                   ListBase *pfLinks,
-                                   float cframe);
+void poseAnim_mapping_autoKeyframe(struct bContext *C, struct Scene *scene, struct Object *ob, ListBase *pfLinks, float cframe);
 
 LinkData *poseAnim_mapping_getNextFCurve(ListBase *fcuLinks, LinkData *prev, const char *path);
 
@@ -209,8 +213,6 @@ void POSELIB_OT_apply_pose(struct wmOperatorType *ot);
 
 void POSE_OT_push(struct wmOperatorType *ot);
 void POSE_OT_relax(struct wmOperatorType *ot);
-void POSE_OT_push_rest(struct wmOperatorType *ot);
-void POSE_OT_relax_rest(struct wmOperatorType *ot);
 void POSE_OT_breakdown(struct wmOperatorType *ot);
 
 void POSE_OT_propagate(struct wmOperatorType *ot);
@@ -218,32 +220,27 @@ void POSE_OT_propagate(struct wmOperatorType *ot);
 /* ******************************************************* */
 /* Various Armature Edit/Pose Editing API's */
 
-/* Ideally, many of these defines would not be needed as everything would be strictly
- * self-contained within each file,
- * but some tools still have a bit of overlap which makes things messy -- Feb 2013
+/* Ideally, many of these defines would not be needed as everything would be strictly self-contained
+ * within each file, but some tools still have a bit of overlap which makes things messy -- Feb 2013
  */
 
-struct EditBone *make_boneList(struct ListBase *edbo,
-                               struct ListBase *bones,
-                               struct Bone *actBone);
+EditBone *make_boneList(struct ListBase *edbo, struct ListBase *bones, struct EditBone *parent, struct Bone *actBone);
+bool BIF_sk_selectStroke(struct bContext *C, const int mval[2], const bool extend);
 
 /* duplicate method */
 void preEditBoneDuplicate(struct ListBase *editbones);
 void postEditBoneDuplicate(struct ListBase *editbones, struct Object *ob);
-struct EditBone *duplicateEditBone(struct EditBone *cur_bone,
-                                   const char *name,
-                                   struct ListBase *editbones,
-                                   struct Object *ob);
+struct EditBone *duplicateEditBone(struct EditBone *curBone, const char *name, struct ListBase *editbones, struct Object *ob);
+void updateDuplicateSubtarget(struct EditBone *dupBone, struct ListBase *editbones, struct Object *ob);
 
 /* duplicate method (cross objects) */
 /* editbones is the target list */
-struct EditBone *duplicateEditBoneObjects(struct EditBone *cur_bone,
-                                          const char *name,
-                                          struct ListBase *editbones,
-                                          struct Object *src_ob,
-                                          struct Object *dst_ob);
+struct EditBone *duplicateEditBoneObjects(struct EditBone *curBone, const char *name, struct ListBase *editbones, struct Object *src_ob, struct Object *dst_ob);
 
-struct EditBone *add_points_bone(struct Object *obedit, float head[3], float tail[3]);
+/* editbones is the source list */
+void updateDuplicateSubtargetObjects(struct EditBone *dupBone, struct ListBase *editbones, struct Object *src_ob, struct Object *dst_ob);
+
+EditBone *add_points_bone(struct Object *obedit, float head[3], float tail[3]);
 void bone_free(struct bArmature *arm, struct EditBone *bone);
 
 void armature_tag_select_mirrored(struct bArmature *arm);
@@ -251,42 +248,13 @@ void armature_select_mirrored_ex(struct bArmature *arm, const int flag);
 void armature_select_mirrored(struct bArmature *arm);
 void armature_tag_unselect(struct bArmature *arm);
 
-struct EditBone *ED_armature_pick_ebone(struct bContext *C,
-                                        const int xy[2],
-                                        bool findunsel,
-                                        struct Base **r_base);
-struct bPoseChannel *ED_armature_pick_pchan(struct bContext *C,
-                                            const int xy[2],
-                                            bool findunsel,
-                                            struct Base **r_base);
-struct Bone *ED_armature_pick_bone(struct bContext *C,
-                                   const int xy[2],
-                                   bool findunsel,
-                                   struct Base **r_base);
+void *get_nearest_bone(struct bContext *C, const int xy[2], bool findunsel);
+void *get_bone_from_selectbuffer(
+        struct Scene *scene, struct Base *base, const unsigned int *buffer, short hits,
+        bool findunsel, bool do_nearest);
 
-struct EditBone *ED_armature_pick_ebone_from_selectbuffer(struct Base **bases,
-                                                          uint bases_len,
-                                                          const uint *buffer,
-                                                          short hits,
-                                                          bool findunsel,
-                                                          bool do_nearest,
-                                                          struct Base **r_base);
-struct bPoseChannel *ED_armature_pick_pchan_from_selectbuffer(struct Base **bases,
-                                                              uint bases_len,
-                                                              const uint *buffer,
-                                                              short hits,
-                                                              bool findunsel,
-                                                              bool do_nearest,
-                                                              struct Base **r_base);
-struct Bone *ED_armature_pick_bone_from_selectbuffer(struct Base **bases,
-                                                     uint bases_len,
-                                                     const uint *buffer,
-                                                     short hits,
-                                                     bool findunsel,
-                                                     bool do_nearest,
-                                                     struct Base **r_base);
-
-int bone_looper(struct Object *ob,
-                struct Bone *bone,
-                void *data,
+int bone_looper(struct Object *ob, struct Bone *bone, void *data,
                 int (*bone_func)(struct Object *, struct Bone *, void *));
+
+
+#endif /* __ARMATURE_INTERN_H__ */

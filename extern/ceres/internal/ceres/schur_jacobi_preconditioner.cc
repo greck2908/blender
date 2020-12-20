@@ -32,9 +32,10 @@
 
 #include <utility>
 #include <vector>
-
 #include "ceres/block_random_access_diagonal_matrix.h"
 #include "ceres/block_sparse_matrix.h"
+#include "ceres/collections_port.h"
+#include "ceres/internal/scoped_ptr.h"
 #include "ceres/linear_solver.h"
 #include "ceres/schur_eliminator.h"
 #include "glog/logging.h"
@@ -49,9 +50,9 @@ SchurJacobiPreconditioner::SchurJacobiPreconditioner(
   CHECK_GT(options_.elimination_groups.size(), 1);
   CHECK_GT(options_.elimination_groups[0], 0);
   const int num_blocks = bs.cols.size() - options_.elimination_groups[0];
-  CHECK_GT(num_blocks, 0) << "Jacobian should have at least 1 f_block for "
-                          << "SCHUR_JACOBI preconditioner.";
-  CHECK(options_.context != NULL);
+  CHECK_GT(num_blocks, 0)
+      << "Jacobian should have atleast 1 f_block for "
+      << "SCHUR_JACOBI preconditioner.";
 
   std::vector<int> blocks(num_blocks);
   for (int i = 0; i < num_blocks; ++i) {
@@ -62,7 +63,8 @@ SchurJacobiPreconditioner::SchurJacobiPreconditioner(
   InitEliminator(bs);
 }
 
-SchurJacobiPreconditioner::~SchurJacobiPreconditioner() {}
+SchurJacobiPreconditioner::~SchurJacobiPreconditioner() {
+}
 
 // Initialize the SchurEliminator.
 void SchurJacobiPreconditioner::InitEliminator(
@@ -73,11 +75,8 @@ void SchurJacobiPreconditioner::InitEliminator(
   eliminator_options.e_block_size = options_.e_block_size;
   eliminator_options.f_block_size = options_.f_block_size;
   eliminator_options.row_block_size = options_.row_block_size;
-  eliminator_options.context = options_.context;
   eliminator_.reset(SchurEliminatorBase::Create(eliminator_options));
-  const bool kFullRankETE = true;
-  eliminator_->Init(
-      eliminator_options.elimination_groups[0], kFullRankETE, &bs);
+  eliminator_->Init(eliminator_options.elimination_groups[0], &bs);
 }
 
 // Update the values of the preconditioner matrix and factorize it.
@@ -86,9 +85,19 @@ bool SchurJacobiPreconditioner::UpdateImpl(const BlockSparseMatrix& A,
   const int num_rows = m_->num_rows();
   CHECK_GT(num_rows, 0);
 
+  // We need a dummy rhs vector and a dummy b vector since the Schur
+  // eliminator combines the computation of the reduced camera matrix
+  // with the computation of the right hand side of that linear
+  // system.
+  //
+  // TODO(sameeragarwal): Perhaps its worth refactoring the
+  // SchurEliminator::Eliminate function to allow NULL for the rhs. As
+  // of now it does not seem to be worth the effort.
+  Vector rhs = Vector::Zero(m_->num_rows());
+  Vector b = Vector::Zero(A.num_rows());
+
   // Compute a subset of the entries of the Schur complement.
-  eliminator_->Eliminate(
-      BlockSparseMatrixData(A), nullptr, D, m_.get(), nullptr);
+  eliminator_->Eliminate(&A, b.data(), D, m_.get(), rhs.data());
   m_->Invert();
   return true;
 }
@@ -98,7 +107,9 @@ void SchurJacobiPreconditioner::RightMultiply(const double* x,
   m_->RightMultiply(x, y);
 }
 
-int SchurJacobiPreconditioner::num_rows() const { return m_->num_rows(); }
+int SchurJacobiPreconditioner::num_rows() const {
+  return m_->num_rows();
+}
 
 }  // namespace internal
 }  // namespace ceres

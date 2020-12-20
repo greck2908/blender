@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,30 +16,25 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  * The Original Code is Copyright (C) 2013, Blender Foundation
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup editors
+/** \file ED_buttons.h
+ *  \ingroup editors
  */
 
-#pragma once
+#ifndef __ED_BUTTONS_H__
+#define __ED_BUTTONS_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "BLI_utildefines.h"
 
-struct SpaceProperties;
-struct bContext;
+/* Used to check whether a given texture context is valid in current context. */
+bool ED_texture_context_check_world(const struct bContext *C);
+bool ED_texture_context_check_material(const struct bContext *C);
+bool ED_texture_context_check_lamp(const struct bContext *C);
+bool ED_texture_context_check_particles(const struct bContext *C);
+bool ED_texture_context_check_linestyle(const struct bContext *C);
+bool ED_texture_context_check_others(const struct bContext *C);
 
-int ED_buttons_tabs_list(struct SpaceProperties *sbuts, short *context_tabs_array);
-bool ED_buttons_tab_has_search_result(struct SpaceProperties *sbuts, const int index);
-
-void ED_buttons_search_string_set(struct SpaceProperties *sbuts, const char *value);
-int ED_buttons_search_string_length(struct SpaceProperties *sbuts);
-const char *ED_buttons_search_string_get(struct SpaceProperties *sbuts);
-
-void ED_buttons_set_context(const struct bContext *C, PointerRNA *ptr, const int context);
-
-#ifdef __cplusplus
-}
-#endif
+#endif /*  __ED_BUTTONS_H__ */

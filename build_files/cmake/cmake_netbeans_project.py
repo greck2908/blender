@@ -16,6 +16,8 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
+# Contributor(s): Campbell Barton, M.G. Kishalmi
+#
 # ***** END GPL LICENSE BLOCK *****
 
 # <pep8 compliant>
@@ -182,7 +184,7 @@ def create_nb_project_main():
         f.write('  </logicalFolder>\n')
         # default, but this dir is infact not in blender dir so we can ignore it
         # f.write('  <sourceFolderFilter>^(nbproject)$</sourceFolderFilter>\n')
-        f.write(r'  <sourceFolderFilter>^(nbproject|__pycache__|.*\.py|.*\.html|.*\.blend)$</sourceFolderFilter>\n')
+        f.write('  <sourceFolderFilter>^(nbproject|__pycache__|.*\.py|.*\.html|.*\.blend)$</sourceFolderFilter>\n')
 
         f.write('  <sourceRootList>\n')
         f.write('    <Elem>%s</Elem>\n' % SOURCE_DIR)  # base_root_rel
@@ -238,7 +240,7 @@ def create_nb_project_main():
 
         f.write('        </makeTool>\n')
         f.write('      </makefileType>\n')
-        # finished makefile info
+        # finishe makefle info
 
         f.write('    \n')
 

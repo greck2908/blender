@@ -34,15 +34,14 @@
 #include <algorithm>
 #include <cstddef>
 #include <vector>
-
 #include "ceres/corrector.h"
+#include "ceres/parameter_block.h"
+#include "ceres/residual_block_utils.h"
 #include "ceres/cost_function.h"
 #include "ceres/internal/eigen.h"
 #include "ceres/internal/fixed_array.h"
 #include "ceres/local_parameterization.h"
 #include "ceres/loss_function.h"
-#include "ceres/parameter_block.h"
-#include "ceres/residual_block_utils.h"
 #include "ceres/small_blas.h"
 
 using Eigen::Dynamic;
@@ -58,9 +57,9 @@ ResidualBlock::ResidualBlock(
     : cost_function_(cost_function),
       loss_function_(loss_function),
       parameter_blocks_(
-          new ParameterBlock*[cost_function->parameter_block_sizes().size()]),
+          new ParameterBlock* [
+              cost_function->parameter_block_sizes().size()]),
       index_(index) {
-  CHECK(cost_function_ != nullptr);
   std::copy(parameter_blocks.begin(),
             parameter_blocks.end(),
             parameter_blocks_.get());
@@ -83,11 +82,11 @@ bool ResidualBlock::Evaluate(const bool apply_loss_function,
 
   // Put pointers into the scratch space into global_jacobians as appropriate.
   FixedArray<double*, 8> global_jacobians(num_parameter_blocks);
-  if (jacobians != nullptr) {
+  if (jacobians != NULL) {
     for (int i = 0; i < num_parameter_blocks; ++i) {
       const ParameterBlock* parameter_block = parameter_blocks_[i];
-      if (jacobians[i] != nullptr &&
-          parameter_block->LocalParameterizationJacobian() != nullptr) {
+      if (jacobians[i] != NULL &&
+          parameter_block->LocalParameterizationJacobian() != NULL) {
         global_jacobians[i] = scratch;
         scratch += num_residuals * parameter_block->Size();
       } else {
@@ -97,7 +96,7 @@ bool ResidualBlock::Evaluate(const bool apply_loss_function,
   }
 
   // If the caller didn't request residuals, use the scratch space for them.
-  bool outputting_residuals = (residuals != nullptr);
+  bool outputting_residuals = (residuals != NULL);
   if (!outputting_residuals) {
     residuals = scratch;
   }
@@ -105,27 +104,30 @@ bool ResidualBlock::Evaluate(const bool apply_loss_function,
   // Invalidate the evaluation buffers so that we can check them after
   // the CostFunction::Evaluate call, to see if all the return values
   // that were required were written to and that they are finite.
-  double** eval_jacobians =
-      (jacobians != nullptr) ? global_jacobians.data() : nullptr;
+  double** eval_jacobians = (jacobians != NULL) ? global_jacobians.get() : NULL;
 
   InvalidateEvaluation(*this, cost, residuals, eval_jacobians);
 
-  if (!cost_function_->Evaluate(parameters.data(), residuals, eval_jacobians)) {
+  if (!cost_function_->Evaluate(parameters.get(), residuals, eval_jacobians)) {
     return false;
   }
 
-  if (!IsEvaluationValid(
-          *this, parameters.data(), cost, residuals, eval_jacobians)) {
-    // clang-format off
+  if (!IsEvaluationValid(*this,
+                         parameters.get(),
+                         cost,
+                         residuals,
+                         eval_jacobians)) {
     std::string message =
         "\n\n"
         "Error in evaluating the ResidualBlock.\n\n"
         "There are two possible reasons. Either the CostFunction did not evaluate and fill all    \n"  // NOLINT
         "residual and jacobians that were requested or there was a non-finite value (nan/infinite)\n"  // NOLINT
         "generated during the or jacobian computation. \n\n" +
-        EvaluationToString(
-            *this, parameters.data(), cost, residuals, eval_jacobians);
-    // clang-format on
+        EvaluationToString(*this,
+                           parameters.get(),
+                           cost,
+                           residuals,
+                           eval_jacobians);
     LOG(WARNING) << message;
     return false;
   }
@@ -133,13 +135,13 @@ bool ResidualBlock::Evaluate(const bool apply_loss_function,
   double squared_norm = VectorRef(residuals, num_residuals).squaredNorm();
 
   // Update the jacobians with the local parameterizations.
-  if (jacobians != nullptr) {
+  if (jacobians != NULL) {
     for (int i = 0; i < num_parameter_blocks; ++i) {
-      if (jacobians[i] != nullptr) {
+      if (jacobians[i] != NULL) {
         const ParameterBlock* parameter_block = parameter_blocks_[i];
 
         // Apply local reparameterization to the jacobians.
-        if (parameter_block->LocalParameterizationJacobian() != nullptr) {
+        if (parameter_block->LocalParameterizationJacobian() != NULL) {
           // jacobians[i] = global_jacobians[i] * global_to_local_jacobian.
           MatrixMatrixMultiply<Dynamic, Dynamic, Dynamic, Dynamic, 0>(
               global_jacobians[i],
@@ -148,17 +150,13 @@ bool ResidualBlock::Evaluate(const bool apply_loss_function,
               parameter_block->LocalParameterizationJacobian(),
               parameter_block->Size(),
               parameter_block->LocalSize(),
-              jacobians[i],
-              0,
-              0,
-              num_residuals,
-              parameter_block->LocalSize());
+              jacobians[i], 0, 0,  num_residuals, parameter_block->LocalSize());
         }
       }
     }
   }
 
-  if (loss_function_ == nullptr || !apply_loss_function) {
+  if (loss_function_ == NULL || !apply_loss_function) {
     *cost = 0.5 * squared_norm;
     return true;
   }
@@ -169,16 +167,16 @@ bool ResidualBlock::Evaluate(const bool apply_loss_function,
 
   // No jacobians and not outputting residuals? All done. Doing an early exit
   // here avoids constructing the "Corrector" object below in a common case.
-  if (jacobians == nullptr && !outputting_residuals) {
+  if (jacobians == NULL && !outputting_residuals) {
     return true;
   }
 
   // Correct for the effects of the loss function. The jacobians need to be
   // corrected before the residuals, since they use the uncorrected residuals.
   Corrector correct(squared_norm, rho);
-  if (jacobians != nullptr) {
+  if (jacobians != NULL) {
     for (int i = 0; i < num_parameter_blocks; ++i) {
-      if (jacobians[i] != nullptr) {
+      if (jacobians[i] != NULL) {
         const ParameterBlock* parameter_block = parameter_blocks_[i];
 
         // Correct the jacobians for the loss function.
@@ -208,7 +206,8 @@ int ResidualBlock::NumScratchDoublesForEvaluate() const {
   int scratch_doubles = 1;
   for (int i = 0; i < num_parameters; ++i) {
     const ParameterBlock* parameter_block = parameter_blocks_[i];
-    if (parameter_block->LocalParameterizationJacobian() != nullptr) {
+    if (!parameter_block->IsConstant() &&
+        parameter_block->LocalParameterizationJacobian() != NULL) {
       scratch_doubles += parameter_block->Size();
     }
   }

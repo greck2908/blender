@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,27 +15,28 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
 #include "COM_ColorNode.h"
-#include "COM_ExecutionSystem.h"
 #include "COM_SetColorOperation.h"
+#include "COM_ExecutionSystem.h"
 
 ColorNode::ColorNode(bNode *editorNode) : Node(editorNode)
 {
-  /* pass */
+	/* pass */
 }
 
-void ColorNode::convertToOperations(NodeConverter &converter,
-                                    const CompositorContext & /*context*/) const
+void ColorNode::convertToOperations(NodeConverter &converter, const CompositorContext &/*context*/) const
 {
-  SetColorOperation *operation = new SetColorOperation();
-  NodeOutput *output = this->getOutputSocket(0);
-  float col[4];
-  output->getEditorValueColor(col);
-  operation->setChannels(col);
-  converter.addOperation(operation);
+	SetColorOperation *operation = new SetColorOperation();
+	NodeOutput *output = this->getOutputSocket(0);
+	float col[4];
+	output->getEditorValueColor(col);
+	operation->setChannels(col);
+	converter.addOperation(operation);
 
-  converter.mapOutputSocket(output, operation->getOutputSocket());
+	converter.mapOutputSocket(output, operation->getOutputSocket());
 }

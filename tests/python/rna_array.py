@@ -164,8 +164,7 @@ class TestMArray(unittest.TestCase):
 
     def test_assign_item(self):
         # arr[i] = x
-        for arr, func in zip(("fmarr", "imarr", "bmarr", "fdmarr", "idmarr", "bdmarr"),
-                             (rand_float, rand_int, rand_bool) * 2):
+        for arr, func in zip(("fmarr", "imarr", "bmarr", "fdmarr", "idmarr", "bdmarr"), (rand_float, rand_int, rand_bool) * 2):
             rval = make_random_2d_array((4, 5), func)
 
             for i in range(3):
@@ -173,8 +172,7 @@ class TestMArray(unittest.TestCase):
                 self.assertEqual(prop_to_list(getattr(test, arr)[i]), rval)
 
         # arr[i][j] = x
-        for arr, func in zip(("fmarr", "imarr", "bmarr", "fdmarr", "idmarr", "bdmarr"),
-                             (rand_float, rand_int, rand_bool) * 2):
+        for arr, func in zip(("fmarr", "imarr", "bmarr", "fdmarr", "idmarr", "bdmarr"), (rand_float, rand_int, rand_bool) * 2):
 
             arr = getattr(test, arr)
             rval = make_random_array(5, func)
@@ -285,10 +283,7 @@ def prop_to_list(prop):
 
 
 def suite():
-    return unittest.TestSuite([
-        unittest.TestLoader().loadTestsFromTestCase(TestArray),
-        unittest.TestLoader().loadTestsFromTestCase(TestMArray),
-    ])
+    return unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(TestArray), unittest.TestLoader().loadTestsFromTestCase(TestMArray)])
 
 
 if __name__ == "__main__":

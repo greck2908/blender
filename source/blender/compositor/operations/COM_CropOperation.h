@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,53 +15,49 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
-#pragma once
+#ifndef __COM_CROPOPERATION_H__
+#define __COM_CROPOPERATION_H__
 
 #include "COM_NodeOperation.h"
 
 class CropBaseOperation : public NodeOperation {
- protected:
-  SocketReader *m_inputOperation;
-  NodeTwoXYs *m_settings;
-  bool m_relative;
-  int m_xmax;
-  int m_xmin;
-  int m_ymax;
-  int m_ymin;
+protected:
+	SocketReader *m_inputOperation;
+	NodeTwoXYs *m_settings;
+	bool m_relative;
+	int m_xmax;
+	int m_xmin;
+	int m_ymax;
+	int m_ymin;
 
-  void updateArea();
-
- public:
-  CropBaseOperation();
-  void initExecution();
-  void deinitExecution();
-  void setCropSettings(NodeTwoXYs *settings)
-  {
-    this->m_settings = settings;
-  }
-  void setRelative(bool rel)
-  {
-    this->m_relative = rel;
-  }
+	void updateArea();
+public:
+	CropBaseOperation();
+	void initExecution();
+	void deinitExecution();
+	void setCropSettings(NodeTwoXYs *settings) { this->m_settings = settings; }
+	void setRelative(bool rel) { this->m_relative = rel; }
 };
 
 class CropOperation : public CropBaseOperation {
- private:
- public:
-  CropOperation();
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+private:
+public:
+	CropOperation();
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 };
 
 class CropImageOperation : public CropBaseOperation {
- private:
- public:
-  CropImageOperation();
-  bool determineDependingAreaOfInterest(rcti *input,
-                                        ReadBufferOperation *readOperation,
-                                        rcti *output);
-  void determineResolution(unsigned int resolution[2], unsigned int preferredResolution[2]);
-  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+private:
+public:
+	CropImageOperation();
+	bool determineDependingAreaOfInterest(rcti *input, ReadBufferOperation *readOperation, rcti *output);
+	void determineResolution(unsigned int resolution[2], unsigned int preferredResolution[2]);
+	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+
 };
+#endif

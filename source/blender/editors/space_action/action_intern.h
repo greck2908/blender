@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,21 +17,26 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
+ *
+ *
+ * Contributor(s): Blender Foundation
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup spaction
+/** \file blender/editors/space_action/action_intern.h
+ *  \ingroup spaction
  */
 
-#pragma once
+#ifndef __ACTION_INTERN_H__
+#define __ACTION_INTERN_H__
 
+struct bContext;
+struct bAnimContext;
+struct SpaceAction;
+struct ScrArea;
 struct ARegion;
 struct ARegionType;
-struct Object;
-struct Scene;
-struct SpaceAction;
-struct bAnimContext;
-struct bContext;
 struct wmOperatorType;
 
 /* internal exports only */
@@ -37,22 +44,21 @@ struct wmOperatorType;
 /* **************************************** */
 /* space_action.c / action_buttons.c */
 
+struct ARegion *action_has_buttons_region(struct ScrArea *sa);
+
 void action_buttons_register(struct ARegionType *art);
+void ACTION_OT_properties(struct wmOperatorType *ot);
 
 /* ***************************************** */
 /* action_draw.c */
-void draw_channel_names(struct bContext *C, struct bAnimContext *ac, struct ARegion *region);
-void draw_channel_strips(struct bAnimContext *ac,
-                         struct SpaceAction *saction,
-                         struct ARegion *region);
-
-void timeline_draw_cache(struct SpaceAction *saction, struct Object *ob, struct Scene *scene);
+void draw_channel_names(struct bContext *C, struct bAnimContext *ac, struct ARegion *ar);
+void draw_channel_strips(struct bAnimContext *ac, struct SpaceAction *saction, struct ARegion *ar);
 
 /* ***************************************** */
 /* action_select.c */
 
-void ACTION_OT_select_all(struct wmOperatorType *ot);
-void ACTION_OT_select_box(struct wmOperatorType *ot);
+void ACTION_OT_select_all_toggle(struct wmOperatorType *ot);
+void ACTION_OT_select_border(struct wmOperatorType *ot);
 void ACTION_OT_select_lasso(struct wmOperatorType *ot);
 void ACTION_OT_select_circle(struct wmOperatorType *ot);
 void ACTION_OT_select_column(struct wmOperatorType *ot);
@@ -64,17 +70,17 @@ void ACTION_OT_clickselect(struct wmOperatorType *ot);
 
 /* defines for left-right select tool */
 enum eActKeys_LeftRightSelect_Mode {
-  ACTKEYS_LRSEL_TEST = 0,
-  ACTKEYS_LRSEL_LEFT,
-  ACTKEYS_LRSEL_RIGHT,
+	ACTKEYS_LRSEL_TEST = 0,
+	ACTKEYS_LRSEL_LEFT,
+	ACTKEYS_LRSEL_RIGHT
 };
 
 /* defines for column-select mode */
 enum eActKeys_ColumnSelect_Mode {
-  ACTKEYS_COLUMNSEL_KEYS = 0,
-  ACTKEYS_COLUMNSEL_CFRA,
-  ACTKEYS_COLUMNSEL_MARKERS_COLUMN,
-  ACTKEYS_COLUMNSEL_MARKERS_BETWEEN,
+	ACTKEYS_COLUMNSEL_KEYS = 0,
+	ACTKEYS_COLUMNSEL_CFRA,
+	ACTKEYS_COLUMNSEL_MARKERS_COLUMN,
+	ACTKEYS_COLUMNSEL_MARKERS_BETWEEN,
 };
 
 /* ***************************************** */
@@ -98,7 +104,6 @@ void ACTION_OT_keyframe_type(struct wmOperatorType *ot);
 void ACTION_OT_handle_type(struct wmOperatorType *ot);
 void ACTION_OT_interpolation_type(struct wmOperatorType *ot);
 void ACTION_OT_extrapolation_type(struct wmOperatorType *ot);
-void ACTION_OT_easing_type(struct wmOperatorType *ot);
 
 void ACTION_OT_frame_jump(struct wmOperatorType *ot);
 
@@ -106,7 +111,6 @@ void ACTION_OT_snap(struct wmOperatorType *ot);
 void ACTION_OT_mirror(struct wmOperatorType *ot);
 
 void ACTION_OT_new(struct wmOperatorType *ot);
-void ACTION_OT_duplicate_assign(struct wmOperatorType *ot);
 void ACTION_OT_unlink(struct wmOperatorType *ot);
 
 void ACTION_OT_push_down(struct wmOperatorType *ot);
@@ -122,23 +126,25 @@ void ACTION_OT_markers_make_local(struct wmOperatorType *ot);
  * NOTE: keep in sync with eEditKeyframes_Snap (in ED_keyframes_edit.h)
  */
 enum eActKeys_Snap_Mode {
-  ACTKEYS_SNAP_CFRA = 1,
-  ACTKEYS_SNAP_NEAREST_FRAME,
-  ACTKEYS_SNAP_NEAREST_SECOND,
-  ACTKEYS_SNAP_NEAREST_MARKER,
+	ACTKEYS_SNAP_CFRA = 1,
+	ACTKEYS_SNAP_NEAREST_FRAME,
+	ACTKEYS_SNAP_NEAREST_SECOND,
+	ACTKEYS_SNAP_NEAREST_MARKER,
 };
 
 /* defines for mirror keyframes
  * NOTE: keep in sync with eEditKeyframes_Mirror (in ED_keyframes_edit.h)
  */
 enum eActKeys_Mirror_Mode {
-  ACTKEYS_MIRROR_CFRA = 1,
-  ACTKEYS_MIRROR_YAXIS,
-  ACTKEYS_MIRROR_XAXIS,
-  ACTKEYS_MIRROR_MARKER,
+	ACTKEYS_MIRROR_CFRA = 1,
+	ACTKEYS_MIRROR_YAXIS,
+	ACTKEYS_MIRROR_XAXIS,
+	ACTKEYS_MIRROR_MARKER,
 };
 
 /* ***************************************** */
 /* action_ops.c */
 void action_operatortypes(void);
 void action_keymap(struct wmKeyConfig *keyconf);
+
+#endif /* __ACTION_INTERN_H__ */

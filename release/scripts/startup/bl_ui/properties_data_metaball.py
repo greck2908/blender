@@ -54,39 +54,40 @@ class DATA_PT_metaball(DataButtonsPanel, Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.use_property_split = True
 
         mball = context.meta_ball
 
-        col = layout.column(align=True)
-        col.prop(mball, "resolution", text="Resolution Viewport")
-        col.prop(mball, "render_resolution", text="Render")
+        split = layout.split()
 
-        col.separator()
+        col = split.column()
+        col.label(text="Resolution:")
+        sub = col.column(align=True)
+        sub.prop(mball, "resolution", text="View")
+        sub.prop(mball, "render_resolution", text="Render")
 
-        col.prop(mball, "threshold", text="Influence Threshold")
+        col = split.column()
+        col.label(text="Settings:")
+        col.prop(mball, "threshold", text="Threshold")
 
-        col.separator()
-
-        col.prop(mball, "update_method", text="Update on Edit")
+        layout.label(text="Update:")
+        layout.row().prop(mball, "update_method", expand=True)
 
 
 class DATA_PT_mball_texture_space(DataButtonsPanel, Panel):
     bl_label = "Texture Space"
     bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
 
     def draw(self, context):
         layout = self.layout
-        layout.use_property_split = True
 
         mball = context.meta_ball
 
         layout.prop(mball, "use_auto_texspace")
 
-        col = layout.column()
-        col.prop(mball, "texspace_location")
-        col.prop(mball, "texspace_size")
+        row = layout.row()
+        row.column().prop(mball, "texspace_location", text="Location")
+        row.column().prop(mball, "texspace_size", text="Size")
 
 
 class DATA_PT_metaball_element(DataButtonsPanel, Panel):
@@ -98,38 +99,40 @@ class DATA_PT_metaball_element(DataButtonsPanel, Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.use_property_split = True
 
         metaelem = context.meta_ball.elements.active
 
-        col = layout.column()
+        layout.prop(metaelem, "type")
 
-        col.prop(metaelem, "type")
+        split = layout.split()
 
-        col.separator()
-
+        col = split.column(align=True)
+        col.label(text="Settings:")
         col.prop(metaelem, "stiffness", text="Stiffness")
         col.prop(metaelem, "radius", text="Radius")
         col.prop(metaelem, "use_negative", text="Negative")
         col.prop(metaelem, "hide", text="Hide")
 
-        sub = col.column(align=True)
+        col = split.column(align=True)
 
         if metaelem.type in {'CUBE', 'ELLIPSOID'}:
-            sub.prop(metaelem, "size_x", text="Size X")
-            sub.prop(metaelem, "size_y", text="Y")
-            sub.prop(metaelem, "size_z", text="Z")
+            col.label(text="Size:")
+            col.prop(metaelem, "size_x", text="X")
+            col.prop(metaelem, "size_y", text="Y")
+            col.prop(metaelem, "size_z", text="Z")
 
         elif metaelem.type == 'CAPSULE':
-            sub.prop(metaelem, "size_x", text="Size X")
+            col.label(text="Size:")
+            col.prop(metaelem, "size_x", text="X")
 
         elif metaelem.type == 'PLANE':
-            sub.prop(metaelem, "size_x", text="Size X")
-            sub.prop(metaelem, "size_y", text="Y")
+            col.label(text="Size:")
+            col.prop(metaelem, "size_x", text="X")
+            col.prop(metaelem, "size_y", text="Y")
 
 
 class DATA_PT_custom_props_metaball(DataButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
     _context_path = "object.data"
     _property_type = bpy.types.MetaBall
 

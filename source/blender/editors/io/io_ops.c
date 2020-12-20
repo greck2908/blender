@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,13 +17,18 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
+ *
+ *
+ * Contributor(s): Blender Foundation
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup collada
+/** \file blender/editors/io/io_ops.c
+ *  \ingroup collada
  */
 
-#include "io_ops.h" /* own include */
+#include "io_ops.h"  /* own include */
 
 #include "WM_api.h"
 
@@ -33,27 +40,20 @@
 #  include "io_alembic.h"
 #endif
 
-#ifdef WITH_USD
-#  include "io_usd.h"
-#endif
-
 #include "io_cache.h"
 
 void ED_operatortypes_io(void)
 {
 #ifdef WITH_COLLADA
-  /* Collada operators: */
-  WM_operatortype_append(WM_OT_collada_export);
-  WM_operatortype_append(WM_OT_collada_import);
+	/* Collada operators: */
+	WM_operatortype_append(WM_OT_collada_export);
+	WM_operatortype_append(WM_OT_collada_import);
 #endif
 #ifdef WITH_ALEMBIC
-  WM_operatortype_append(WM_OT_alembic_import);
-  WM_operatortype_append(WM_OT_alembic_export);
-#endif
-#ifdef WITH_USD
-  WM_operatortype_append(WM_OT_usd_export);
+	WM_operatortype_append(WM_OT_alembic_import);
+	WM_operatortype_append(WM_OT_alembic_export);
 #endif
 
-  WM_operatortype_append(CACHEFILE_OT_open);
-  WM_operatortype_append(CACHEFILE_OT_reload);
+	WM_operatortype_append(CACHEFILE_OT_open);
+	WM_operatortype_append(CACHEFILE_OT_reload);
 }

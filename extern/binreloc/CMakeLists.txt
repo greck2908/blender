@@ -19,7 +19,7 @@
 #
 
 set(INC
-  include
+	include
 )
 
 set(INC_SYS
@@ -27,15 +27,12 @@ set(INC_SYS
 )
 
 set(SRC
-  binreloc.c
+	binreloc.c
 
-  include/binreloc.h
-)
-
-set(LIB
+	include/binreloc.h
 )
 
 add_definitions(-DENABLE_BINRELOC)
 
 
-blender_add_lib(extern_binreloc "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+blender_add_lib(extern_binreloc "${SRC}" "${INC}" "${INC_SYS}")

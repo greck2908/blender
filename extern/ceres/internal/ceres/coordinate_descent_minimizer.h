@@ -34,7 +34,6 @@
 #include <string>
 #include <vector>
 
-#include "ceres/context_impl.h"
 #include "ceres/evaluator.h"
 #include "ceres/minimizer.h"
 #include "ceres/problem_impl.h"
@@ -58,8 +57,6 @@ class LinearSolver;
 // program are constant.
 class CoordinateDescentMinimizer : public Minimizer {
  public:
-  explicit CoordinateDescentMinimizer(ContextImpl* context);
-
   bool Init(const Program& program,
             const ProblemImpl::ParameterMap& parameter_map,
             const ParameterBlockOrdering& ordering,
@@ -67,10 +64,9 @@ class CoordinateDescentMinimizer : public Minimizer {
 
   // Minimizer interface.
   virtual ~CoordinateDescentMinimizer();
-
-  void Minimize(const Minimizer::Options& options,
-                double* parameters,
-                Solver::Summary* summary) final;
+  virtual void Minimize(const Minimizer::Options& options,
+                        double* parameters,
+                        Solver::Summary* summary);
 
   // Verify that each group in the ordering forms an independent set.
   static bool IsOrderingValid(const Program& program,
@@ -90,7 +86,7 @@ class CoordinateDescentMinimizer : public Minimizer {
              Solver::Summary* summary);
 
   std::vector<ParameterBlock*> parameter_blocks_;
-  std::vector<std::vector<ResidualBlock*>> residual_blocks_;
+  std::vector<std::vector<ResidualBlock*> > residual_blocks_;
   // The optimization is performed in rounds. In each round all the
   // parameter blocks that form one independent set are optimized in
   // parallel. This array, marks the boundaries of the independent
@@ -98,8 +94,6 @@ class CoordinateDescentMinimizer : public Minimizer {
   std::vector<int> independent_set_offsets_;
 
   Evaluator::Options evaluator_options_;
-
-  ContextImpl* context_;
 };
 
 }  // namespace internal

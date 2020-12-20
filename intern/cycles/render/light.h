@@ -21,10 +21,6 @@
 
 #include "graph/node.h"
 
-/* included as Light::set_shader defined through NODE_SOCKET_API does not select
- * the right Node::set overload as it does not know that Shader is a Node */
-#include "render/shader.h"
-
 #include "util/util_ies.h"
 #include "util/util_thread.h"
 #include "util/util_types.h"
@@ -40,111 +36,105 @@ class Scene;
 class Shader;
 
 class Light : public Node {
- public:
-  NODE_DECLARE;
+public:
+	NODE_DECLARE;
 
-  Light();
+	Light();
 
-  NODE_SOCKET_API(LightType, light_type)
-  NODE_SOCKET_API(float3, strength)
-  NODE_SOCKET_API(float3, co)
+	LightType type;
+	float3 co;
 
-  NODE_SOCKET_API(float3, dir)
-  NODE_SOCKET_API(float, size)
-  NODE_SOCKET_API(float, angle)
+	float3 dir;
+	float size;
 
-  NODE_SOCKET_API(float3, axisu)
-  NODE_SOCKET_API(float, sizeu)
-  NODE_SOCKET_API(float3, axisv)
-  NODE_SOCKET_API(float, sizev)
-  NODE_SOCKET_API(bool, round)
+	float3 axisu;
+	float sizeu;
+	float3 axisv;
+	float sizev;
 
-  NODE_SOCKET_API(Transform, tfm)
+	Transform tfm;
 
-  NODE_SOCKET_API(int, map_resolution)
+	int map_resolution;
 
-  NODE_SOCKET_API(float, spot_angle)
-  NODE_SOCKET_API(float, spot_smooth)
+	float spot_angle;
+	float spot_smooth;
 
-  NODE_SOCKET_API(bool, cast_shadow)
-  NODE_SOCKET_API(bool, use_mis)
-  NODE_SOCKET_API(bool, use_diffuse)
-  NODE_SOCKET_API(bool, use_glossy)
-  NODE_SOCKET_API(bool, use_transmission)
-  NODE_SOCKET_API(bool, use_scatter)
+	bool cast_shadow;
+	bool use_mis;
+	bool use_diffuse;
+	bool use_glossy;
+	bool use_transmission;
+	bool use_scatter;
 
-  NODE_SOCKET_API(bool, is_portal)
-  NODE_SOCKET_API(bool, is_enabled)
+	bool is_portal;
+	bool is_enabled;
 
-  NODE_SOCKET_API(Shader *, shader)
-  NODE_SOCKET_API(int, samples)
-  NODE_SOCKET_API(int, max_bounces)
-  NODE_SOCKET_API(uint, random_id)
+	Shader *shader;
+	int samples;
+	int max_bounces;
+	uint random_id;
 
-  void tag_update(Scene *scene);
+	void tag_update(Scene *scene);
 
-  /* Check whether the light has contribution the scene. */
-  bool has_contribution(Scene *scene);
-
-  friend class LightManager;
+	/* Check whether the light has contribution the the scene. */
+	bool has_contribution(Scene *scene);
 };
 
 class LightManager {
- public:
-  bool use_light_visibility;
-  bool need_update;
+public:
+	bool use_light_visibility;
+	bool need_update;
 
-  /* Need to update background (including multiple importance map) */
-  bool need_update_background;
+	LightManager();
+	~LightManager();
 
-  LightManager();
-  ~LightManager();
+	/* IES texture management */
+	int add_ies(ustring ies);
+	int add_ies_from_file(ustring filename);
+	void remove_ies(int slot);
 
-  /* IES texture management */
-  int add_ies(const string &ies);
-  int add_ies_from_file(const string &filename);
-  void remove_ies(int slot);
+	void device_update(Device *device,
+	                   DeviceScene *dscene,
+	                   Scene *scene,
+	                   Progress& progress);
+	void device_free(Device *device, DeviceScene *dscene);
 
-  void device_update(Device *device, DeviceScene *dscene, Scene *scene, Progress &progress);
-  void device_free(Device *device, DeviceScene *dscene, const bool free_background = true);
+	void tag_update(Scene *scene);
 
-  void tag_update(Scene *scene);
+	/* Check whether there is a background light. */
+	bool has_background_light(Scene *scene);
 
-  /* Check whether there is a background light. */
-  bool has_background_light(Scene *scene);
+protected:
+	/* Optimization: disable light which is either unsupported or
+	 * which doesn't contribute to the scene or which is only used for MIS
+	 * and scene doesn't need MIS.
+	 */
+	void disable_ineffective_light(Device *device, Scene *scene);
 
- protected:
-  /* Optimization: disable light which is either unsupported or
-   * which doesn't contribute to the scene or which is only used for MIS
-   * and scene doesn't need MIS.
-   */
-  void test_enabled_lights(Scene *scene);
+	void device_update_points(Device *device,
+	                          DeviceScene *dscene,
+	                          Scene *scene);
+	void device_update_distribution(Device *device,
+	                                DeviceScene *dscene,
+	                                Scene *scene,
+	                                Progress& progress);
+	void device_update_background(Device *device,
+	                              DeviceScene *dscene,
+	                              Scene *scene,
+	                              Progress& progress);
+	void device_update_ies(DeviceScene *dscene);
 
-  void device_update_points(Device *device, DeviceScene *dscene, Scene *scene);
-  void device_update_distribution(Device *device,
-                                  DeviceScene *dscene,
-                                  Scene *scene,
-                                  Progress &progress);
-  void device_update_background(Device *device,
-                                DeviceScene *dscene,
-                                Scene *scene,
-                                Progress &progress);
-  void device_update_ies(DeviceScene *dscene);
+	/* Check whether light manager can use the object as a light-emissive. */
+	bool object_usable_as_light(Object *object);
 
-  /* Check whether light manager can use the object as a light-emissive. */
-  bool object_usable_as_light(Object *object);
+	struct IESSlot {
+		IESFile ies;
+		uint hash;
+		int users;
+	};
 
-  struct IESSlot {
-    IESFile ies;
-    uint hash;
-    int users;
-  };
-
-  vector<IESSlot *> ies_slots;
-  thread_mutex ies_mutex;
-
-  bool last_background_enabled;
-  int last_background_resolution;
+	vector<IESSlot*> ies_slots;
+	thread_mutex ies_mutex;
 };
 
 CCL_NAMESPACE_END

@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,13 +14,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup freestyle
+/** \file source/blender/freestyle/intern/python/BPy_Id.h
+ *  \ingroup freestyle
  */
 
-#pragma once
+#ifndef __FREESTYLE_PYTHON_ID_H__
+#define __FREESTYLE_PYTHON_ID_H__
 
 extern "C" {
 #include <Python.h>
@@ -44,7 +49,8 @@ extern PyTypeObject Id_Type;
 
 /*---------------------------Python BPy_Id structure definition----------*/
 typedef struct {
-  PyObject_HEAD Id *id;
+	PyObject_HEAD
+	Id *id;
 } BPy_Id;
 
 /*---------------------------Python BPy_Id visible prototypes-----------*/
@@ -56,3 +62,5 @@ int Id_Init(PyObject *module);
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* __FREESTYLE_PYTHON_ID_H__ */

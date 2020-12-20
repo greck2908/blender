@@ -9,8 +9,7 @@ import bpy
 
 class View3DPanel:
     bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = "Tool"
+    bl_region_type = 'TOOLS'
 
     @classmethod
     def poll(cls, context):
@@ -22,7 +21,7 @@ class PanelOne(View3DPanel, bpy.types.Panel):
     bl_label = "Panel One"
 
     def draw(self, context):
-        self.layout.label(text="Small Class")
+        self.layout.label("Small Class")
 
 
 class PanelTwo(View3DPanel, bpy.types.Panel):
@@ -30,7 +29,7 @@ class PanelTwo(View3DPanel, bpy.types.Panel):
     bl_label = "Panel Two"
 
     def draw(self, context):
-        self.layout.label(text="Also Small Class")
+        self.layout.label("Also Small Class")
 
 
 bpy.utils.register_class(PanelOne)

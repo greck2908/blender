@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,69 +17,53 @@
  *
  * The Original Code is Copyright (C) 2018 Blender Foundation.
  * All rights reserved.
+ *
+ * Original Author: Sergey Sharybin
+ * Contributor(s): None Yet
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file
- * \ingroup depsgraph
+/** \file blender/depsgraph/intern/builder/deg_builder_map.h
+ *  \ingroup depsgraph
  */
 
 #pragma once
 
-#include "intern/depsgraph_type.h"
-
+struct GSet;
 struct ID;
 
-namespace blender {
-namespace deg {
+namespace DEG {
 
 class BuilderMap {
- public:
-  enum {
-    TAG_ANIMATION = (1 << 0),
-    TAG_PARAMETERS = (1 << 1),
-    TAG_TRANSFORM = (1 << 2),
-    TAG_GEOMETRY = (1 << 3),
+public:
+	BuilderMap();
+	~BuilderMap();
 
-    TAG_SCENE_COMPOSITOR = (1 << 4),
-    TAG_SCENE_SEQUENCER = (1 << 5),
-    TAG_SCENE_AUDIO = (1 << 6),
+	/* Check whether given ID is already handled by builder (or if it's being
+	 * handled).
+	 */
+	bool checkIsBuilt(ID *id);
 
-    /* All ID components has been built. */
-    TAG_COMPLETE = (TAG_ANIMATION | TAG_PARAMETERS | TAG_TRANSFORM | TAG_GEOMETRY |
-                    TAG_SCENE_COMPOSITOR | TAG_SCENE_SEQUENCER | TAG_SCENE_AUDIO),
-  };
+	/* Tag given ID as handled/built. */
+	void tagBuild(ID *id);
 
-  BuilderMap();
-  ~BuilderMap();
+	/* Combination of previous two functions, returns truth if ID was already
+	 * handled, or tags is handled otherwise and return false.
+	 */
+	bool checkIsBuiltAndTag(ID *id);
 
-  /* Check whether given ID is already handled by builder (or if it's being handled). */
-  bool checkIsBuilt(ID *id, int tag = TAG_COMPLETE) const;
+	template<typename T> bool checkIsBuilt(T *datablock) {
+		return checkIsBuilt(&datablock->id);
+	}
+	template<typename T> void tagBuild(T *datablock) {
+		tagBuild(&datablock->id);
+	}
+	template<typename T> bool checkIsBuiltAndTag(T *datablock) {
+		return checkIsBuiltAndTag(&datablock->id);
+	}
 
-  /* Tag given ID as handled/built. */
-  void tagBuild(ID *id, int tag = TAG_COMPLETE);
-
-  /* Combination of previous two functions, returns truth if ID was already handled, or tags is
-   * handled otherwise and return false. */
-  bool checkIsBuiltAndTag(ID *id, int tag = TAG_COMPLETE);
-
-  template<typename T> bool checkIsBuilt(T *datablock, int tag = TAG_COMPLETE) const
-  {
-    return checkIsBuilt(&datablock->id, tag);
-  }
-  template<typename T> void tagBuild(T *datablock, int tag = TAG_COMPLETE)
-  {
-    tagBuild(&datablock->id, tag);
-  }
-  template<typename T> bool checkIsBuiltAndTag(T *datablock, int tag = TAG_COMPLETE)
-  {
-    return checkIsBuiltAndTag(&datablock->id, tag);
-  }
-
- protected:
-  int getIDTag(ID *id) const;
-
-  Map<ID *, int> id_tags_;
+	GSet *set;
 };
 
-}  // namespace deg
-}  // namespace blender
+}  // namespace DEG

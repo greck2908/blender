@@ -31,14 +31,17 @@
 #ifndef CERES_INTERNAL_BLOCK_RANDOM_ACCESS_DIAGONAL_MATRIX_H_
 #define CERES_INTERNAL_BLOCK_RANDOM_ACCESS_DIAGONAL_MATRIX_H_
 
-#include <memory>
 #include <set>
-#include <utility>
 #include <vector>
-
+#include <utility>
+#include "ceres/mutex.h"
 #include "ceres/block_random_access_matrix.h"
-#include "ceres/internal/port.h"
+#include "ceres/collections_port.h"
 #include "ceres/triplet_sparse_matrix.h"
+#include "ceres/integral_types.h"
+#include "ceres/internal/macros.h"
+#include "ceres/internal/port.h"
+#include "ceres/internal/scoped_ptr.h"
 #include "ceres/types.h"
 
 namespace ceres {
@@ -46,30 +49,26 @@ namespace internal {
 
 // A thread safe block diagonal matrix implementation of
 // BlockRandomAccessMatrix.
-class CERES_EXPORT_INTERNAL BlockRandomAccessDiagonalMatrix
-    : public BlockRandomAccessMatrix {
+class BlockRandomAccessDiagonalMatrix : public BlockRandomAccessMatrix {
  public:
   // blocks is an array of block sizes.
   explicit BlockRandomAccessDiagonalMatrix(const std::vector<int>& blocks);
-  BlockRandomAccessDiagonalMatrix(const BlockRandomAccessDiagonalMatrix&) =
-      delete;
-  void operator=(const BlockRandomAccessDiagonalMatrix&) = delete;
 
   // The destructor is not thread safe. It assumes that no one is
   // modifying any cells when the matrix is being destroyed.
   virtual ~BlockRandomAccessDiagonalMatrix();
 
   // BlockRandomAccessMatrix Interface.
-  CellInfo* GetCell(int row_block_id,
-                    int col_block_id,
-                    int* row,
-                    int* col,
-                    int* row_stride,
-                    int* col_stride) final;
+  virtual CellInfo* GetCell(int row_block_id,
+                            int col_block_id,
+                            int* row,
+                            int* col,
+                            int* row_stride,
+                            int* col_stride);
 
   // This is not a thread safe method, it assumes that no cell is
   // locked.
-  void SetZero() final;
+  virtual void SetZero();
 
   // Invert the matrix assuming that each block is positive definite.
   void Invert();
@@ -78,8 +77,8 @@ class CERES_EXPORT_INTERNAL BlockRandomAccessDiagonalMatrix
   void RightMultiply(const double* x, double* y) const;
 
   // Since the matrix is square, num_rows() == num_cols().
-  int num_rows() const final { return tsm_->num_rows(); }
-  int num_cols() const final { return tsm_->num_cols(); }
+  virtual int num_rows() const { return tsm_->num_rows(); }
+  virtual int num_cols() const { return tsm_->num_cols(); }
 
   const TripletSparseMatrix* matrix() const { return tsm_.get(); }
   TripletSparseMatrix* mutable_matrix() { return tsm_.get(); }
@@ -90,9 +89,10 @@ class CERES_EXPORT_INTERNAL BlockRandomAccessDiagonalMatrix
   std::vector<CellInfo*> layout_;
 
   // The underlying matrix object which actually stores the cells.
-  std::unique_ptr<TripletSparseMatrix> tsm_;
+  scoped_ptr<TripletSparseMatrix> tsm_;
 
   friend class BlockRandomAccessDiagonalMatrixTest;
+  CERES_DISALLOW_COPY_AND_ASSIGN(BlockRandomAccessDiagonalMatrix);
 };
 
 }  // namespace internal

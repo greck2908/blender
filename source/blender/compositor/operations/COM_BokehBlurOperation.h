@@ -1,4 +1,6 @@
 /*
+ * Copyright 2011, Blender Foundation.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,67 +15,60 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Copyright 2011, Blender Foundation.
+ * Contributor:
+ *		Jeroen Bakker
+ *		Monique Dewanchand
  */
 
-#pragma once
+#ifndef __COM_BOKEHBLUROPERATION_H__
+#define __COM_BOKEHBLUROPERATION_H__
 
 #include "COM_NodeOperation.h"
 #include "COM_QualityStepHelper.h"
 
 class BokehBlurOperation : public NodeOperation, public QualityStepHelper {
- private:
-  SocketReader *m_inputProgram;
-  SocketReader *m_inputBokehProgram;
-  SocketReader *m_inputBoundingBoxReader;
-  void updateSize();
-  float m_size;
-  bool m_sizeavailable;
-  float m_bokehMidX;
-  float m_bokehMidY;
-  float m_bokehDimension;
-  bool m_extend_bounds;
+private:
+	SocketReader *m_inputProgram;
+	SocketReader *m_inputBokehProgram;
+	SocketReader *m_inputBoundingBoxReader;
+	void updateSize();
+	float m_size;
+	bool m_sizeavailable;
+	float m_bokehMidX;
+	float m_bokehMidY;
+	float m_bokehDimension;
+	bool m_extend_bounds;
+public:
+	BokehBlurOperation();
 
- public:
-  BokehBlurOperation();
+	void *initializeTileData(rcti *rect);
+	/**
+	 * the inner loop of this program
+	 */
+	void executePixel(float output[4], int x, int y, void *data);
 
-  void *initializeTileData(rcti *rect);
-  /**
-   * the inner loop of this program
-   */
-  void executePixel(float output[4], int x, int y, void *data);
+	/**
+	 * Initialize the execution
+	 */
+	void initExecution();
 
-  /**
-   * Initialize the execution
-   */
-  void initExecution();
+	/**
+	 * Deinitialize the execution
+	 */
+	void deinitExecution();
 
-  /**
-   * Deinitialize the execution
-   */
-  void deinitExecution();
+	bool determineDependingAreaOfInterest(rcti *input, ReadBufferOperation *readOperation, rcti *output);
 
-  bool determineDependingAreaOfInterest(rcti *input,
-                                        ReadBufferOperation *readOperation,
-                                        rcti *output);
+	void setSize(float size) { this->m_size = size; this->m_sizeavailable = true; }
 
-  void setSize(float size)
-  {
-    this->m_size = size;
-    this->m_sizeavailable = true;
-  }
+	void executeOpenCL(OpenCLDevice *device,
+	                   MemoryBuffer *outputMemoryBuffer, cl_mem clOutputBuffer,
+	                   MemoryBuffer **inputMemoryBuffers, list<cl_mem> *clMemToCleanUp,
+	                   list<cl_kernel> *clKernelsToCleanUp);
 
-  void executeOpenCL(OpenCLDevice *device,
-                     MemoryBuffer *outputMemoryBuffer,
-                     cl_mem clOutputBuffer,
-                     MemoryBuffer **inputMemoryBuffers,
-                     list<cl_mem> *clMemToCleanUp,
-                     list<cl_kernel> *clKernelsToCleanUp);
+	void setExtendBounds(bool extend_bounds) { this->m_extend_bounds = extend_bounds; }
 
-  void setExtendBounds(bool extend_bounds)
-  {
-    this->m_extend_bounds = extend_bounds;
-  }
-
-  void determineResolution(unsigned int resolution[2], unsigned int preferredResolution[2]);
+	void determineResolution(unsigned int resolution[2],
+	                         unsigned int preferredResolution[2]);
 };
+#endif

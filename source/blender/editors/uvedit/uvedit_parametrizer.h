@@ -1,4 +1,6 @@
 /*
+ * ***** BEGIN GPL LICENSE BLOCK *****
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -12,25 +14,30 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Contributor(s):
+ *
+ * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __UVEDIT_PARAMETRIZER_H__
+#define __UVEDIT_PARAMETRIZER_H__
 
-/** \file
- * \ingroup eduv
+/** \file blender/editors/uvedit/uvedit_parametrizer.h
+ *  \ingroup eduv
  */
-
-#include "BLI_sys_types.h" /* for intptr_t support */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef void ParamHandle;  /* handle to a set of charts */
-typedef intptr_t ParamKey; /* (hash) key for identifying verts and faces */
+#include "BLI_sys_types.h" // for intptr_t support
+
+typedef void ParamHandle;	/* handle to a set of charts */
+typedef intptr_t ParamKey;		/* (hash) key for identifying verts and faces */
 typedef enum ParamBool {
-  PARAM_TRUE = 1,
-  PARAM_FALSE = 0,
+	PARAM_TRUE = 1,
+	PARAM_FALSE = 0
 } ParamBool;
 
 /* Chart construction:
@@ -55,18 +62,20 @@ void param_face_add(ParamHandle *handle,
                     float *co[4],
                     float *uv[4],
                     ParamBool *pin,
-                    ParamBool *select);
+                    ParamBool *select,
+                    float face_normal[3]);
 
-void param_edge_set_seam(ParamHandle *handle, ParamKey *vkeys);
+void param_edge_set_seam(ParamHandle *handle,
+                         ParamKey *vkeys);
 
-void param_construct_end(ParamHandle *handle, ParamBool fill, ParamBool topology_from_uvs);
-void param_delete(ParamHandle *handle);
+void param_construct_end(ParamHandle *handle, ParamBool fill, ParamBool impl);
+void param_delete(ParamHandle *chart);
 
 /* Least Squares Conformal Maps:
  * -----------------------------
  * - charts with less than two pinned vertices are assigned 2 pins
  * - lscm is divided in three steps:
- * - begin: compute matrix and its factorization (expensive)
+ * - begin: compute matrix and it's factorization (expensive)
  * - solve using pinned coordinates (cheap)
  * - end: clean up
  * - uv coordinates are allowed to change within begin/end, for
@@ -90,11 +99,11 @@ void param_smooth_area(ParamHandle *handle);
 
 /* Packing */
 
-void param_pack(ParamHandle *handle, float margin, bool do_rotate, bool ignore_pinned);
+void param_pack(ParamHandle *handle, float margin, bool do_rotate);
 
 /* Average area for all charts */
 
-void param_average(ParamHandle *handle, bool ignore_pinned);
+void param_average(ParamHandle *handle);
 
 /* Simple x,y scale */
 
@@ -105,6 +114,9 @@ void param_scale(ParamHandle *handle, float x, float y);
 void param_flush(ParamHandle *handle);
 void param_flush_restore(ParamHandle *handle);
 
+
 #ifdef __cplusplus
 }
 #endif
+
+#endif /*__UVEDIT_PARAMETRIZER_H__*/
